@@ -1,142 +1,410 @@
-#![allow(unsafe_code)]
-
 mod error;
 mod ffi_utils;
+mod font;
 mod objects;
 mod renderer;
 mod rendering;
-mod font;
 
-pub mod ffi_functions;
+use glam::{Vec2, Vec4};
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+use wgpu::SurfaceError;
 
-use glam::{Mat4, Vec2, Vec3, Vec4};
-use objects::UniformValue;
-use renderer::Renderer;
-use font::{FontSystem, FontId};
-use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
+use crate::font::{FontId, FontSystem};
+use crate::objects::{ObjectId, ShaderId, UniformValue};
+use crate::renderer::Renderer;
+use crate::error::MoonWalkError;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ObjectId(u32);
-impl From<u32> for ObjectId { fn from(id: u32) -> Self { Self(id) } }
-impl ObjectId { pub fn to_u32(&self) -> u32 { self.0 } }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ShaderId(u32);
-impl From<u32> for ShaderId { fn from(id: u32) -> Self { Self(id) } }
-impl ShaderId { pub fn to_u32(&self) -> u32 { self.0 } }
-
-pub struct MoonWalkState<'a> {
-    renderer: Renderer<'a>,
+pub struct MoonWalk {
+    renderer: Renderer<'static>,
     font_system: FontSystem,
 }
 
-impl<'a> MoonWalkState<'a> {
-    /* 
-        Создает новый экземпляр состояния мунволка
-            window - Объект, реализующий HasWindowHandle и HasDisplayHandle
-    */
-
+impl MoonWalk {
     pub fn new(
-        window: &'a (impl HasWindowHandle + HasDisplayHandle + Send + Sync)
+        window: &'static (impl HasWindowHandle + HasDisplayHandle + Send + Sync),
     ) -> Result<Self, error::MoonWalkError> {
         let renderer = pollster::block_on(Renderer::new(window))?;
-        let font_system = FontSystem::new();
-        Ok(Self { renderer, font_system })
+        Ok(Self {
+            renderer,
+            font_system: FontSystem::new(),
+        })
     }
 
-    // Устанавливает размеры области вьюпорта
     pub fn set_viewport(&mut self, width: u32, height: u32) {
         self.renderer.set_viewport(width, height);
     }
 
-    // Выполняет рендеринг одного кадра с указанным цветом фона
-    pub fn render_frame(&mut self, background_color: Vec4) -> Result<(), renderer::RenderError> {
-        self.renderer.render_frame(&mut self.font_system, background_color)
+    pub fn render_frame(&mut self, clear_color: Vec4) -> Result<(), SurfaceError> {
+        self.renderer
+            .render_frame(&mut self.font_system, clear_color)
     }
 
-    // Создает новый прямоугольник
     pub fn new_rect(&mut self) -> ObjectId {
         self.renderer.new_rect()
     }
 
-    // Создает новый текст.
     pub fn new_text(&mut self) -> ObjectId {
         self.renderer.new_text(self.font_system.cosmic_mut())
     }
 
-    // Задает позицию объекта
-    pub fn config_position(&mut self, id: ObjectId, position: Vec2) {
-        self.renderer.config_position(id, position);
+    pub fn config_position(&mut self, id: ObjectId, pos: Vec2) {
+        self.renderer.config_position(id, pos);
     }
 
-    // Задает размеры объекта
     pub fn config_size(&mut self, id: ObjectId, size: Vec2) {
-        self.renderer.config_size(id, size, self.font_system.cosmic_mut());
+        self.renderer
+            .config_size(id, size, self.font_system.cosmic_mut());
     }
-    
-    // Задает вращение объекта в градусах
+
     pub fn config_rotation(&mut self, id: ObjectId, angle_degrees: f32) {
         self.renderer.config_rotation(id, angle_degrees);
     }
 
-    // Задает цвет объекта
     pub fn config_color(&mut self, id: ObjectId, color: Vec4) {
         self.renderer.config_color(id, color);
     }
-    
-    // Задает Z индекс (порядок отрисовки) объекта
-    pub fn config_z_index(&mut self, id: ObjectId, z_index: f32) {
-        self.renderer.config_z_index(id, z_index);
+
+    pub fn config_z_index(&mut self, id: ObjectId, z: f32) {
+        self.renderer.config_z_index(id, z);
     }
-    
-    // Устанавливает текст для текста (стандартная ситуация)
+
     pub fn config_text(&mut self, id: ObjectId, text: &str) {
-        self.renderer.config_text(id, text, &mut self.font_system);
+        self.renderer
+            .config_text(id, text, &mut self.font_system);
     }
-    
-    // Загружает шрифт из файла
-    pub fn load_font(&mut self, path: &str, size: f32) -> Result<FontId, std::io::Error> {
+
+    pub fn load_font(&mut self, path: &str, size: f32) -> Result<FontId, MoonWalkError> {
         self.font_system.load_font(path, size)
     }
 
-    // Удаляет ранее загруженный шрифт
     pub fn clear_font(&mut self, font_id: FontId) {
         self.font_system.clear_font(font_id);
     }
 
-    // Применяет шрифт к текстовому объекту
     pub fn config_font(&mut self, object_id: ObjectId, font_id: FontId) {
         self.renderer.config_font(object_id, font_id);
     }
 
-    // Устанавливает радиусы скругления углов для объекта
-    //  corners - это Vec4 (верх-лево, верх-право, низ-право, нищ-лево)
-    pub fn set_rounded(&mut self, object_id: ObjectId, corners: Vec4) {
-        self.renderer.config_rounded(object_id, corners);
+    pub fn set_rounded(&mut self, object_id: ObjectId, radii: Vec4) {
+        self.renderer.config_rounded(object_id, radii);
     }
 
-    // Удаляет объект
     pub fn delete_object(&mut self, id: ObjectId) {
         self.renderer.delete_object(id);
     }
 
-    // Удаляет все объекты со сцены
-    pub fn clear_all(&mut self) {
+    pub fn clear_all_objects(&mut self) {
         self.renderer.clear_all_objects();
     }
-    
-    // Компилирует шейдер
-    pub fn compile_shader(&mut self, shader_source: &str) -> Result<ShaderId, renderer::ShaderError> {
-        self.renderer.compile_shader(shader_source)
+
+    pub fn compile_shader(&mut self, shader_src: &str) -> Result<ShaderId, MoonWalkError> {
+        self.renderer.compile_shader(shader_src)
     }
-    
-    // Применяет шейдер к объекту
+
     pub fn set_object_shader(&mut self, object_id: ObjectId, shader_id: ShaderId) {
         self.renderer.set_object_shader(object_id, shader_id);
     }
-    
-    // Устанавливает uniform-переменную для объекта
+
     pub fn set_uniform(&mut self, id: ObjectId, name: String, value: UniformValue) {
         self.renderer.set_uniform(id, name, value);
+    }
+}
+
+pub mod ffi {
+    use super::{
+        ffi_utils::{mat4_from_ptr, string_from_ptr},
+        font::FontId,
+        objects::UniformValue,
+        MoonWalk,
+    };
+
+    use  glam::{Vec2, Vec3, Vec4};
+    use raw_window_handle::{DisplayHandle, HasDisplayHandle, HasWindowHandle, WindowHandle};
+
+    #[derive(Clone, Copy)]
+    struct WindowHandleWrapper {
+        window_handle: raw_window_handle::RawWindowHandle,
+        display_handle: raw_window_handle::RawDisplayHandle,
+    }
+    unsafe impl Send for WindowHandleWrapper {}
+    unsafe impl Sync for WindowHandleWrapper {}
+    impl HasWindowHandle for WindowHandleWrapper {
+        fn window_handle(&self) -> Result<WindowHandle<'_>, raw_window_handle::HandleError> {
+            Ok(unsafe { WindowHandle::borrow_raw(self.window_handle) })
+        }
+    }
+    impl HasDisplayHandle for WindowHandleWrapper {
+        fn display_handle(&self) -> Result<DisplayHandle<'_>, raw_window_handle::HandleError> {
+            Ok(unsafe { DisplayHandle::borrow_raw(self.display_handle) })
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_init(
+        window_handle: raw_window_handle::RawWindowHandle,
+        display_handle: raw_window_handle::RawDisplayHandle,
+    ) -> *mut MoonWalk {
+        let handle_wrapper = Box::new(WindowHandleWrapper {
+            window_handle,
+            display_handle,
+        });
+        let static_handle_wrapper: &'static WindowHandleWrapper = Box::leak(handle_wrapper);
+
+        match MoonWalk::new(static_handle_wrapper) {
+            Ok(state) => Box::into_raw(Box::new(state)),
+            Err(e) => {
+                eprintln!("MoonWalk initialization failed: {}", e);
+                std::ptr::null_mut()
+            }
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_shutdown(state_ptr: *mut MoonWalk) {
+        if !state_ptr.is_null() {
+            drop(Box::from_raw(state_ptr));
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_set_viewport(
+        state_ptr: *mut MoonWalk,
+        width: u32,
+        height: u32,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.set_viewport(width, height);
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_render_frame(
+        state_ptr: *mut MoonWalk,
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            if let Err(e) = state.render_frame(Vec4::new(r, g, b, a)) {
+                eprintln!("MoonWalk render failed: {}", e);
+            }
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_new_rect(state_ptr: *mut MoonWalk) -> u32 {
+        state_ptr.as_mut().map_or(0, |s| s.new_rect().to_u32())
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_new_text(state_ptr: *mut MoonWalk) -> u32 {
+        state_ptr.as_mut().map_or(0, |s| s.new_text().to_u32())
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_config_position(
+        state_ptr: *mut MoonWalk,
+        id: u32,
+        x: f32,
+        y: f32,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.config_position(id.into(), Vec2::new(x, y));
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_config_size(
+        state_ptr: *mut MoonWalk,
+        id: u32,
+        width: f32,
+        height: f32,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.config_size(id.into(), Vec2::new(width, height));
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_config_rotation(
+        state_ptr: *mut MoonWalk,
+        id: u32,
+        angle_degrees: f32,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.config_rotation(id.into(), angle_degrees);
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_config_color(
+        state_ptr: *mut MoonWalk,
+        id: u32,
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.config_color(id.into(), Vec4::new(r, g, b, a));
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_config_z_index(state_ptr: *mut MoonWalk, id: u32, z: f32) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.config_z_index(id.into(), z);
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_config_text(
+        state_ptr: *mut MoonWalk,
+        id: u32,
+        text_ptr: *const libc::c_char,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            if let Ok(text) = string_from_ptr(text_ptr) {
+                state.config_text(id.into(), &text);
+            }
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_load_font(
+        state_ptr: *mut MoonWalk,
+        path_ptr: *const libc::c_char,
+        size: f32,
+    ) -> u64 {
+        if let Some(state) = state_ptr.as_mut() {
+            if let Ok(path) = string_from_ptr(path_ptr) {
+                match state.load_font(&path, size) {
+                    Ok(font_id) => font_id.to_u64(),
+                    Err(e) => {
+                        eprintln!("Failed to load font from {}: {}", path, e);
+                        0
+                    }
+                }
+            } else {
+                0
+            }
+        } else {
+            0
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_clear_font(state_ptr: *mut MoonWalk, font_id: u64) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.clear_font(FontId::from_u64(font_id));
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_config_font(
+        state_ptr: *mut MoonWalk,
+        object_id: u32,
+        font_id: u64,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.config_font(object_id.into(), FontId::from_u64(font_id));
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_set_rounded(
+        state_ptr: *mut MoonWalk,
+        object_id: u32,
+        tl: f32,
+        tr: f32,
+        br: f32,
+        bl: f32,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.set_rounded(object_id.into(), Vec4::new(tl, tr, br, bl));
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_delete_object(state_ptr: *mut MoonWalk, id: u32) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.delete_object(id.into());
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_clear_all(state_ptr: *mut MoonWalk) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.clear_all_objects();
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_compile_shader(
+        state_ptr: *mut MoonWalk,
+        vs_src_ptr: *const libc::c_char,
+        _fs_src_ptr: *const libc::c_char,
+    ) -> u32 {
+        if let Some(state) = state_ptr.as_mut() {
+            if let Ok(shader_src) = string_from_ptr(vs_src_ptr) {
+                match state.compile_shader(&shader_src) {
+                    Ok(id) => id.to_u32(),
+                    Err(e) => {
+                        eprintln!("Shader compilation failed: {}", e);
+                        0
+                    }
+                }
+            } else {
+                0
+            }
+        } else {
+            0
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_set_object_shader(
+        state_ptr: *mut MoonWalk,
+        object_id: u32,
+        shader_id: u32,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.set_object_shader(object_id.into(), shader_id.into());
+        }
+    }
+
+    macro_rules! define_set_uniform {
+        ($func_name:ident, $value_expr:expr, $($param:ident: $ptype:ty),*) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $func_name(state_ptr: *mut MoonWalk, id: u32, name: *const libc::c_char, $($param: $ptype),*) {
+                if let Some(s) = state_ptr.as_mut() {
+                    if let Ok(n) = string_from_ptr(name) {
+                        s.set_uniform(id.into(), n, $value_expr);
+                    }
+                }
+            }
+        };
+    }
+
+    define_set_uniform!(moonwalk_set_uniform_int, UniformValue::Int(val), val: i32);
+    define_set_uniform!(moonwalk_set_uniform_float, UniformValue::Float(val), val: f32);
+    define_set_uniform!(moonwalk_set_uniform_vec2, UniformValue::Vec2(Vec2::new(x, y)), x: f32, y: f32);
+    define_set_uniform!(moonwalk_set_uniform_vec3, UniformValue::Vec3(Vec3::new(x, y, z)), x: f32, y: f32, z: f32);
+    define_set_uniform!(moonwalk_set_uniform_vec4, UniformValue::Vec4(Vec4::new(x, y, z, w)), x: f32, y: f32, z: f32, w: f32);
+    define_set_uniform!(moonwalk_set_uniform_bool, UniformValue::Bool(val), val: bool);
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_set_uniform_mat4(
+        state_ptr: *mut MoonWalk,
+        id: u32,
+        name: *const libc::c_char,
+        mat_ptr: *const f32,
+    ) {
+        if let Some(s) = state_ptr.as_mut() {
+            if let (Ok(n), Ok(m)) = (string_from_ptr(name), mat4_from_ptr(mat_ptr)) {
+                s.set_uniform(id.into(), n, UniformValue::Mat4(m));
+            }
+        }
     }
 }

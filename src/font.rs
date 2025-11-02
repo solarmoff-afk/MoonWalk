@@ -1,4 +1,3 @@
-use cosmic_text::Attrs;
 use std::collections::HashMap;
 use std::path::Path;
 use crate::error::MoonWalkError;
