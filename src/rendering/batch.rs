@@ -31,6 +31,7 @@ pub enum RenderPass {
     Glyph,
 }
 
+#[allow(dead_code)]
 pub struct BatchGroup {
     pub shader_id: ShaderId,
     pub uniforms: HashMap<String, UniformValue>,

@@ -42,10 +42,18 @@ pub enum Variant {
     Text(TextData),
 }
 
+#[allow(dead_code)]
 pub struct Object {
     pub id: ObjectId,
     pub common: Common,
     pub variant: Variant,
+}
+
+impl Object {
+    #[allow(dead_code)]
+    pub fn get_id(&self) -> &ObjectId {
+        &self.id
+    }
 }
 
 pub fn hash_uniforms(uniforms: &HashMap<String, UniformValue>) -> u64 {

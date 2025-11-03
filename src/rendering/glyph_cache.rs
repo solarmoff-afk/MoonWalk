@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 const ATLAS_SIZE: u32 = 2048;
 
+#[allow(dead_code)]
 pub struct GlyphCache {
     swash_cache: SwashCache,
     texture: wgpu::Texture,

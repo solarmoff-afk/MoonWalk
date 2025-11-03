@@ -11,6 +11,7 @@ use crate::rendering::batch::{rebuild_batch_groups, BatchGroup, release_batch_gr
 use crate::rendering::glyph_cache::GlyphCache;
 use crate::rendering::shader::ShaderStore;
 
+#[allow(dead_code)]
 pub struct Renderer<'a> {
     instance: wgpu::Instance,
     surface: wgpu::Surface<'a>,

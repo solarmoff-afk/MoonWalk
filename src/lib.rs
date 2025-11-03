@@ -141,9 +141,17 @@ pub mod ffi {
 
     #[no_mangle]
     pub unsafe extern "C" fn moonwalk_init(
-        window_handle: raw_window_handle::RawWindowHandle,
-        display_handle: raw_window_handle::RawDisplayHandle,
+        window_handle: *const raw_window_handle::RawWindowHandle,
+        display_handle: *const raw_window_handle::RawDisplayHandle,
     ) -> *mut MoonWalk {
+        if window_handle.is_null() || display_handle.is_null() {
+            eprintln!("MoonWalk initialization failed: null handle provided");
+            return std::ptr::null_mut();
+        }
+        
+        let window_handle = *window_handle;
+        let display_handle = *display_handle;
+        
         let handle_wrapper = Box::new(WindowHandleWrapper {
             window_handle,
             display_handle,
