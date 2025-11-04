@@ -30,8 +30,19 @@ fn vs_rect_main(model: VertexInput) -> VertexOutput {
 
 fn sd_rounded_box(p: vec2<f32>, b: vec2<f32>, r_in: vec4<f32>) -> f32 {
     var r = r_in;
-    if (p.x > 0.0) { r.xy = r.xy; } else { r.xy = r.wz; }
-    if (p.y > 0.0) { r.x = r.x; } else { r.x = r.y; }
+    if (p.x > 0.0) {
+        r.x = r.x;
+        r.y = r.y;
+    } else {
+        r.x = r.w;
+        r.y = r.z;
+    }
+    if (p.y > 0.0) {
+        r.x = r.x;
+    } else {
+        r.x = r.y;
+    }
+    
     let q = abs(p) - b + r.x;
     return min(max(q.x, q.y), 0.0) + length(max(q, vec2<f32>(0.0))) - r.x;
 }
