@@ -11,11 +11,8 @@ use crate::rendering::batch::{rebuild_batch_groups, BatchGroup, release_batch_gr
 use crate::rendering::glyph_cache::GlyphCache;
 use crate::rendering::shader::ShaderStore;
 
-#[allow(dead_code)]
 pub struct Renderer<'a> {
-    instance: wgpu::Instance,
     surface: wgpu::Surface<'a>,
-    adapter: wgpu::Adapter,
     device: Arc<wgpu::Device>,
     queue: wgpu::Queue,
     surface_config: wgpu::SurfaceConfiguration,
@@ -26,7 +23,7 @@ pub struct Renderer<'a> {
     projection: Mat4,
     width: u32,
     height: u32,
-    projection_buffer: Option<wgpu::Buffer>,
+    projection_buffer: wgpu::Buffer,
 }
 
 impl<'a> Renderer<'a> {
@@ -83,10 +80,15 @@ impl<'a> Renderer<'a> {
         let object_store = ObjectStore::new(default_rect_shader, default_text_shader);
         let glyph_cache = GlyphCache::new(&device);
 
+        let projection = Mat4::orthographic_lh(0.0, 1.0, 1.0, 0.0, -1.0, 1.0);
+        let projection_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Projection Buffer"),
+            contents: bytemuck::cast_slice(&[projection]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
         Ok(Self {
-            instance,
             surface,
-            adapter,
             device,
             queue,
             surface_config,
@@ -94,32 +96,34 @@ impl<'a> Renderer<'a> {
             shader_store,
             glyph_cache,
             batch_groups: HashMap::new(),
-            projection: Mat4::IDENTITY,
+            projection,
             width: 1,
             height: 1,
-            projection_buffer: None,
+            projection_buffer,
         })
     }
 
     pub fn set_viewport(&mut self, width: u32, height: u32) {
+        let width = width.max(1);
+        let height = height.max(1);
+        
         if self.width != width || self.height != height {
             self.width = width;
             self.height = height;
             self.surface_config.width = width;
             self.surface_config.height = height;
             self.surface.configure(&self.device, &self.surface_config);
+            
             self.projection = Mat4::orthographic_lh(0.0, width as f32, height as f32, 0.0, -1.0, 1.0);
             self.object_store.mark_dirty();
             
-            self.projection_buffer = Some(self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Projection Buffer"),
-                contents: bytemuck::cast_slice(&[self.projection]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            }));
+            self.queue.write_buffer(&self.projection_buffer, 0, bytemuck::cast_slice(&[self.projection]));
         }
     }
 
     pub fn render_frame(&mut self, font_system: &mut FontSystem, clear_color: Vec4) -> Result<(), wgpu::SurfaceError> {
+        self.device.poll(wgpu::Maintain::Wait);
+        
         if self.object_store.is_dirty() {
             release_batch_groups(&mut self.batch_groups);
             self.batch_groups = rebuild_batch_groups(
@@ -136,17 +140,7 @@ impl<'a> Renderer<'a> {
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Render Encoder"),
         });
-
-        if self.projection_buffer.is_none() {
-            self.projection_buffer = Some(self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Projection Buffer"),
-                contents: bytemuck::cast_slice(&[self.projection]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            }));
-        }
         
-        let projection_buffer = self.projection_buffer.as_ref().unwrap();
-
         let mut simple_bind_groups = Vec::new();
         if let Some(groups) = self.batch_groups.get(&RenderPass::Simple) {
             for group in groups {
@@ -155,7 +149,7 @@ impl<'a> Renderer<'a> {
                         layout: &pipeline.get_bind_group_layout(0),
                         entries: &[wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: projection_buffer.as_entire_binding(),
+                            resource: self.projection_buffer.as_entire_binding(),
                         }],
                         label: Some("Projection Bind Group"),
                     });
@@ -172,7 +166,7 @@ impl<'a> Renderer<'a> {
                         layout: &pipeline.get_bind_group_layout(0),
                         entries: &[wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: projection_buffer.as_entire_binding(),
+                            resource: self.projection_buffer.as_entire_binding(),
                         }],
                         label: Some("Projection Bind Group"),
                     });
