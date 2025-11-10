@@ -207,10 +207,10 @@ impl ObjectStore {
         }
     }
 
-    pub fn config_bezier_smooth(&mut self, id: ObjectId, smooth: f32) {
+    pub fn config_bezier_smooth(&mut self, id: ObjectId, smoothing: f32) {
         if let Some(obj) = self.objects.get_mut(&id) {
             if let Variant::Bezier(ref mut bezier_data) = obj.variant {
-                bezier_data.smooth = smooth;
+                bezier_data.smoothing = smoothing;
                 self.mark_dirty();
             }
         }

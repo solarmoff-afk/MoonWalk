@@ -276,8 +276,8 @@ impl<'a> Renderer<'a> {
         self.object_store.config_bezier_thickness(id, thickness);
     }
 
-    pub fn config_bezier_smooth(&mut self, id: ObjectId, smooth: f32) {
-        self.object_store.config_bezier_smooth(id, smooth);
+    pub fn config_bezier_smooth(&mut self, id: ObjectId, smoothing: f32) {
+        self.object_store.config_bezier_smooth(id, smoothing);
     }
 
     pub fn delete_object(&mut self, id: ObjectId) {

@@ -1,7 +1,7 @@
 struct Uniforms {
     resolution: vec2<f32>,
     thickness: f32,
-    smooth: f32,
+    smoothing: f32,
     curve_color: vec4<f32>,
     point_count: u32,
 };
@@ -106,6 +106,6 @@ fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
         min_dist = min(min_dist, dist);
     }
     
-    let alpha = 1.0 - smoothstep(uni.thickness - uni.smooth, uni.thickness + uni.smooth, min_dist);
+    let alpha = 1.0 - smoothstep(uni.thickness - uni.smoothing, uni.thickness + uni.smoothing, min_dist);
     return vec4<f32>(uni.curve_color.rgb, uni.curve_color.a * alpha);
 }

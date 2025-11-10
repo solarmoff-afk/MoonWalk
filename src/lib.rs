@@ -123,8 +123,8 @@ impl MoonWalk {
         self.renderer.config_bezier_thickness(id, thickness);
     }
 
-    pub fn config_bezier_smooth(&mut self, id: ObjectId, smooth: f32) {
-        self.renderer.config_bezier_smooth(id, smooth);
+    pub fn config_bezier_smooth(&mut self, id: ObjectId, smoothing: f32) {
+        self.renderer.config_bezier_smooth(id, smoothing);
     }
 }
 

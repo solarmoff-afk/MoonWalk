@@ -41,7 +41,7 @@ pub struct TextData {
 pub struct BezierData {
     pub points: Vec<Vec2>,
     pub thickness: f32,
-    pub smooth: f32,
+    pub smoothing: f32,
 }
 
 impl Default for BezierData {
@@ -49,7 +49,7 @@ impl Default for BezierData {
         Self {
             points: Vec::new(),
             thickness: 1.0,
-            smooth: 0.5,
+            smoothing: 0.5,
         }
     }
 }
