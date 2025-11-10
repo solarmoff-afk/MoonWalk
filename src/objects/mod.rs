@@ -13,16 +13,18 @@ pub struct ObjectStore {
     dirty: bool,
     default_rect_shader: ShaderId,
     default_text_shader: ShaderId,
+    default_bezier_shader: ShaderId,
 }
 
 impl ObjectStore {
-    pub fn new(default_rect_shader: ShaderId, default_text_shader: ShaderId) -> Self {
+    pub fn new(default_rect_shader: ShaderId, default_text_shader: ShaderId, default_bezier_shader: ShaderId) -> Self {
         Self {
             next_id: 1,
             objects: HashMap::new(),
             dirty: true,
             default_rect_shader,
             default_text_shader,
+            default_bezier_shader,
         }
     }
 
@@ -38,6 +40,7 @@ impl ObjectStore {
         match object.variant {
             Variant::Rect(_) => self.default_rect_shader,
             Variant::Text(_) => self.default_text_shader,
+            Variant::Bezier(_) => self.default_bezier_shader,
         }
     }
 
@@ -83,6 +86,20 @@ impl ObjectStore {
                 text: String::new(),
                 font_id: None,
             }),
+        };
+        
+        self.objects.insert(id, object);
+        self.mark_dirty();
+        id
+    }
+
+    pub fn new_bezier(&mut self) -> ObjectId {
+        let id = self.new_id();
+        
+        let object = Object {
+            id,
+            common: Common::default(),
+            variant: Variant::Bezier(BezierData::default()),
         };
         
         self.objects.insert(id, object);
@@ -167,6 +184,33 @@ impl ObjectStore {
         if let Some(obj) = self.objects.get_mut(&id) {
             if let Variant::Text(ref mut text_data) = obj.variant {
                 text_data.font_id = Some(font_id);
+                self.mark_dirty();
+            }
+        }
+    }
+
+    pub fn set_bezier_points(&mut self, id: ObjectId, points: Vec<Vec2>) {
+        if let Some(obj) = self.objects.get_mut(&id) {
+            if let Variant::Bezier(ref mut bezier_data) = obj.variant {
+                bezier_data.points = points;
+                self.mark_dirty();
+            }
+        }
+    }
+
+    pub fn config_bezier_thickness(&mut self, id: ObjectId, thickness: f32) {
+        if let Some(obj) = self.objects.get_mut(&id) {
+            if let Variant::Bezier(ref mut bezier_data) = obj.variant {
+                bezier_data.thickness = thickness;
+                self.mark_dirty();
+            }
+        }
+    }
+
+    pub fn config_bezier_smooth(&mut self, id: ObjectId, smooth: f32) {
+        if let Some(obj) = self.objects.get_mut(&id) {
+            if let Variant::Bezier(ref mut bezier_data) = obj.variant {
+                bezier_data.smooth = smooth;
                 self.mark_dirty();
             }
         }

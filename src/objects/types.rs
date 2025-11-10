@@ -37,9 +37,27 @@ pub struct TextData {
     pub font_id: Option<FontId>,
 }
 
+#[derive(Debug, Clone)]
+pub struct BezierData {
+    pub points: Vec<Vec2>,
+    pub thickness: f32,
+    pub smooth: f32,
+}
+
+impl Default for BezierData {
+    fn default() -> Self {
+        Self {
+            points: Vec::new(),
+            thickness: 1.0,
+            smooth: 0.5,
+        }
+    }
+}
+ 
 pub enum Variant {
     Rect(RectData),
     Text(TextData),
+    Bezier(BezierData),
 }
 
 #[allow(dead_code)]

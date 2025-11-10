@@ -3,8 +3,9 @@ use std::sync::Arc;
 use crate::error::MoonWalkError;
 use crate::objects::ShaderId;
 
-const RECT_WGSL: &str = include_str!("rect.wgsl");
-const TEXT_WGSL: &str = include_str!("text.wgsl");
+const RECT_WGSL: &str = include_str!("shaders/rect.wgsl");
+const TEXT_WGSL: &str = include_str!("shaders/text.wgsl");
+const BEZIER_WGSL: &str = include_str!("shaders/bezier.wgsl");
 
 pub struct ShaderStore {
     device: Arc<wgpu::Device>,
@@ -57,6 +58,10 @@ impl ShaderStore {
         self.compile_shader(TEXT_WGSL)
     }
 
+    pub fn create_default_bezier_shader(&mut self) -> Result<ShaderId, MoonWalkError> {
+        self.compile_shader(BEZIER_WGSL)
+    }
+
     pub fn compile_shader(&mut self, src: &str) -> Result<ShaderId, MoonWalkError> {
         let shader = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Custom Shader"),
@@ -73,6 +78,32 @@ impl ShaderStore {
     }
     
     fn create_pipeline(&self, shader_module: &wgpu::ShaderModule, shader_id: ShaderId) -> wgpu::RenderPipeline {
+        let bezier_bind_group_layout = self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+            label: Some("Bezier Bind Group Layout"),
+        });
+
         let proj_bind_group_layout = self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
@@ -87,17 +118,29 @@ impl ShaderStore {
             label: Some("Projection Bind Group Layout"),
         });
 
-        let mut bind_group_layouts = vec![&proj_bind_group_layout];
-        
-        if shader_id == ShaderId(2) {
-             bind_group_layouts.push(&self.glyph_bind_group_layout);
-        }
-
-        let layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &bind_group_layouts,
-            push_constant_ranges: &[],
-        });
+        let layout = match shader_id {
+            ShaderId(2) => {
+                self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Text Pipeline Layout"),
+                    bind_group_layouts: &[&proj_bind_group_layout, &self.glyph_bind_group_layout],
+                    push_constant_ranges: &[],
+                })
+            },
+            ShaderId(3) => {
+                self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Bezier Pipeline Layout"),
+                    bind_group_layouts: &[&bezier_bind_group_layout],
+                    push_constant_ranges: &[],
+                })
+            },
+            _ => {
+                self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Render Pipeline Layout"),
+                    bind_group_layouts: &[&proj_bind_group_layout],
+                    push_constant_ranges: &[],
+                })
+            },
+        };
         
         let (vertex_entry, vertex_buffers) = if shader_id == ShaderId(2) {
             ("vs_text_main", &[
@@ -105,6 +148,14 @@ impl ShaderStore {
                     array_stride: std::mem::size_of::<[f32; 9]>() as wgpu::BufferAddress,
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x4, 2 => Float32x2],
+                }
+            ])
+        } else if shader_id == ShaderId(3) {
+            ("vs_main", &[
+                wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x2],
                 }
             ])
         } else {
@@ -117,7 +168,11 @@ impl ShaderStore {
             ])
         };
 
-        let fragment_entry = if shader_id == ShaderId(2) { "fs_text_main" } else { "fs_rect_main" };
+        let fragment_entry = match shader_id {
+            ShaderId(2) => "fs_text_main",
+            ShaderId(3) => "fs_main",
+            _ => "fs_rect_main",
+        };
 
         self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),

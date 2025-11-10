@@ -4,7 +4,7 @@ mod font;
 mod objects;
 mod renderer;
 mod rendering;
-
+ 
 use glam::{Vec2, Vec4};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use wgpu::SurfaceError;
@@ -109,6 +109,22 @@ impl MoonWalk {
 
     pub fn set_uniform(&mut self, id: ObjectId, name: String, value: UniformValue) {
         self.renderer.set_uniform(id, name, value);
+    }
+
+    pub fn new_bezier(&mut self) -> ObjectId {
+        self.renderer.new_bezier()
+    }
+
+    pub fn set_bezier_points(&mut self, id: ObjectId, points: Vec<Vec2>) {
+        self.renderer.set_bezier_points(id, points);
+    }
+
+    pub fn config_bezier_thickness(&mut self, id: ObjectId, thickness: f32) {
+        self.renderer.config_bezier_thickness(id, thickness);
+    }
+
+    pub fn config_bezier_smooth(&mut self, id: ObjectId, smooth: f32) {
+        self.renderer.config_bezier_smooth(id, smooth);
     }
 }
 
@@ -381,6 +397,50 @@ pub mod ffi {
     ) {
         if let Some(state) = state_ptr.as_mut() {
             state.set_object_shader(object_id.into(), shader_id.into());
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_new_bezier(state_ptr: *mut MoonWalk) -> u32 {
+        state_ptr.as_mut().map_or(0, |s| s.new_bezier().to_u32())
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_set_bezier_points(
+        state_ptr: *mut MoonWalk,
+        id: u32,
+        points_ptr: *const f32,
+        points_count: usize,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            let points_slice = std::slice::from_raw_parts(points_ptr, points_count * 2);
+            let points: Vec<Vec2> = points_slice
+                .chunks(2)
+                .map(|chunk| Vec2::new(chunk[0], chunk[1]))
+                .collect();
+            state.set_bezier_points(id.into(), points);
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_config_bezier_thickness(
+        state_ptr: *mut MoonWalk,
+        id: u32,
+        thickness: f32,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.config_bezier_thickness(id.into(), thickness);
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_config_bezier_smooth(
+        state_ptr: *mut MoonWalk,
+        id: u32,
+        smooth: f32,
+    ) {
+        if let Some(state) = state_ptr.as_mut() {
+            state.config_bezier_smooth(id.into(), smooth);
         }
     }
 

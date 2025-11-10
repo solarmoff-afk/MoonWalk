@@ -51,6 +51,7 @@ pub fn rebuild_batch_groups(
         let pass = match object.variant {
             Variant::Rect(_) => RenderPass::Simple,
             Variant::Text(_) => RenderPass::Glyph,
+            Variant::Bezier(_) => RenderPass::Simple,
         };
         
         let shader_id = object_store.get_default_shader_for(object);

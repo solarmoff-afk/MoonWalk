@@ -76,8 +76,9 @@ impl<'a> Renderer<'a> {
         let mut shader_store = ShaderStore::new(device.clone());
         let default_rect_shader = shader_store.create_default_rect_shader()?;
         let default_text_shader = shader_store.create_default_text_shader()?;
-        
-        let object_store = ObjectStore::new(default_rect_shader, default_text_shader);
+        let default_bezier_shader = shader_store.create_default_bezier_shader()?;
+
+        let object_store = ObjectStore::new(default_rect_shader, default_text_shader, default_bezier_shader); 
         let glyph_cache = GlyphCache::new(&device);
 
         let projection = Mat4::orthographic_lh(0.0, 1.0, 1.0, 0.0, -1.0, 1.0);
@@ -231,6 +232,10 @@ impl<'a> Renderer<'a> {
         self.object_store.new_text(cs)
     }
 
+    pub fn new_bezier(&mut self) -> ObjectId {
+        self.object_store.new_bezier()
+    }
+
     pub fn config_position(&mut self, id: ObjectId, pos: Vec2) {
         self.object_store.config_position(id, pos);
     }
@@ -261,6 +266,18 @@ impl<'a> Renderer<'a> {
 
     pub fn config_rounded(&mut self, id: ObjectId, radii: Vec4) {
         self.object_store.config_rounded(id, radii);
+    }
+
+    pub fn set_bezier_points(&mut self, id: ObjectId, points: Vec<Vec2>) {
+        self.object_store.set_bezier_points(id, points);
+    }
+
+    pub fn config_bezier_thickness(&mut self, id: ObjectId, thickness: f32) {
+        self.object_store.config_bezier_thickness(id, thickness);
+    }
+
+    pub fn config_bezier_smooth(&mut self, id: ObjectId, smooth: f32) {
+        self.object_store.config_bezier_smooth(id, smooth);
     }
 
     pub fn delete_object(&mut self, id: ObjectId) {
