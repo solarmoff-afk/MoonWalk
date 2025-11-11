@@ -18,7 +18,6 @@ struct VertexOutput {
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     var output: VertexOutput;
     
-    // Исправлено: используем switch вместо индексации по переменной
     var pos: vec2<f32>;
     switch (vertex_index) {
         case 0u: { pos = vec2<f32>(-1.0, -1.0); }
@@ -93,6 +92,8 @@ fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
 
 @fragment
 fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+    let frag_coord = uv * uni.resolution;
+    
     if (uni.point_count < 4u) {
         return vec4<f32>(0.0, 0.0, 0.0, 0.0);
     }
@@ -107,7 +108,7 @@ fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
         let p2 = points[base_idx + 2u];
         let p3 = points[base_idx + 3u];
         
-        let dist = bezier_distance(uv, p0, p1, p2, p3);
+        let dist = bezier_distance(frag_coord, p0, p1, p2, p3);
         min_dist = min(min_dist, dist);
     }
     

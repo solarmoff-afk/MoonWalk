@@ -132,6 +132,8 @@ impl<'a> Renderer<'a> {
                 &self.object_store,
                 &mut self.glyph_cache,
                 font_system,
+                self.width, 
+                self.height,
             );
             self.object_store.reset_dirty();
         }
@@ -141,41 +143,57 @@ impl<'a> Renderer<'a> {
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Render Encoder"),
         });
-        
-        let mut simple_bind_groups = Vec::new();
+
+        // --- ФАЗА 1: ПОДГОТОВКА BIND GROUPS ---
+        let mut simple_pass_bind_groups = Vec::new();
         if let Some(groups) = self.batch_groups.get(&RenderPass::Simple) {
             for group in groups {
                 if let Some(pipeline) = self.shader_store.get_pipeline(group.shader_id) {
-                    let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        layout: &pipeline.get_bind_group_layout(0),
-                        entries: &[wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: self.projection_buffer.as_entire_binding(),
-                        }],
-                        label: Some("Projection Bind Group"),
-                    });
-                    simple_bind_groups.push((group, bind_group));
+                    if group.storage_buffers.is_empty() {
+                        let proj_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                            layout: &pipeline.get_bind_group_layout(0),
+                            entries: &[wgpu::BindGroupEntry {
+                                binding: 0,
+                                resource: self.projection_buffer.as_entire_binding(),
+                            }],
+                            label: Some("Projection Bind Group"),
+                        });
+                        simple_pass_bind_groups.push(proj_bind_group);
+                    } else {
+                        let uniform_buffer = group.storage_buffers.get(&0).unwrap();
+                        let storage_buffer = group.storage_buffers.get(&1).unwrap();
+                        let bezier_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                            label: Some("Bezier Bind Group"),
+                            layout: &pipeline.get_bind_group_layout(0),
+                            entries: &[
+                                wgpu::BindGroupEntry { binding: 0, resource: uniform_buffer.as_entire_binding() },
+                                wgpu::BindGroupEntry { binding: 1, resource: storage_buffer.as_entire_binding() },
+                            ],
+                        });
+                        simple_pass_bind_groups.push(bezier_bind_group);
+                    }
                 }
             }
         }
 
-        let mut glyph_bind_groups = Vec::new();
+        let mut glyph_pass_proj_bind_groups = Vec::new();
         if let Some(groups) = self.batch_groups.get(&RenderPass::Glyph) {
             for group in groups {
                 if let Some(pipeline) = self.shader_store.get_pipeline(group.shader_id) {
-                    let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    let proj_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                         layout: &pipeline.get_bind_group_layout(0),
                         entries: &[wgpu::BindGroupEntry {
                             binding: 0,
                             resource: self.projection_buffer.as_entire_binding(),
                         }],
-                        label: Some("Projection Bind Group"),
+                        label: Some("Glyph Projection Bind Group"),
                     });
-                    glyph_bind_groups.push((group, bind_group));
+                    glyph_pass_proj_bind_groups.push(proj_bind_group);
                 }
             }
         }
 
+        // --- ФАЗА 2: РЕНДЕРИНГ ---
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -184,10 +202,7 @@ impl<'a> Renderer<'a> {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: clear_color.x as f64,
-                            g: clear_color.y as f64,
-                            b: clear_color.z as f64,
-                            a: clear_color.w as f64,
+                            r: clear_color.x as f64, g: clear_color.y as f64, b: clear_color.z as f64, a: clear_color.w as f64,
                         }),
                         store: wgpu::StoreOp::Store,
                     },
@@ -197,23 +212,31 @@ impl<'a> Renderer<'a> {
                 timestamp_writes: None,
             });
 
-            for (group, bind_group) in &simple_bind_groups {
-                if let Some(pipeline) = self.shader_store.get_pipeline(group.shader_id) {
-                    render_pass.set_pipeline(pipeline);
-                    render_pass.set_bind_group(0, bind_group, &[]);
-                    render_pass.set_vertex_buffer(0, group.vbo.slice(..));
-                    render_pass.draw(0..group.vertex_count as u32, 0..1);
+            if let Some(groups) = self.batch_groups.get(&RenderPass::Simple) {
+                for (group, bind_group) in groups.iter().zip(simple_pass_bind_groups.iter()) {
+                    if let Some(pipeline) = self.shader_store.get_pipeline(group.shader_id) {
+                        render_pass.set_pipeline(pipeline);
+                        render_pass.set_bind_group(0, bind_group, &[]);
+                        
+                        if group.storage_buffers.is_empty() { // Это прямоугольник
+                            render_pass.set_vertex_buffer(0, group.vbo.slice(..));
+                        }
+                        
+                        render_pass.draw(0..group.vertex_count as u32, 0..1);
+                    }
                 }
             }
 
-            let glyph_texture_bind_group = self.glyph_cache.get_bind_group();
-            for (group, bind_group) in &glyph_bind_groups {
-                if let Some(pipeline) = self.shader_store.get_pipeline(group.shader_id) {
-                    render_pass.set_pipeline(pipeline);
-                    render_pass.set_bind_group(0, bind_group, &[]);
-                    render_pass.set_bind_group(1, glyph_texture_bind_group, &[]);
-                    render_pass.set_vertex_buffer(0, group.vbo.slice(..));
-                    render_pass.draw(0..group.vertex_count as u32, 0..1);
+            if let Some(groups) = self.batch_groups.get(&RenderPass::Glyph) {
+                let glyph_texture_bind_group = self.glyph_cache.get_bind_group();
+                for (group, proj_bind_group) in groups.iter().zip(glyph_pass_proj_bind_groups.iter()) {
+                    if let Some(pipeline) = self.shader_store.get_pipeline(group.shader_id) {
+                        render_pass.set_pipeline(pipeline);
+                        render_pass.set_bind_group(0, proj_bind_group, &[]);
+                        render_pass.set_bind_group(1, glyph_texture_bind_group, &[]);
+                        render_pass.set_vertex_buffer(0, group.vbo.slice(..));
+                        render_pass.draw(0..group.vertex_count as u32, 0..1);
+                    }
                 }
             }
         }

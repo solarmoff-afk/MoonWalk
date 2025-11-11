@@ -3,7 +3,7 @@ use glam::{Mat4, Vec2, Vec3, Vec4};
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
 
-use crate::objects::{hash_uniforms, Object, ObjectStore, RectData, ShaderId, TextData, UniformValue, Variant};
+use crate::objects::{hash_uniforms, Object, ObjectStore, RectData, ShaderId, TextData, BezierData, UniformValue, Variant};
 use crate::rendering::glyph_cache::{get_cache_key, GlyphCache};
 use crate::font::FontSystem;
 
@@ -35,8 +35,20 @@ pub enum RenderPass {
 pub struct BatchGroup {
     pub shader_id: ShaderId,
     pub uniforms: HashMap<String, UniformValue>,
+    pub storage_buffers: HashMap<u32, wgpu::Buffer>,
     pub vbo: wgpu::Buffer,
     pub vertex_count: usize,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+struct BezierUniforms {
+    resolution: [f32; 2],
+    thickness: f32,
+    smoothing: f32,
+    curve_color: [f32; 4],
+    point_count: u32,
+    _padding: [u32; 3],
 }
 
 pub fn rebuild_batch_groups(
@@ -44,6 +56,8 @@ pub fn rebuild_batch_groups(
     object_store: &ObjectStore,
     glyph_cache: &mut GlyphCache,
     font_system: &mut FontSystem,
+    width: u32,
+    height: u32,
 ) -> HashMap<RenderPass, Vec<BatchGroup>> {
     let mut grouped_objects: HashMap<(RenderPass, ShaderId, u64), Vec<&Object>> = HashMap::new();
     
@@ -74,18 +88,28 @@ pub fn rebuild_batch_groups(
         
         match pass {
             RenderPass::Simple => {
-                let mut vertices = Vec::<RectVertex>::new();
+                let mut rect_vertices = Vec::<RectVertex>::new();
+                
                 for obj in &objects {
                     if let Variant::Rect(data) = &obj.variant {
-                        append_rect_vertices(obj, data, &mut vertices);
+                        append_rect_vertices(obj, data, &mut rect_vertices);
                     }
                 }
-                if !vertices.is_empty() {
-                    let vertex_count = vertices.len();
-                    let batch = create_batch_gpu_objects(device, bytemuck::cast_slice(&vertices), shader_id, uniforms, vertex_count);
-                    all_batches.entry(pass).or_default().push(batch);
+                
+                if !rect_vertices.is_empty() {
+                    let vertex_count = rect_vertices.len();
+                    let batch = create_batch_gpu_objects(device, bytemuck::cast_slice(&rect_vertices), shader_id, uniforms.clone(), vertex_count);
+                    all_batches.entry(pass).or_default().push(batch); 
+                }
+
+                for obj in &objects {
+                    if let Variant::Bezier(data) = &obj.variant {
+                        let batch = create_bezier_batch(device, obj, data, shader_id, uniforms.clone(), width, height);
+                        all_batches.entry(pass).or_default().push(batch);
+                    }
                 }
             }
+
             RenderPass::Glyph => {
                 let mut vertices = Vec::<TextVertex>::new();
                 for obj in &objects {
@@ -93,6 +117,7 @@ pub fn rebuild_batch_groups(
                         append_text_vertices(obj, data, &mut vertices, glyph_cache, font_system);
                     }
                 }
+            
                 if !vertices.is_empty() {
                     let vertex_count = vertices.len();
                     let batch = create_batch_gpu_objects(device, bytemuck::cast_slice(&vertices), shader_id, uniforms, vertex_count);
@@ -196,6 +221,7 @@ fn create_batch_gpu_objects(device: &wgpu::Device, data: &[u8], shader_id: Shade
     BatchGroup {
         shader_id,
         uniforms,
+        storage_buffers: HashMap::new(),
         vbo,
         vertex_count,
     }
@@ -209,3 +235,46 @@ pub fn release_batch_groups(groups: &mut HashMap<RenderPass, Vec<BatchGroup>>) {
     }
     groups.clear();
 }
+
+fn create_bezier_batch(device: &wgpu::Device, obj: &Object, data: &BezierData, shader_id: ShaderId, uniforms_map: HashMap<String, UniformValue>, width: u32, height: u32) -> BatchGroup {
+    let vbo = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Dummy Bezier VBO"),
+        size: 0, 
+        usage: wgpu::BufferUsages::VERTEX,
+        mapped_at_creation: false,
+    });
+    
+    let uniform_data = BezierUniforms {
+        resolution: [width as f32, height as f32],
+        thickness: data.thickness,
+        smoothing: data.smoothing,
+        curve_color: obj.common.color.to_array(),
+        point_count: data.points.len() as u32,
+        _padding: [0; 3],
+    };
+
+    let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Bezier Uniform Buffer"),
+        contents: bytemuck::cast_slice(&[uniform_data]),
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+    });
+    
+    let points_data: Vec<[f32; 2]> = data.points.iter().map(|p| [p.x, p.y]).collect();
+    let storage_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Bezier Points Storage Buffer"),
+        contents: bytemuck::cast_slice(&points_data),
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+    });
+    
+    let mut storage_buffers = HashMap::new();
+
+    storage_buffers.insert(0, uniform_buffer);
+    storage_buffers.insert(1, storage_buffer);
+
+    BatchGroup {
+        shader_id,
+        uniforms: uniforms_map,
+        storage_buffers,
+        vbo,
+        vertex_count: 3,}
+} 

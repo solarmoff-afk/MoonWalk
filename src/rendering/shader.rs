@@ -168,7 +168,7 @@ impl ShaderStore {
             },
         };
         
-        let (vertex_entry, vertex_buffers) = if shader_id == ShaderId(2) {
+        let (vertex_entry, vertex_buffers): (&str, &[wgpu::VertexBufferLayout]) = if shader_id == ShaderId(2) {
             ("vs_text_main", &[
                 wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<[f32; 9]>() as wgpu::BufferAddress,
@@ -177,13 +177,7 @@ impl ShaderStore {
                 }
             ])
         } else if shader_id == ShaderId(3) {
-            ("vs_main", &[
-                wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0 => Float32x2],
-                }
-            ])
+            ("vs_main", &[]) 
         } else {
             ("vs_rect_main", &[
                 wgpu::VertexBufferLayout {
