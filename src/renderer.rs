@@ -132,7 +132,7 @@ impl<'a> Renderer<'a> {
                 &self.object_store,
                 &mut self.glyph_cache,
                 font_system,
-                self.width, 
+                self.width,
                 self.height,
             );
             self.object_store.reset_dirty();

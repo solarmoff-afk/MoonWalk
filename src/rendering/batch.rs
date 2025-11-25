@@ -79,10 +79,12 @@ pub fn rebuild_batch_groups(
 
     let mut all_batches: HashMap<RenderPass, Vec<BatchGroup>> = HashMap::new();
 
-    for ((pass, shader_id, _), objects) in grouped_objects {
+    for ((pass, shader_id, _), mut objects) in grouped_objects {
         if objects.is_empty() {
             continue;
         }
+
+        objects.sort_by(|a, b| a.common.z.partial_cmp(&b.common.z).unwrap_or(std::cmp::Ordering::Equal));
 
         let uniforms = objects[0].common.uniforms.clone();
         
