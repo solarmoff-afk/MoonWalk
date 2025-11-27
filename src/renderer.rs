@@ -262,67 +262,86 @@ impl<'a> Renderer<'a> {
     }
         
     pub fn new_rect(&mut self) -> ObjectId {
-        self.object_store.new_rect()
+        let id = self.object_store.new_rect();
+        self.object_store.mark_dirty();
+        id
     }
-    
+
     pub fn new_text(&mut self, cs: &mut cosmic_text::FontSystem) -> ObjectId {
-        self.object_store.new_text(cs)
+        let id = self.object_store.new_text(cs);
+        self.object_store.mark_dirty();
+        id
     }
 
     pub fn new_bezier(&mut self) -> ObjectId {
-        self.object_store.new_bezier()
+        let id = self.object_store.new_bezier();
+        self.object_store.mark_dirty();
+        id
     }
 
     pub fn config_position(&mut self, id: ObjectId, pos: Vec2) {
         self.object_store.config_position(id, pos);
+        self.object_store.mark_dirty();
     }
-    
+
     pub fn config_size(&mut self, id: ObjectId, size: Vec2, cs: &mut cosmic_text::FontSystem) {
         self.object_store.config_size(id, size, cs);
+        self.object_store.mark_dirty();
     }
-    
+
     pub fn config_rotation(&mut self, id: ObjectId, angle_degrees: f32) {
         self.object_store.config_rotation(id, angle_degrees);
+        self.object_store.mark_dirty();
     }
 
     pub fn config_color(&mut self, id: ObjectId, color: Vec4) {
         self.object_store.config_color(id, color);
+        self.object_store.mark_dirty();
     }
 
     pub fn config_z_index(&mut self, id: ObjectId, z: f32) {
         self.object_store.config_z_index(id, z);
+        self.object_store.mark_dirty();
     }
 
     pub fn config_text(&mut self, id: ObjectId, text: &str, font_system: &mut FontSystem) {
         self.object_store.config_text(id, text, font_system);
+        self.object_store.mark_dirty();
     }
-    
+
     pub fn config_font(&mut self, id: ObjectId, font_id: crate::font::FontId) {
         self.object_store.config_font(id, font_id);
+        self.object_store.mark_dirty();
     }
 
     pub fn config_rounded(&mut self, id: ObjectId, radii: Vec4) {
         self.object_store.config_rounded(id, radii);
+        self.object_store.mark_dirty();
     }
 
     pub fn set_bezier_points(&mut self, id: ObjectId, points: Vec<Vec2>) {
         self.object_store.set_bezier_points(id, points);
+        self.object_store.mark_dirty();
     }
 
     pub fn config_bezier_thickness(&mut self, id: ObjectId, thickness: f32) {
         self.object_store.config_bezier_thickness(id, thickness);
+        self.object_store.mark_dirty();
     }
 
     pub fn config_bezier_smooth(&mut self, id: ObjectId, smoothing: f32) {
         self.object_store.config_bezier_smooth(id, smoothing);
+        self.object_store.mark_dirty();
     }
 
     pub fn delete_object(&mut self, id: ObjectId) {
         self.object_store.delete_object(id);
+        self.object_store.mark_dirty();
     }
 
     pub fn clear_all_objects(&mut self) {
         self.object_store.clear_all();
+        self.object_store.mark_dirty();
     }
 
     pub fn compile_shader(&mut self, src: &str) -> Result<ShaderId, MoonWalkError> {
@@ -331,19 +350,21 @@ impl<'a> Renderer<'a> {
 
     pub fn set_object_shader(&mut self, object_id: ObjectId, shader_id: ShaderId) {
         self.object_store.set_object_shader(object_id, shader_id);
+        self.object_store.mark_dirty();
     }
 
     pub fn set_uniform(&mut self, id: ObjectId, name: String, value: UniformValue) {
         self.object_store.set_uniform(id, name, value);
-    }
-
-    pub fn set_masking(&mut self, id: ObjectId, enable: bool) {
-        self.object_store.set_masking(id, enable);
-        self.object_store.mark_dirty();  // Добавьте это, чтобы триггерить перестройку батчей
+        self.object_store.mark_dirty();
     }
 
     pub fn set_parent(&mut self, child: ObjectId, parent: ObjectId) {
         self.object_store.set_parent(child, parent);
-        self.object_store.mark_dirty();  // Добавьте это, чтобы триггерить перестройку батчей
+        self.object_store.mark_dirty();
+    }
+
+    pub fn set_masking(&mut self, id: ObjectId, enable: bool) {
+        self.object_store.set_masking(id, enable);
+        self.object_store.mark_dirty();
     }
 }
