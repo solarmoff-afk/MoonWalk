@@ -39,6 +39,7 @@ pub struct BatchGroup {
     pub vbo: wgpu::Buffer,
     pub vertex_count: usize,
     pub scissor_rect: Option<[u32; 4]>,
+    pub sort_key: f32,
 }
 
 #[repr(C)]
@@ -148,10 +149,14 @@ pub fn rebuild_batch_groups(
         match pass {
             RenderPass::Simple => {
                 let mut rect_vertices = Vec::<RectVertex>::new();
+                let mut rect_z_sum = 0.0;
+                let mut rect_count = 0;
                 
                 for obj in &objects {
                     if let Variant::Rect(data) = &obj.variant {
                         append_rect_vertices(obj, data, &mut rect_vertices);
+                        rect_z_sum += obj.common.z;
+                        rect_count += 1;
                     }
                 }
                 
@@ -163,6 +168,8 @@ pub fn rebuild_batch_groups(
                         usage: wgpu::BufferUsages::VERTEX,
                     });
 
+                    let average_z = if rect_count > 0 { rect_z_sum / rect_count as f32 } else { 0.0 };
+
                     let batch = BatchGroup {
                         shader_id,
                         uniforms: uniforms.clone(),
@@ -170,14 +177,16 @@ pub fn rebuild_batch_groups(
                         vbo,
                         vertex_count,
                         scissor_rect: scissor,
+                        sort_key: average_z,
                     };
-                    all_batches.entry(pass).or_default().push(batch); 
+                    all_batches.entry(pass).or_default().push(batch);
                 }
 
                 for obj in &objects {
                     if let Variant::Bezier(data) = &obj.variant {
                         let mut batch = create_bezier_batch(device, obj, data, shader_id, uniforms.clone(), width, height);
                         batch.scissor_rect = scissor;
+                        batch.sort_key = obj.common.z;
                         all_batches.entry(pass).or_default().push(batch);
                     }
                 }
@@ -185,9 +194,14 @@ pub fn rebuild_batch_groups(
 
             RenderPass::Glyph => {
                 let mut vertices = Vec::<TextVertex>::new();
+                let mut text_z_sum = 0.0;
+                let mut text_count = 0;
+
                 for obj in &objects {
                     if let Variant::Text(data) = &obj.variant {
                         append_text_vertices(obj, data, &mut vertices, glyph_cache, font_system);
+                        text_z_sum += obj.common.z;
+                        text_count += 1;
                     }
                 }
             
@@ -199,6 +213,8 @@ pub fn rebuild_batch_groups(
                         usage: wgpu::BufferUsages::VERTEX,
                     });
 
+                    let average_z = if text_count > 0 { text_z_sum / text_count as f32 } else { 0.0 };
+
                     let batch = BatchGroup {
                         shader_id,
                         uniforms,
@@ -206,12 +222,18 @@ pub fn rebuild_batch_groups(
                         vbo,
                         vertex_count,
                         scissor_rect: scissor,
+                        sort_key: average_z,
                     };
                     all_batches.entry(pass).or_default().push(batch);
                 }
             }
         }
     }
+
+    for groups in all_batches.values_mut() {
+        groups.sort_by(|a, b| a.sort_key.partial_cmp(&b.sort_key).unwrap_or(std::cmp::Ordering::Equal));
+    }
+
     all_batches
 }
 
@@ -348,5 +370,6 @@ fn create_bezier_batch(device: &wgpu::Device, obj: &Object, data: &BezierData, s
         vbo,
         vertex_count: 3,
         scissor_rect: None,
+        sort_key: 0.0,
     }
 }
