@@ -217,8 +217,14 @@ impl<'a> Renderer<'a> {
                 for (group, bind_group) in groups.iter().zip(simple_pass_bind_groups.iter()) {
                     if let Some(pipeline) = self.shader_store.get_pipeline(group.shader_id) {
                         render_pass.set_pipeline(pipeline);
+
+                        if let Some(rect) = group.scissor_rect {
+                            render_pass.set_scissor_rect(rect[0], rect[1], rect[2], rect[3]);
+                        } else {
+                            render_pass.set_scissor_rect(0, 0, self.width, self.height);
+                        }
+
                         render_pass.set_bind_group(0, bind_group, &[]);
-                        
                         if group.storage_buffers.is_empty() {
                             render_pass.set_vertex_buffer(0, group.vbo.slice(..));
                         }
@@ -233,6 +239,13 @@ impl<'a> Renderer<'a> {
                 for (group, proj_bind_group) in groups.iter().zip(glyph_pass_proj_bind_groups.iter()) {
                     if let Some(pipeline) = self.shader_store.get_pipeline(group.shader_id) {
                         render_pass.set_pipeline(pipeline);
+                        
+                        if let Some(rect) = group.scissor_rect {
+                            render_pass.set_scissor_rect(rect[0], rect[1], rect[2], rect[3]);
+                        } else {
+                            render_pass.set_scissor_rect(0, 0, self.width, self.height);
+                        }
+                        
                         render_pass.set_bind_group(0, proj_bind_group, &[]);
                         render_pass.set_bind_group(1, glyph_texture_bind_group, &[]);
                         render_pass.set_vertex_buffer(0, group.vbo.slice(..));
@@ -322,5 +335,13 @@ impl<'a> Renderer<'a> {
 
     pub fn set_uniform(&mut self, id: ObjectId, name: String, value: UniformValue) {
         self.object_store.set_uniform(id, name, value);
+    }
+
+    pub fn set_parent(&mut self, child: ObjectId, parent: ObjectId) {
+        self.object_store.set_parent(child, parent);
+    }
+
+    pub fn set_masking(&mut self, id: ObjectId, enable: bool) {
+        self.object_store.set_masking(id, enable);
     }
 }

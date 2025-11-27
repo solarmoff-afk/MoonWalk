@@ -249,4 +249,18 @@ impl ObjectStore {
     pub fn reset_dirty(&mut self) {
         self.dirty = false;
     }
+
+    pub fn set_parent(&mut self, child_id: ObjectId, parent_id: ObjectId) {
+        if let Some(child) = self.objects.get_mut(&child_id) {
+            child.common.parent = Some(parent_id);
+            self.mark_dirty();
+        }
+    }
+
+    pub fn set_masking(&mut self, id: ObjectId, enable: bool) {
+        if let Some(obj) = self.objects.get_mut(&id) {
+            obj.common.mask_children = enable;
+            self.mark_dirty();
+        }
+    }
 }

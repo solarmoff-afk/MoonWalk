@@ -22,8 +22,15 @@ pub enum UniformValue {
 
 #[derive(Clone, Default)]
 pub struct Common {
-    pub position: Vec2, pub size: Vec2, pub rotation: f32, pub color: Vec4,
-    pub z: f32, pub shader: ShaderId, pub uniforms: HashMap<String, UniformValue>,
+    pub position: Vec2,
+    pub size: Vec2,
+    pub rotation: f32,
+    pub color: Vec4,
+    pub z: f32,
+    pub shader: ShaderId,
+    pub uniforms: HashMap<String, UniformValue>,
+    pub parent: Option<ObjectId>,
+    pub mask_children: bool,
 }
 
 #[derive(Clone, Default)]

@@ -38,6 +38,7 @@ pub struct BatchGroup {
     pub storage_buffers: HashMap<u32, wgpu::Buffer>,
     pub vbo: wgpu::Buffer,
     pub vertex_count: usize,
+    pub scissor_rect: Option<[u32; 4]>,
 }
 
 #[repr(C)]
@@ -51,6 +52,62 @@ struct BezierUniforms {
     _padding: [u32; 3],
 }
 
+fn calculate_scissor(
+    store: &ObjectStore,
+    start_obj: &Object,
+    screen_w: u32,
+    screen_h: u32
+) -> Option<[u32; 4]> {
+    let mut min_x = 0.0f32;
+    let mut min_y = 0.0f32;
+    let mut max_x = screen_w as f32;
+    let mut max_y = screen_h as f32;
+    
+    let mut mask_found = false;
+    let mut current_id = start_obj.common.parent;
+
+    while let Some(pid) = current_id {
+        if let Some(parent) = store.get_objects().get(&pid) {
+            if parent.common.mask_children {
+                mask_found = true;
+                
+                let px = parent.common.position.x;
+                let py = parent.common.position.y;
+                let pw = parent.common.size.x;
+                let ph = parent.common.size.y;
+
+                min_x = min_x.max(px);
+                min_y = min_y.max(py);
+                max_x = max_x.min(px + pw);
+                max_y = max_y.min(py + ph);
+            }
+            current_id = parent.common.parent;
+        } else {
+            break;
+        }
+    }
+
+    if !mask_found {
+        return None;
+    }
+
+    let final_x = min_x.max(0.0).floor() as u32;
+    let final_y = min_y.max(0.0).floor() as u32;
+    let final_w = (max_x - min_x).max(0.0).ceil() as u32;
+    let final_h = (max_y - min_y).max(0.0).ceil() as u32;
+
+    let clamped_x = final_x.min(screen_w);
+    let clamped_y = final_y.min(screen_h);
+    let clamped_w = final_w.min(screen_w - clamped_x);
+    let clamped_h = final_h.min(screen_h - clamped_y);
+
+    if clamped_w == 0 || clamped_h == 0 {
+        Some([0, 0, 0, 0])
+    } else {
+        Some([clamped_x, clamped_y, clamped_w, clamped_h])
+    }
+}
+
 pub fn rebuild_batch_groups(
     device: &wgpu::Device,
     object_store: &ObjectStore,
@@ -59,7 +116,7 @@ pub fn rebuild_batch_groups(
     width: u32,
     height: u32,
 ) -> HashMap<RenderPass, Vec<BatchGroup>> {
-    let mut grouped_objects: HashMap<(RenderPass, ShaderId, u64), Vec<&Object>> = HashMap::new();
+    let mut grouped_objects: HashMap<(RenderPass, ShaderId, u64, Option<[u32; 4]>), Vec<&Object>> = HashMap::new();
     
     for object in object_store.get_objects().values() {
         let pass = match object.variant {
@@ -70,22 +127,22 @@ pub fn rebuild_batch_groups(
         
         let shader_id = object_store.get_default_shader_for(object);
         let uniform_hash = hash_uniforms(&object.common.uniforms);
+        let scissor = calculate_scissor(object_store, object, width, height);
         
         grouped_objects
-            .entry((pass, shader_id, uniform_hash))
+            .entry((pass, shader_id, uniform_hash, scissor))
             .or_default()
             .push(object);
     }
 
     let mut all_batches: HashMap<RenderPass, Vec<BatchGroup>> = HashMap::new();
 
-    for ((pass, shader_id, _), mut objects) in grouped_objects {
+    for ((pass, shader_id, _, scissor), mut objects) in grouped_objects {
         if objects.is_empty() {
             continue;
         }
 
         objects.sort_by(|a, b| a.common.z.partial_cmp(&b.common.z).unwrap_or(std::cmp::Ordering::Equal));
-
         let uniforms = objects[0].common.uniforms.clone();
         
         match pass {
@@ -100,13 +157,27 @@ pub fn rebuild_batch_groups(
                 
                 if !rect_vertices.is_empty() {
                     let vertex_count = rect_vertices.len();
-                    let batch = create_batch_gpu_objects(device, bytemuck::cast_slice(&rect_vertices), shader_id, uniforms.clone(), vertex_count);
+                    let vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Vertex Buffer"),
+                        contents: bytemuck::cast_slice(&rect_vertices),
+                        usage: wgpu::BufferUsages::VERTEX,
+                    });
+
+                    let batch = BatchGroup {
+                        shader_id,
+                        uniforms: uniforms.clone(),
+                        storage_buffers: HashMap::new(),
+                        vbo,
+                        vertex_count,
+                        scissor_rect: scissor,
+                    };
                     all_batches.entry(pass).or_default().push(batch); 
                 }
 
                 for obj in &objects {
                     if let Variant::Bezier(data) = &obj.variant {
-                        let batch = create_bezier_batch(device, obj, data, shader_id, uniforms.clone(), width, height);
+                        let mut batch = create_bezier_batch(device, obj, data, shader_id, uniforms.clone(), width, height);
+                        batch.scissor_rect = scissor;
                         all_batches.entry(pass).or_default().push(batch);
                     }
                 }
@@ -122,7 +193,20 @@ pub fn rebuild_batch_groups(
             
                 if !vertices.is_empty() {
                     let vertex_count = vertices.len();
-                    let batch = create_batch_gpu_objects(device, bytemuck::cast_slice(&vertices), shader_id, uniforms, vertex_count);
+                    let vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Text Vertex Buffer"),
+                        contents: bytemuck::cast_slice(&vertices),
+                        usage: wgpu::BufferUsages::VERTEX,
+                    });
+
+                    let batch = BatchGroup {
+                        shader_id,
+                        uniforms,
+                        storage_buffers: HashMap::new(),
+                        vbo,
+                        vertex_count,
+                        scissor_rect: scissor,
+                    };
                     all_batches.entry(pass).or_default().push(batch);
                 }
             }
@@ -213,22 +297,6 @@ fn append_text_vertices(
     }
 }
 
-fn create_batch_gpu_objects(device: &wgpu::Device, data: &[u8], shader_id: ShaderId, uniforms: HashMap<String, UniformValue>, vertex_count: usize) -> BatchGroup {
-    let vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some("Vertex Buffer"),
-        contents: data,
-        usage: wgpu::BufferUsages::VERTEX,
-    });
-    
-    BatchGroup {
-        shader_id,
-        uniforms,
-        storage_buffers: HashMap::new(),
-        vbo,
-        vertex_count,
-    }
-}
-
 pub fn release_batch_groups(groups: &mut HashMap<RenderPass, Vec<BatchGroup>>) {
     for pass_groups in groups.values_mut() {
         for group in pass_groups {
@@ -278,5 +346,7 @@ fn create_bezier_batch(device: &wgpu::Device, obj: &Object, data: &BezierData, s
         uniforms: uniforms_map,
         storage_buffers,
         vbo,
-        vertex_count: 3,}
+        vertex_count: 3,
+        scissor_rect: None,
+    }
 }

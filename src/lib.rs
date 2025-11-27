@@ -165,6 +165,14 @@ impl MoonWalk {
     pub fn config_bezier_smooth(&mut self, id: ObjectId, smoothing: f32) {
         self.renderer.config_bezier_smooth(id, smoothing);
     }
+
+    pub fn set_parent(&mut self, child: ObjectId, parent: ObjectId) {
+        self.renderer.set_parent(child, parent);
+    }
+
+    pub fn set_masking(&mut self, id: ObjectId, enable: bool) {
+        self.renderer.set_masking(id, enable);
+    }
 }
 
 pub mod ffi {
@@ -509,6 +517,20 @@ pub mod ffi {
     ) {
         if let Some(state) = state_ptr.as_mut() {
             state.config_bezier_smooth(id.into(), smooth);
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_set_parent(state_ptr: *mut MoonWalk, child: u32, parent: u32) {
+        if let Some(s) = state_ptr.as_mut() {
+            s.set_parent(child.into(), parent.into());
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn moonwalk_set_masking(state_ptr: *mut MoonWalk, id: u32, enable: bool) {
+        if let Some(s) = state_ptr.as_mut() {
+            s.set_masking(id.into(), enable);
         }
     }
 
