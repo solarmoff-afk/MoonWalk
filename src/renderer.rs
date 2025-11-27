@@ -337,11 +337,13 @@ impl<'a> Renderer<'a> {
         self.object_store.set_uniform(id, name, value);
     }
 
-    pub fn set_parent(&mut self, child: ObjectId, parent: ObjectId) {
-        self.object_store.set_parent(child, parent);
-    }
-
     pub fn set_masking(&mut self, id: ObjectId, enable: bool) {
         self.object_store.set_masking(id, enable);
+        self.object_store.mark_dirty();  // Добавьте это, чтобы триггерить перестройку батчей
+    }
+
+    pub fn set_parent(&mut self, child: ObjectId, parent: ObjectId) {
+        self.object_store.set_parent(child, parent);
+        self.object_store.mark_dirty();  // Добавьте это, чтобы триггерить перестройку батчей
     }
 }
