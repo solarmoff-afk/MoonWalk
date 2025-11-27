@@ -309,7 +309,7 @@ pub fn release_batch_groups(groups: &mut HashMap<RenderPass, Vec<BatchGroup>>) {
 fn create_bezier_batch(device: &wgpu::Device, obj: &Object, data: &BezierData, shader_id: ShaderId, uniforms_map: HashMap<String, UniformValue>, width: u32, height: u32) -> BatchGroup {
     let vbo = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Dummy Bezier VBO"),
-        size: 0, 
+        size: 0,
         usage: wgpu::BufferUsages::VERTEX,
         mapped_at_creation: false,
     });

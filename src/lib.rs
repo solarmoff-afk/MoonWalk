@@ -1,6 +1,6 @@
 pub mod error;
+pub mod font;
 mod ffi_utils;
-mod font;
 mod objects;
 mod renderer;
 mod rendering;
