@@ -73,6 +73,7 @@ impl ObjectStore {
         let id = self.new_id();
         
         buffer.set_size(font_system, 100.0, 20.0);
+        buffer.set_wrap(font_system, cosmic_text::Wrap::None);
         buffer.shape_until_scroll(font_system);
 
         let mut common = Common::default();
