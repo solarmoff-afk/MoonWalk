@@ -238,14 +238,30 @@ pub fn rebuild_batch_groups(
 }
 
 fn append_rect_vertices(obj: &Object, data: &RectData, vertices: &mut Vec<RectVertex>) {
-    let model = Mat4::from_translation(Vec3::new(obj.common.position.x, obj.common.position.y, 0.0))
-        * Mat4::from_rotation_z(obj.common.rotation.to_radians());
-
     let size = obj.common.size;
     let half_size = size * 0.5;
+
+    /*
+        Нам необходимо вычислить центр в мировых кордах,
+        позиция это верхний левый угол, центр это
+        position + половина размера (half_size)
+    */
+    
+    let center_x = obj.common.position.x + half_size.x;
+    let center_y = obj.common.position.y + half_size.y;
+
+    /*
+        Внутри матрицы модели позиция указывается относительно
+        центра чтобы не ломать к чертям вращение
+    */
+
+    let model = Mat4::from_translation(Vec3::new(center_x, center_y, 0.0))
+        * Mat4::from_rotation_z(obj.common.rotation.to_radians());
+
     let c = obj.common.color.to_array();
     let r = data.radii.to_array();
 
+    // -y это вверх, +y это вниз
     let positions = [
         model * Vec4::new(-half_size.x,  half_size.y, 0.0, 1.0),
         model * Vec4::new(-half_size.x, -half_size.y, 0.0, 1.0),
@@ -254,8 +270,10 @@ fn append_rect_vertices(obj: &Object, data: &RectData, vertices: &mut Vec<RectVe
     ];
     
     let local_positions = [
-        Vec2::new(0.0, size.y), Vec2::new(0.0, 0.0),
-        Vec2::new(size.x, 0.0), Vec2::new(size.x, size.y),
+        Vec2::new(0.0, size.y),
+        Vec2::new(0.0, 0.0),
+        Vec2::new(size.x, 0.0),
+        Vec2::new(size.x, size.y),
     ];
 
     let indices = [0, 1, 2, 0, 2, 3];
@@ -277,42 +295,71 @@ fn append_text_vertices(
     glyph_cache: &mut GlyphCache,
     font_system: &mut FontSystem,
 ) {
-    let model = Mat4::from_translation(Vec3::new(obj.common.position.x, obj.common.position.y, 0.0))
+    let size = obj.common.size;
+    let half_size = size * 0.5;
+
+    let center_x = obj.common.position.x + half_size.x;
+    let center_y = obj.common.position.y + half_size.y;
+
+    let model = Mat4::from_translation(Vec3::new(center_x, center_y, 0.0))
         * Mat4::from_rotation_z(obj.common.rotation.to_radians());
 
     let cosmic_fs = font_system.cosmic_mut();
     let c = obj.common.color.to_array();
+
+    let offset_x = -half_size.x;
+    let offset_y = -half_size.y;
 
     for run in text_data.buffer.layout_runs() {
         for glyph in run.glyphs.iter() {
             let cache_key = get_cache_key(glyph);
             let Some((image, uv_rect)) = glyph_cache.get_glyph(cache_key, cosmic_fs) else { continue; };
 
-            let left = glyph.x + image.placement.left as f32;
-            let top = run.line_y - image.placement.top as f32;
+            let glyph_x = glyph.x + image.placement.left as f32;
+            let glyph_y = run.line_y - image.placement.top as f32;
+            
+            let left = glyph_x + offset_x;
+            let top = glyph_y + offset_y;
+            
             let w = image.placement.width as f32;
             let h = image.placement.height as f32;
             
             let (uv_left, uv_top, uv_w, uv_h) = uv_rect;
 
             let positions = [
-                model * Vec4::new(left, top + h, 0.0, 1.0),
-                model * Vec4::new(left + w, top, 0.0, 1.0),
-                model * Vec4::new(left, top, 0.0, 1.0),
-                model * Vec4::new(left + w, top + h, 0.0, 1.0),
+                model * Vec4::new(left, top + h, 0.0, 1.0),      // BL
+                model * Vec4::new(left + w, top, 0.0, 1.0),      // TR (тут порядок индексов важен)
+                model * Vec4::new(left, top, 0.0, 1.0),          // TL
+                model * Vec4::new(left + w, top + h, 0.0, 1.0),  // BR
             ];
 
             let uvs = [
-                Vec2::new(uv_left, uv_top + uv_h), Vec2::new(uv_left + uv_w, uv_top),
-                Vec2::new(uv_left, uv_top), Vec2::new(uv_left + uv_w, uv_top + uv_h),
+                Vec2::new(uv_left, uv_top + uv_h),
+                Vec2::new(uv_left + uv_w, uv_top),
+                Vec2::new(uv_left, uv_top), 
+                Vec2::new(uv_left + uv_w, uv_top + uv_h),
             ];
 
-            let indices = [0, 2, 1, 0, 1, 3];
+            let positions_sorted = [
+                model * Vec4::new(left, top + h, 0.0, 1.0),
+                model * Vec4::new(left, top, 0.0, 1.0),
+                model * Vec4::new(left + w, top, 0.0, 1.0),
+                model * Vec4::new(left + w, top + h, 0.0, 1.0),
+            ];
+            
+            let uvs_sorted = [
+                Vec2::new(uv_left, uv_top + uv_h),
+                Vec2::new(uv_left, uv_top),
+                Vec2::new(uv_left + uv_w, uv_top),
+                Vec2::new(uv_left + uv_w, uv_top + uv_h),
+            ];
+
+            let indices = [0, 1, 2, 0, 2, 3];
             for &i in &indices {
                 vertices.push(TextVertex {
-                    position: [positions[i].x, positions[i].y, obj.common.z],
+                    position: [positions_sorted[i].x, positions_sorted[i].y, obj.common.z],
                     color: c,
-                    tex_coords: uvs[i].to_array(),
+                    tex_coords: uvs_sorted[i].to_array(),
                 });
             }
         }
