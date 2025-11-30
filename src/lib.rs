@@ -1,70 +1,90 @@
 pub mod error;
-pub mod font;
-mod ffi_utils;
-mod objects;
-mod renderer;
+pub mod objects;
 mod rendering;
+mod ffi_utils;
 
 use glam::{Vec2, Vec4};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use wgpu::SurfaceError;
 
-use crate::font::{FontId, FontSystem};
-use crate::objects::{ShaderId, UniformValue};
-use crate::renderer::Renderer;
+use crate::objects::{ObjectId, UniformValue, ShaderId};
+use crate::rendering::renderer::Renderer;
 use crate::error::MoonWalkError;
-
-pub use objects::ObjectId;
+use textware::FontId;
 
 pub struct MoonWalk {
-    renderer: Renderer<'static>,
-    font_system: FontSystem,
+    renderer: Renderer,
 }
 
 impl MoonWalk {
     pub fn new(
-        window: &'static (impl HasWindowHandle + HasDisplayHandle + Send + Sync),
-    ) -> Result<Self, error::MoonWalkError> {
-        let renderer = pollster::block_on(Renderer::new(window))?;
-        Ok(Self {
-            renderer,
-            font_system: FontSystem::new(),
-        })
+        window: impl HasWindowHandle + HasDisplayHandle + Send + Sync + 'static,
+        width: u32,
+        height: u32,
+    ) -> Result<Self, MoonWalkError> {
+        let renderer = pollster::block_on(Renderer::new(window, width, height))?;
+        Ok(Self { renderer })
     }
 
     #[cfg(target_os = "android")]
     pub fn new_android(
-        window: &ndk::native_window::NativeWindow,
+        window: ndk::native_window::NativeWindow,
         asset_manager: ndk::asset::AssetManager,
-    ) -> Result<Self, error::MoonWalkError> {
+        width: u32,
+        height: u32,
+    ) -> Result<Self, MoonWalkError> {
         use raw_window_handle::{DisplayHandle, HasDisplayHandle, HasWindowHandle, WindowHandle};
 
-        struct AndroidWindowWrapper {
-            handle: raw_window_handle::RawWindowHandle,
-        }
-
+        struct AndroidWindowWrapper { window: ndk::native_window::NativeWindow }
         unsafe impl HasWindowHandle for AndroidWindowWrapper {
             fn window_handle(&self) -> Result<WindowHandle<'_>, raw_window_handle::HandleError> {
-                Ok(unsafe { WindowHandle::borrow_raw(self.handle) })
+                use raw_window_handle::{AndroidDisplayHandle, RawDisplayHandle, RawWindowHandle};
+                unsafe {
+                     let handle = self.window.raw_window_handle();
+                     Ok(WindowHandle::borrow_raw(handle))
+                }
             }
         }
-
         unsafe impl HasDisplayHandle for AndroidWindowWrapper {
+             fn display_handle(&self) -> Result<DisplayHandle<'_>, raw_window_handle::HandleError> {
+                use raw_window_handle::{AndroidDisplayHandle, RawDisplayHandle};
+                Ok(unsafe { DisplayHandle::borrow_raw(RawDisplayHandle::Android(AndroidDisplayHandle::new())) })
+            }
+        }
+        
+        let wrapper = AndroidWindowWrapper { window };
+        let renderer = pollster::block_on(Renderer::new_android(wrapper, asset_manager, width, height))?;
+        Ok(Self { renderer })
+    }
+    
+    #[cfg(target_os = "ios")]
+    pub fn new_ios(
+        view_ptr: *mut libc::c_void,
+        width: u32,
+        height: u32
+    ) -> Result<Self, MoonWalkError> {
+        use raw_window_handle::{DisplayHandle, HasDisplayHandle, HasWindowHandle, WindowHandle, UiKitWindowHandle, UiKitDisplayHandle, RawWindowHandle, RawDisplayHandle};
+        use std::ptr::NonNull;
+
+        struct IosWindowWrapper { view_ptr: NonNull<libc::c_void> }
+        
+        unsafe impl HasWindowHandle for IosWindowWrapper {
+            fn window_handle(&self) -> Result<WindowHandle<'_>, raw_window_handle::HandleError> {
+                let mut handle = UiKitWindowHandle::new(self.view_ptr);
+                Ok(unsafe { WindowHandle::borrow_raw(RawWindowHandle::UiKit(handle)) })
+            }
+        }
+        unsafe impl HasDisplayHandle for IosWindowWrapper {
             fn display_handle(&self) -> Result<DisplayHandle<'_>, raw_window_handle::HandleError> {
-                Ok(unsafe { DisplayHandle::borrow_raw(raw_window_handle::RawDisplayHandle::Android(
-                    raw_window_handle::AndroidDisplayHandle::new()
-                ))})
+                Ok(unsafe { DisplayHandle::borrow_raw(RawDisplayHandle::UiKit(UiKitDisplayHandle::new())) })
             }
         }
 
-        let wrapper = Box::new(AndroidWindowWrapper { handle: window.raw_window_handle() });
-        let static_wrapper: &'static AndroidWindowWrapper = Box::leak(wrapper);
-        let renderer = pollster::block_on(Renderer::new(static_wrapper))?;
+        let ptr = NonNull::new(view_ptr).ok_or(MoonWalkError::InitializationError("Null view pointer".into()))?;
+        let wrapper = IosWindowWrapper { view_ptr: ptr };
         
-        Ok(Self {
-            renderer,
-            font_system: FontSystem::new(asset_manager),
-        })
+        let renderer = pollster::block_on(Renderer::new(wrapper, width, height))?;
+        Ok(Self { renderer })
     }
 
     pub fn set_viewport(&mut self, width: u32, height: u32) {
@@ -72,8 +92,7 @@ impl MoonWalk {
     }
 
     pub fn render_frame(&mut self, clear_color: Vec4) -> Result<(), SurfaceError> {
-        self.renderer
-            .render_frame(&mut self.font_system, clear_color)
+        self.renderer.render_frame(clear_color)
     }
 
     pub fn new_rect(&mut self) -> ObjectId {
@@ -81,7 +100,11 @@ impl MoonWalk {
     }
 
     pub fn new_text(&mut self) -> ObjectId {
-        self.renderer.new_text(self.font_system.cosmic_mut())
+        self.renderer.new_text()
+    }
+
+    pub fn new_bezier(&mut self) -> ObjectId {
+        self.renderer.new_bezier()
     }
 
     pub fn config_position(&mut self, id: ObjectId, pos: Vec2) {
@@ -89,8 +112,7 @@ impl MoonWalk {
     }
 
     pub fn config_size(&mut self, id: ObjectId, size: Vec2) {
-        self.renderer
-            .config_size(id, size, self.font_system.cosmic_mut());
+        self.renderer.config_size(id, size, ());
     }
 
     pub fn config_rotation(&mut self, id: ObjectId, angle_degrees: f32) {
@@ -106,20 +128,11 @@ impl MoonWalk {
     }
 
     pub fn config_text(&mut self, id: ObjectId, text: &str) {
-        self.renderer
-            .config_text(id, text, &mut self.font_system);
+        self.renderer.config_text(id, text, ());
     }
 
-    pub fn load_font(&mut self, path: &str, size: f32) -> Result<FontId, MoonWalkError> {
-        self.font_system.load_font(path, size)
-    }
-
-    pub fn load_font_from_bytes(&mut self, data: &[u8], name: &str, size: f32) -> Result<FontId, MoonWalkError> {
-        self.font_system.load_font_from_bytes(data, name, size)
-    }
-
-    pub fn clear_font(&mut self, font_id: FontId) {
-        self.font_system.clear_font(font_id);
+    pub fn load_font_from_bytes(&mut self, data: &[u8], name: &str, _size: f32) -> Result<FontId, MoonWalkError> {
+        self.renderer.load_font_bytes(data, name)
     }
 
     pub fn config_font(&mut self, object_id: ObjectId, font_id: FontId) {
@@ -150,10 +163,6 @@ impl MoonWalk {
         self.renderer.set_uniform(id, name, value);
     }
 
-    pub fn new_bezier(&mut self) -> ObjectId {
-        self.renderer.new_bezier()
-    }
-
     pub fn set_bezier_points(&mut self, id: ObjectId, points: Vec<Vec2>) {
         self.renderer.set_bezier_points(id, points);
     }
@@ -178,12 +187,11 @@ impl MoonWalk {
 pub mod ffi {
     use super::{
         ffi_utils::{mat4_from_ptr, string_from_ptr},
-        font::FontId,
         objects::UniformValue,
         MoonWalk,
     };
-
-    use  glam::{Vec2, Vec3, Vec4};
+    use textware::FontId;
+    use glam::{Vec2, Vec4, Vec3};
     use raw_window_handle::{DisplayHandle, HasDisplayHandle, HasWindowHandle, WindowHandle};
 
     #[derive(Clone, Copy)]
@@ -208,6 +216,8 @@ pub mod ffi {
     pub unsafe extern "C" fn moonwalk_init(
         window_handle: *const raw_window_handle::RawWindowHandle,
         display_handle: *const raw_window_handle::RawDisplayHandle,
+        width: u32,
+        height: u32,
     ) -> *mut MoonWalk {
         if window_handle.is_null() || display_handle.is_null() {
             eprintln!("MoonWalk initialization failed: null handle provided");
@@ -223,7 +233,7 @@ pub mod ffi {
         });
         let static_handle_wrapper: &'static WindowHandleWrapper = Box::leak(handle_wrapper);
 
-        match MoonWalk::new(static_handle_wrapper) {
+        match MoonWalk::new(static_handle_wrapper, width, height) {
             Ok(state) => Box::into_raw(Box::new(state)),
             Err(e) => {
                 eprintln!("MoonWalk initialization failed: {}", e);
@@ -237,6 +247,8 @@ pub mod ffi {
     pub unsafe extern "C" fn moonwalk_init_android(
         window_ptr: *mut ndk_sys::ANativeWindow,
         asset_manager_ptr: *mut ndk_sys::AAssetManager,
+        width: u32,
+        height: u32,
     ) -> *mut MoonWalk {
         android_logger::init_once(
             android_logger::Config::default()
@@ -252,10 +264,26 @@ pub mod ffi {
         let window = ndk::native_window::NativeWindow::from_ptr(std::ptr::NonNull::new_unchecked(window_ptr));
         let asset_manager = ndk::asset::AssetManager::from_ptr(std::ptr::NonNull::new_unchecked(asset_manager_ptr));
         
-        match MoonWalk::new_android(&window, asset_manager) {
+        match MoonWalk::new_android(window, asset_manager, width, height) {
             Ok(state) => Box::into_raw(Box::new(state)),
             Err(e) => {
                 log::error!("MoonWalk Android initialization failed: {}", e);
+                std::ptr::null_mut()
+            }
+        }
+    }
+    
+    #[no_mangle]
+    #[cfg(target_os = "ios")]
+    pub unsafe extern "C" fn moonwalk_init_ios(
+        view_ptr: *mut libc::c_void,
+        width: u32,
+        height: u32
+    ) -> *mut MoonWalk {
+         match MoonWalk::new_ios(view_ptr, width, height) {
+            Ok(state) => Box::into_raw(Box::new(state)),
+            Err(e) => {
+                eprintln!("MoonWalk iOS initialization failed: {}", e);
                 std::ptr::null_mut()
             }
         }
@@ -374,17 +402,20 @@ pub mod ffi {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn moonwalk_load_font(
+    pub unsafe extern "C" fn moonwalk_load_font_bytes(
         state_ptr: *mut MoonWalk,
-        path_ptr: *const libc::c_char,
+        data_ptr: *const u8,
+        data_len: usize,
+        name_ptr: *const libc::c_char,
         size: f32,
     ) -> u64 {
         if let Some(state) = state_ptr.as_mut() {
-            if let Ok(path) = string_from_ptr(path_ptr) {
-                match state.load_font(&path, size) {
-                    Ok(font_id) => font_id.to_u64(),
+            if let Ok(name) = string_from_ptr(name_ptr) {
+                let data = std::slice::from_raw_parts(data_ptr, data_len);
+                match state.load_font_from_bytes(data, &name, size) {
+                    Ok(font_id) => font_id.0,
                     Err(e) => {
-                        eprintln!("Failed to load font from {}: {}", path, e);
+                        eprintln!("Failed to load font from bytes: {}", e);
                         0
                     }
                 }
@@ -397,20 +428,13 @@ pub mod ffi {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn moonwalk_clear_font(state_ptr: *mut MoonWalk, font_id: u64) {
-        if let Some(state) = state_ptr.as_mut() {
-            state.clear_font(FontId::from_u64(font_id));
-        }
-    }
-
-    #[no_mangle]
     pub unsafe extern "C" fn moonwalk_config_font(
         state_ptr: *mut MoonWalk,
         object_id: u32,
         font_id: u64,
     ) {
         if let Some(state) = state_ptr.as_mut() {
-            state.config_font(object_id.into(), FontId::from_u64(font_id));
+            state.config_font(object_id.into(), FontId(font_id));
         }
     }
 
@@ -446,7 +470,6 @@ pub mod ffi {
     pub unsafe extern "C" fn moonwalk_compile_shader(
         state_ptr: *mut MoonWalk,
         vs_src_ptr: *const libc::c_char,
-        _fs_src_ptr: *const libc::c_char,
     ) -> u32 {
         if let Some(state) = state_ptr.as_mut() {
             if let Ok(shader_src) = string_from_ptr(vs_src_ptr) {

@@ -1,3 +1,3 @@
 pub mod batch;
-pub mod glyph_cache;
+pub mod renderer;
 pub mod shader;

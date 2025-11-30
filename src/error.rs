@@ -1,23 +1,23 @@
 use thiserror::Error;
-use wgpu::CreateSurfaceError;
+use textware::TextError;
 
 #[derive(Debug, Error)]
 pub enum MoonWalkError {
     #[error("Failed to request a wgpu adapter")]
     AdapterRequestError,
 
-    #[error("Failed to request a wgpu device")]
-    DeviceRequestError(#[from] wgpu::RequestDeviceError),
-    
-    #[error("Failed to create wgpu surface")]
-    CreateSurfaceError(#[from] CreateSurfaceError),
-
-    #[error("No suitable surface format found")]
-    NoSuitableSurfaceFormat,
+    #[error("Failed to create easygpu context")]
+    ContextCreationError,
 
     #[error("Failed to compile shader: {0}")]
     ShaderCompilation(String),
 
-    #[error("Failed to load font: {0}")]
-    FontLoading(String),
+    #[error("Text error: {0}")]
+    TextError(#[from] TextError),
+
+    #[error("Surface error: {0}")]
+    SurfaceError(#[from] wgpu::SurfaceError),
+
+    #[error("Initialization error: {0}")]
+    InitializationError(String),
 }
