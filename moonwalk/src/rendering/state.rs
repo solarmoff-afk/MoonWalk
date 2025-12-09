@@ -13,7 +13,7 @@ use crate::error::MoonWalkError;
 /// Структура для единой юниформы под все шейдеры. Не передаём
 /// матрицу модели для экономии передачи данных через шину.
 ///
-/// [?] view_proj - Матрица вида и проекции
+/// - [?] view_proj - Матрица вида и проекции
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct GlobalUniform {
