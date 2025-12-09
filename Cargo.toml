@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = ["bootstrap",
+    "example",
+    "moonwalk"
+]
+
+[profile.release]
+lto = true
+# target-cpu = "native"
+debug = false
+opt-level = 3
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[workspace.dependencies]
+moonwalk = { path = "./moonwalk" }

@@ -1,0 +1,18 @@
+[package]
+name = "moonwalk_bootstrap"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wgpu = "24.0"
+glam = "0.24"
+log = "0.4"
+raw-window-handle = "0.6"
+moonwalk = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+winit = { version = "0.30", features = ["android-native-activity"] }
+android-activity = { version = "0.6", features = ["native-activity"] }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+winit = "0.30"
