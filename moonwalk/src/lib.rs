@@ -173,7 +173,7 @@ impl MoonWalk {
     /// Эта функция пересоздаёт холст для рендеринга. На android
     /// при сворачивании приложение старый холст удаляется поэтому
     /// нам нужен новый.
-    pub fn recreate_surface(&mut self, window: &'static (impl HasWindowHandle + HasDisplayHandle + Send + Sync), width: u32, height: u32) {
+    pub fn recreate_surface(&mut self, window: &(impl HasWindowHandle + HasDisplayHandle), width: u32, height: u32) {
         self.renderer.recreate_surface(window, width, height);
     }
 }
