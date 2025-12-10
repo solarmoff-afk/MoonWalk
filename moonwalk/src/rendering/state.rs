@@ -93,12 +93,6 @@ impl RenderState {
             self.store.dirty = false;
         }
 
-        // Для Z индексом тоже снимаем флаг если он стоит
-        // так как в prepare мы уже всё отсортировали 
-        if self.store.z_dirty {
-            self.store.z_dirty = false;
-        }
-
         // Создаём проход рендера
         let mut pass = RenderPass::new(
             encoder,

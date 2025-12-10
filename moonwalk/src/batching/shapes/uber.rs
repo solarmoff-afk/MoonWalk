@@ -64,11 +64,7 @@ impl UberBatch {
             });
         }
         
-        // Сортировка объектов по Z идексу толкьо если Z индексы
-        // грязные (Проверяем флаг в хранилище объектов) 
-        if store.z_dirty { 
-            self.batch.sort();
-        }
+        self.batch.sort();
 
         self.batch.upload(ctx);
     }

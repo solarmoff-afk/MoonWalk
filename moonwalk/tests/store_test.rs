@@ -40,12 +40,10 @@ fn test_z_sorting_flag() {
     let id = store.new_rect();
     
     store.dirty = false;
-    store.z_dirty = false;
-    
+
     store.config_z_index(id, 10.0);
     
     assert!(store.dirty);
-    assert!(store.z_dirty);
     assert_eq!(store.z_indices[id.index()], 10.0);
 }
 
@@ -121,7 +119,7 @@ fn test_reincarnation_memory_reuse() {
 
     // Слотов всё еще 100 (память не освобождается, а помечается)
     assert_eq!(store.positions.len(), INITIAL_COUNT);
-    
+
     // Но теперь у нас 100 свободных маест
     assert_eq!(store.free_slots.len(), INITIAL_COUNT);
 
