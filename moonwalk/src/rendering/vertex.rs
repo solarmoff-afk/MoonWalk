@@ -32,14 +32,16 @@ impl QuadVertex {
 /// 4: color (r, g, b, a) (красный, зелёный, синий и альфв канал)
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct RectInstance {
+pub struct ObjectInstance {
     pub pos_size: [f32; 4],
     pub radii:    [f32; 4],
     pub extra:    [f32; 2],
+    pub uv:       [f32; 4],
     pub color:    u32,
+    pub type_id:  u32,
 }
 
-impl RectInstance {
+impl ObjectInstance {
     /// Оптимизация низкого уровня для экономии
     /// данных который проходят через шину CPU-GPU
     /// Хелпер для упаковки [r, g, b, a] (0.0 - 1.0) в u32 (0xAABBGGRR)
@@ -54,7 +56,7 @@ impl RectInstance {
     }
 }
 
-impl SortableInstance for RectInstance {
+impl SortableInstance for ObjectInstance {
     fn get_z_index(&self) -> f32 {
         self.extra[0]
     }

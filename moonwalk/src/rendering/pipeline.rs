@@ -69,43 +69,60 @@ impl ShaderStore {
         };
 
         let instance_layout = wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<crate::rendering::vertex::RectInstance>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<crate::rendering::vertex::ObjectInstance>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &[
-                // Pos + ыize (vec4<f32>) 16 байт
+                // Pos + Size (vec4<f32>) 16 байт
+                // Смещение 0
                 wgpu::VertexAttribute { 
                     format: wgpu::VertexFormat::Float32x4, 
                     offset: 0,  
                     shader_location: 1 
                 },
 
-                // Radii (vec4<f32>) 16 байт
+                // 2. Radii (vec4<f32>) 16 байт
                 // Смещение 16
                 wgpu::VertexAttribute { 
                     format: wgpu::VertexFormat::Float32x4, 
                     offset: 16, 
                     shader_location: 2 
                 },
-                
-                // Extra: Z + Rot (vec2<f32>) 8 байт
+
+                // 3. UV (vec4<f32>) 16 байт
                 // Смещение 16 + 16 = 32
                 wgpu::VertexAttribute { 
-                    format: wgpu::VertexFormat::Float32x2,
+                    format: wgpu::VertexFormat::Float32x4, 
                     offset: 32, 
                     shader_location: 3 
                 },
                 
+                // 4. Extra: Z + Rot (vec2<f32>) 8 байт
+                // Смещение 32 + 16 = 48
+                wgpu::VertexAttribute { 
+                    format: wgpu::VertexFormat::Float32x2,
+                    offset: 48, 
+                    shader_location: 4 
+                },
+                
                 // Color (u32) 4 байта
-                // Смещение 32 + 8 = 40
+                // Смещение 48 + 8 = 56
                 wgpu::VertexAttribute { 
                     format: wgpu::VertexFormat::Uint32,
-                    offset: 40, 
-                    shader_location: 4 
+                    offset: 56, 
+                    shader_location: 5 
+                },
+
+                // Type ID (u32) 4 байта
+                // Смещение 56 + 4 = 60
+                wgpu::VertexAttribute { 
+                    format: wgpu::VertexFormat::Uint32,
+                    offset: 60, 
+                    shader_location: 6 
                 },
             ],
         };
 
-        let pipeline = PipelineBuilder::new(ctx, include_str!("../shaders/rect.wgsl"))
+        let pipeline = PipelineBuilder::new(ctx, include_str!("../shaders/shape.wgsl"))
             .add_layout(vertex_layout)
             .add_layout(instance_layout)
             .build(format, &[&self.proj_layout]);

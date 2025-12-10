@@ -13,8 +13,10 @@ struct VertexInput {
 struct InstanceInput {
     @location(1) pos_size: vec4<f32>,
     @location(2) radii: vec4<f32>,
-    @location(3) extra: vec2<f32>,
-    @location(4) color_packed: u32,
+    @location(3) uv: vec4<f32>,
+    @location(4) extra: vec2<f32>,
+    @location(5) color_packed: u32,
+    @location(6) type_id: u32,
 };
 
 struct VertexOutput {
@@ -23,6 +25,8 @@ struct VertexOutput {
     @location(1) local_pos: vec2<f32>,
     @location(2) size: vec2<f32>,
     @location(3) radii: vec4<f32>,
+    @location(4) uv: vec2<f32>,      // Прокинем UV во фрагментный шейдер
+    @location(5) type_id: u32,
 };
 
 @vertex
@@ -50,6 +54,8 @@ fn vs_main(in: VertexInput, instance: InstanceInput) -> VertexOutput {
     out.radii = instance.radii;
     out.size = size;
     out.local_pos = in.position * size;
+    out.uv = instance.uv.xy;
+    out.type_id = instance.type_id;
 
     return out;
 }

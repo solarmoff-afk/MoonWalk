@@ -85,7 +85,7 @@ impl RenderState {
     /// Функция для рисования всех объектов
     pub fn draw(&mut self, ctx: &Context, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
         // Подготавливаем батчи
-        self.batches.rects.prepare(ctx, &self.store);
+        self.batches.objects.prepare(ctx, &self.store);
         
         // Если объекты грязные (dirty) - снимаем флаг 
         // (так как изменения уже отрисованы)
@@ -121,7 +121,7 @@ impl RenderState {
             pass.set_pipeline(pipeline);
             
             // Отрисовываем прямоугольники
-            self.batches.rects.render(&mut pass);
+            self.batches.objects.render(&mut pass);
         }
     }
 }

@@ -176,4 +176,9 @@ impl MoonWalk {
     pub fn recreate_surface(&mut self, window: &(impl HasWindowHandle + HasDisplayHandle), width: u32, height: u32) {
         self.renderer.recreate_surface(window, width, height);
     }
+
+    /// [WAIT DOC]
+    pub fn remove(&mut self, id: ObjectId) {
+        self.renderer.state.store.remove(id);
+    }
 }

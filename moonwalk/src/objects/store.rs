@@ -14,6 +14,9 @@ pub struct ObjectStore {
     pub colors: Vec<Vec4>,
     pub rotations: Vec<f32>,
     pub z_indices: Vec<f32>,
+
+    // [WAIT DOC]
+    pub alive: Vec<bool>,
     
     // Айди объектов
     pub rect_ids: Vec<ObjectId>,
@@ -41,6 +44,7 @@ impl ObjectStore {
             colors: Vec::with_capacity(1024),
             rotations: Vec::with_capacity(1024),
             z_indices: Vec::with_capacity(1024),
+            alive: Vec::with_capacity(1024),
             rect_ids: Vec::with_capacity(1024),
             rect_radii: Vec::with_capacity(1024),
 
@@ -58,6 +62,7 @@ impl ObjectStore {
         self.colors.push(Vec4::ONE); // Цвет белый (1, 1, 1, 1)
         self.rotations.push(0.0); // Вращение: 0.0 радиан
         self.z_indices.push(0.0); // Нулевой z индекс
+        self.alive.push(true);
         self.rect_radii.push(Vec4::ZERO); 
 
         // После создания объекта нам нужно пересобрать всё, поэтому
@@ -77,6 +82,19 @@ impl ObjectStore {
         self.rect_ids.push(id);
         
         id
+    }
+
+    pub fn remove(&mut self, id: ObjectId) {
+        let idx = id.index();
+        
+        if idx < self.alive.len() {
+            // Если объект был жив, и мы его убиваем - ставим дирти,
+            // чтобы перерисовать кадр без него
+            if self.alive[idx] {
+                self.alive[idx] = false;
+                self.dirty = true;
+            }
+        }
     }
 
     /// Каждая функция конфигурации должна делать хранилище объектов

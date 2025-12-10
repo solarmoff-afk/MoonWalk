@@ -24,7 +24,7 @@ fn validate_rect_shader() {
     )).expect("Failed to create wgpu device");
 
     // Читаем файл шейдера
-    let shader_source = include_str!("../src/shaders/rect.wgsl");
+    let shader_source = include_str!("../src/shaders/shape.wgsl");
 
     // Пытаемся скомпилировать шейдер. Если в коде есть ошибки синтаксиса то
     // эта функция запаникует и тест упадет
