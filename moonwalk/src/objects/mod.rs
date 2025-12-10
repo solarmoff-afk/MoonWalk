@@ -14,6 +14,7 @@ pub struct ShaderId(pub u32);
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ObjectType {
+    Unknown = 0,
     Rect = 1,
 }
 

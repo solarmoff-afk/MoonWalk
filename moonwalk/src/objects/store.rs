@@ -4,7 +4,7 @@
 use glam::{Vec2, Vec4};
 
 use crate::objects;
-use crate::objects::ObjectId;
+use crate::objects::{ObjectId, ObjectType};
 
 /// Хранилище для объектов
 pub struct ObjectStore {
@@ -17,12 +17,19 @@ pub struct ObjectStore {
 
     // [WAIT DOC]
     pub alive: Vec<bool>,
+    pub object_types: Vec<ObjectType>,
     
     // Айди объектов
     pub rect_ids: Vec<ObjectId>,
     
     // Данные специфичные для прямоугольника
     pub rect_radii: Vec<Vec4>,
+
+    // Оптимизация: перерождение объектов. При удалении объекта его айди
+    // добавляется в этот вектор и при следующем добавлении нового
+    // объекта от может взять свой айди из этого вектора тем самым
+    // не давая бесконечно расти и занимать ОЗУ
+    pub free_slots: Vec<usize>,
 
     pub dirty: bool,
 
@@ -45,8 +52,10 @@ impl ObjectStore {
             rotations: Vec::with_capacity(1024),
             z_indices: Vec::with_capacity(1024),
             alive: Vec::with_capacity(1024),
+            object_types: Vec::with_capacity(1024),
             rect_ids: Vec::with_capacity(1024),
             rect_radii: Vec::with_capacity(1024),
+            free_slots: Vec::with_capacity(128),
 
             // Объекты изначально не грязные потому-что их нет
             dirty: false,
@@ -55,6 +64,22 @@ impl ObjectStore {
     }
 
     fn alloc_common(&mut self) -> usize {
+        if let Some(idx) = self.free_slots.pop() {
+            // Ставим дефольные данные. Тут небольшой дубляж кода, пока-что я оставляю
+            // так, но позже желательно исправить и перейти на константы
+            self.positions[idx] = Vec2::ZERO;
+            self.sizes[idx] = Vec2::new(100.0, 100.0);
+            self.colors[idx] = Vec4::ONE;
+            self.rotations[idx] = 0.0;
+            self.z_indices[idx] = 0.0;
+            self.alive[idx] = true;
+            self.rect_radii[idx] = Vec4::ZERO;
+            self.dirty = true;
+            self.z_dirty = true;
+            
+            return idx;
+        }
+        
         let index = self.positions.len();
 
         self.positions.push(Vec2::ZERO); // Нулевая позиция (Левый верхний угол)
@@ -64,6 +89,7 @@ impl ObjectStore {
         self.z_indices.push(0.0); // Нулевой z индекс
         self.alive.push(true);
         self.rect_radii.push(Vec4::ZERO); 
+        self.object_types.push(ObjectType::Unknown);
 
         // После создания объекта нам нужно пересобрать всё, поэтому
         // делаем хранилище грязным
@@ -78,9 +104,12 @@ impl ObjectStore {
         let index = self.alloc_common();
         let id = objects::ObjectId::new(objects::ObjectType::Rect, index);
 
-        // Добавляем прямоугольник
-        self.rect_ids.push(id);
-        
+        // Если это не rect - добавляем труп в rect_ids и даём ему тип rect 
+        if self.object_types[index] != ObjectType::Rect {
+            self.rect_ids.push(id);
+            self.object_types[index] = ObjectType::Rect;
+        }
+
         id
     }
 
@@ -93,6 +122,11 @@ impl ObjectStore {
             if self.alive[idx] {
                 self.alive[idx] = false;
                 self.dirty = true;
+
+                // После смерти добавляем объект га кладбище откуда труп
+                // будут перерождёе для другого объекта не давая векторам
+                // бесконечно расти забивая оперативку
+                self.free_slots.push(idx);
             }
         }
     }
