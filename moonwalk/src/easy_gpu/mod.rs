@@ -1,6 +1,9 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 mod context;
 pub mod buffer;
 pub mod texture;

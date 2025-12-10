@@ -3,7 +3,6 @@
 
 use std::collections::HashMap;
 use std::path::Path;
-use std::ffi::CString;
 
 use crate::textware::TextError;
 

@@ -6,6 +6,9 @@
 // Изначально библиотека планировалась как отдельная зависимость, но было принято
 // решение слить в основной движок как модуль.
 
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 mod error;
 mod font;
 mod cache;
@@ -13,7 +16,7 @@ mod cache;
 pub use error::TextError;
 pub use font::{FontSystem, FontId};
 pub use cache::GlyphCache;
-pub use cosmic_text::{Attrs, Color as CosmicColor, Metrics, Weight, Family, Wrap, Align};
+pub use cosmic_text::{Attrs, Metrics, Family, Wrap};
 
 use bytemuck::{Pod, Zeroable};
 
