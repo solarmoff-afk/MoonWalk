@@ -15,8 +15,9 @@ pub struct ObjectStore {
     pub rotations: Vec<f32>,
     pub z_indices: Vec<f32>,
 
-    // [WAIT DOC]
+    // alive хранит жив ли объект. True - жив и отрисовыватся, false - мёртв
     pub alive: Vec<bool>,
+    
     pub object_types: Vec<ObjectType>,
     
     // Айди объектов

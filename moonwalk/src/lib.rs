@@ -177,7 +177,10 @@ impl MoonWalk {
         self.renderer.recreate_surface(window, width, height);
     }
 
-    /// [WAIT DOC]
+    /// Эта функция делает объект с переданным ID мёртвым. Он сохраняет в ObjectStore,
+    /// но перестаёт отрисовываться. Потом при создании другого объекта он занимает
+    /// айди любого мёртвого объекта, если мёртвого объекта нет - создаёт новый id
+    /// для себя
     pub fn remove(&mut self, id: ObjectId) {
         self.renderer.state.store.remove(id);
     }
