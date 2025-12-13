@@ -131,6 +131,11 @@ impl MoonRenderer {
     }
 
     #[inline]
+    pub fn set_uv(&mut self, id: ObjectId, uv: [f32; 4]) {
+        self.state.store.config_uv(id, uv);
+    }
+
+    #[inline]
     pub fn register_texture(&mut self, texture: Texture) -> u32 {
         self.state.add_texture(texture)
     }

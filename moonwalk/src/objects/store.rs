@@ -33,6 +33,7 @@ pub struct ObjectStore {
     pub free_slots: Vec<usize>,
 
     pub texture_ids: Vec<u32>,
+    pub uvs: Vec<[f32; 4]>,
 
     pub dirty: bool,
 }
@@ -52,6 +53,7 @@ impl ObjectStore {
             rect_radii: Vec::with_capacity(1024),
             free_slots: Vec::with_capacity(128),
             texture_ids: Vec::with_capacity(1024),
+            uvs: Vec::with_capacity(1024),
 
             // Объекты изначально не грязные потому-что их нет
             dirty: false,
@@ -69,6 +71,8 @@ impl ObjectStore {
             self.z_indices[idx] = 0.0;
             self.alive[idx] = true;
             self.rect_radii[idx] = Vec4::ZERO;
+            self.texture_ids[idx] = 0;
+            self.uvs[idx] = [0.0, 0.0, 1.0, 1.0];
             self.dirty = true;
             
             return idx;
@@ -155,6 +159,12 @@ impl ObjectStore {
     #[inline(always)]
     pub fn config_z_index(&mut self, id: ObjectId, z: f32) {
         self.z_indices[id.index()] = z;
+        self.dirty = true;
+    }
+
+    #[inline(always)]
+    pub fn config_uv(&mut self, id: ObjectId, uv: [f32; 4]) {
+        self.uvs[id.index()] = uv;
         self.dirty = true;
     }
 
