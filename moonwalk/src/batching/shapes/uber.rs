@@ -66,7 +66,7 @@ impl UberBatch {
                 radii: store.rect_radii[idx].to_array(),
 
                 // Временные значения
-                uv: [0.0, 0.0, 0.0, 0.0], 
+                uv: [0.0, 0.0, 1.0, 1.0],
                 
                 type_id: tex_id, 
 

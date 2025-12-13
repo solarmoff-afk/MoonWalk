@@ -51,7 +51,7 @@ impl ObjectStore {
             rect_ids: Vec::with_capacity(1024),
             rect_radii: Vec::with_capacity(1024),
             free_slots: Vec::with_capacity(128),
-            texture_ids: Vec::with_capacity(1024), 
+            texture_ids: Vec::with_capacity(1024),
 
             // Объекты изначально не грязные потому-что их нет
             dirty: false,

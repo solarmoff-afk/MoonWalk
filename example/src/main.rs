@@ -52,9 +52,9 @@ impl Application for TextureApp {
         mw.set_color(sprite, Vec4::ONE);
         mw.set_z_index(sprite, 0.5);
         
-        // if self.texture_id > 0 {
-        //     mw.set_texture(sprite, self.texture_id);
-        // }
+        if self.texture_id > 0 {
+            mw.set_texture(sprite, self.texture_id);
+        }
 
         mw.set_rounded(sprite, Vec4::splat(50.0)); 
     }
