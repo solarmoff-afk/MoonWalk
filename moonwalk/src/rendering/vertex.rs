@@ -28,15 +28,17 @@ impl QuadVertex {
 /// Структура для экземпляра прямоугольника. Лайаут:
 /// 1: pos_size (x, y, w, h) (координаты x/y и ширина/высота w/h)
 /// 2: radii (tl, tr, br, bl) (Верх-лево, верх-право, низ-право, низ-лево)
-/// 3: extra (z, rotation)
-/// 4: color (r, g, b, a) (красный, зелёный, синий и альфв канал)
+/// 3: uv (x, y, w, h)
+/// 4: extra (z, rotation)
+/// 5: color запакованный в u32 в (r, g, b, a) (красный, зелёный, синий и альфв канал)
+/// 6: type_id, тут либо 0 либо айди текстуры
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct ObjectInstance {
     pub pos_size: [f32; 4],
     pub radii:    [f32; 4],
-    pub extra:    [f32; 2],
     pub uv:       [f32; 4],
+    pub extra:    [f32; 2],
     pub color:    u32,
     pub type_id:  u32,
 }
