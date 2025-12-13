@@ -142,3 +142,17 @@ fn test_reincarnation_memory_reuse() {
     assert!(store.alive[reused_idx]);
     assert_eq!(store.positions[reused_idx], Vec2::new(0.0, 0.0));
 }
+
+#[test]
+fn test_texture_id_assignment() {
+    let mut store = ObjectStore::new();
+    let id = store.new_rect();
+
+    let idx = id.index();
+    assert_eq!(store.texture_ids[idx], 0);
+
+    store.config_texture(id, 5);
+    
+    assert_eq!(store.texture_ids[idx], 5);
+    assert!(store.dirty);
+}

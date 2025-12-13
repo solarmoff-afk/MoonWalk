@@ -2,10 +2,12 @@
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
 use bytemuck::{Pod, Zeroable};
+use std::collections::HashMap;
 
 use crate::easy_gpu::{Context, Buffer, MatrixStack, RenderPass};
 use crate::batching::group::BatchGroup;
 use crate::rendering::pipeline::ShaderStore;
+use crate::rendering::texture::Texture;
 use crate::objects::store::ObjectStore;
 use crate::objects::ShaderId;
 use crate::error::MoonWalkError;
@@ -28,6 +30,9 @@ pub struct RenderState {
     pub uniform_buffer: Buffer<GlobalUniform>, // Буфер дла передачи данных в шейдер
     pub proj_bind_group: wgpu::BindGroup,
     pub rect_shader: ShaderId, // Пайплайн для прямоугольника
+    pub white_texture: Texture,
+    pub textures: HashMap<u32, Texture>,
+    next_texture_id: u32,
 }
 
 impl RenderState {
@@ -59,6 +64,13 @@ impl RenderState {
         let uniform_buffer = Buffer::uniform(ctx, &uniform_data);
         let proj_bind_group = shaders.get_proj_bind_group(ctx, &uniform_buffer.raw);
 
+        // Костыль: движок использует 1 пайплайн (1 шейдер) для объектов и с текстурой и без
+        // и для этого в шейдере [shaders/shape.wgsl] передаётся текстура, поэтому она нужна
+        // даже когда объект просто цветной (без текстуры). Я решил сделать текстуру 1 на 1
+        // пиксель с белым цветом (ВАЖНО! Чтобы цвет объекта не изменился)
+        let white_pixels = vec![255, 255, 255, 255];
+        let white_texture = Texture::from_raw(ctx, &white_pixels, 1, 1, "White Default")?;
+        
         Ok(Self {
             store: ObjectStore::new(),
             batches: BatchGroup::new(ctx),
@@ -67,6 +79,9 @@ impl RenderState {
             uniform_buffer,
             proj_bind_group,
             rect_shader,
+            white_texture,
+            textures: HashMap::new(),
+            next_texture_id: 1, // 0 занят под white_texture
         })
     }
 
@@ -115,7 +130,28 @@ impl RenderState {
             pass.set_pipeline(pipeline);
             
             // Отрисовываем прямоугольники
-            self.batches.objects.render(&mut pass);
+            self.batches.objects.render(&mut pass, &self.white_texture, &self.textures);
         }
+    }
+
+    /// Загрузка текстуры в хэш карту (Передаются байты)
+    pub fn load_texture(&mut self, ctx: &Context, bytes: &[u8], label: &str) -> Result<u32, MoonWalkError> {
+        let texture = Texture::from_bytes(ctx, bytes, label)?;
+        let id = self.next_texture_id;
+        
+        self.textures.insert(id, texture);
+        self.next_texture_id += 1;
+        
+        Ok(id)
+    }
+
+    /// [WAIT DOC]
+    pub fn add_texture(&mut self, texture: Texture) -> u32 {
+        let id = self.next_texture_id;
+        
+        self.textures.insert(id, texture);
+        self.next_texture_id += 1;
+        
+        id
     }
 }

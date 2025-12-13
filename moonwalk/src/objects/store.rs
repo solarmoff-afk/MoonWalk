@@ -17,7 +17,7 @@ pub struct ObjectStore {
 
     // alive хранит жив ли объект. True - жив и отрисовыватся, false - мёртв
     pub alive: Vec<bool>,
-    
+
     pub object_types: Vec<ObjectType>,
     
     // Айди объектов
@@ -31,6 +31,8 @@ pub struct ObjectStore {
     // объекта от может взять свой айди из этого вектора тем самым
     // не давая бесконечно расти и занимать ОЗУ
     pub free_slots: Vec<usize>,
+
+    pub texture_ids: Vec<u32>,
 
     pub dirty: bool,
 }
@@ -49,6 +51,7 @@ impl ObjectStore {
             rect_ids: Vec::with_capacity(1024),
             rect_radii: Vec::with_capacity(1024),
             free_slots: Vec::with_capacity(128),
+            texture_ids: Vec::with_capacity(1024), 
 
             // Объекты изначально не грязные потому-что их нет
             dirty: false,
@@ -81,6 +84,7 @@ impl ObjectStore {
         self.alive.push(true);
         self.rect_radii.push(Vec4::ZERO); 
         self.object_types.push(ObjectType::Unknown);
+        self.texture_ids.push(0);
 
         // После создания объекта нам нужно пересобрать всё, поэтому
         // делаем хранилище грязным
@@ -154,10 +158,17 @@ impl ObjectStore {
         self.dirty = true;
     }
 
+    #[inline(always)]
     pub fn set_rounded(&mut self, id: ObjectId, radii: Vec4) {
         if id.index() < self.rect_radii.len() {
              self.rect_radii[id.index()] = radii;
              self.dirty = true;
         }
+    }
+
+    #[inline(always)]
+    pub fn config_texture(&mut self, id: ObjectId, texture_id: u32) {
+        self.texture_ids[id.index()] = texture_id;
+        self.dirty = true;
     }
 }

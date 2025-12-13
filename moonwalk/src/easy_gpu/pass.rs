@@ -66,6 +66,21 @@ impl<'a> RenderPass<'a> {
         self.raw.draw_indexed(0..index_count, 0, 0..1);
     }
 
+    pub fn draw_indexed_instanced_extended(
+        &mut self, 
+        index_count: u32, 
+        instance_count: u32, 
+        base_index: u32, 
+        base_vertex: i32, 
+        first_instance: u32
+    ) {
+        self.raw.draw_indexed(
+            base_index..(base_index + index_count), 
+            base_vertex, 
+            first_instance..(first_instance + instance_count)
+        );
+    }
+
     pub fn draw_instanced(&mut self, vertex_count: u32, instance_count: u32) {
         self.raw.draw(0..vertex_count, 0..instance_count);
     }

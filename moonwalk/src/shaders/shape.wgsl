@@ -6,6 +6,9 @@ struct Uniforms {
 };
 @group(0) @binding(0) var<uniform> ubo: Uniforms;
 
+@group(1) @binding(0) var t_diffuse: texture_2d<f32>;
+@group(1) @binding(1) var s_diffuse: sampler;
+
 struct VertexInput {
     @location(0) position: vec2<f32>,
 };
@@ -25,7 +28,7 @@ struct VertexOutput {
     @location(1) local_pos: vec2<f32>,
     @location(2) size: vec2<f32>,
     @location(3) radii: vec4<f32>,
-    @location(4) uv: vec2<f32>,      // Прокинем UV во фрагментный шейдер
+    @location(4) uv: vec2<f32>,
     @location(5) type_id: u32,
 };
 
@@ -54,7 +57,9 @@ fn vs_main(in: VertexInput, instance: InstanceInput) -> VertexOutput {
     out.radii = instance.radii;
     out.size = size;
     out.local_pos = in.position * size;
-    out.uv = instance.uv.xy;
+
+    // ВРЕМЕННОЕ РЕШЕНИЕ
+    out.uv = instance.uv.xy + (in.position * instance.uv.zw);
     out.type_id = instance.type_id;
 
     return out;
@@ -94,5 +99,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
-    return vec4<f32>(in.color.rgb, in.color.a * alpha);
+    // Цвет
+    if (in.type_id == 0u) {
+        return vec4<f32>(in.color.rgb, in.color.a * alpha);
+    } else {
+        // Текстура
+        let tex_color = textureSample(t_diffuse, s_diffuse, in.uv);
+        
+        return vec4<f32>(
+            tex_color.rgb * in.color.rgb, 
+            tex_color.a * in.color.a * alpha
+        );
+    }
 }

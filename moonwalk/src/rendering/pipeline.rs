@@ -122,10 +122,12 @@ impl ShaderStore {
             ],
         };
 
+        let texture_layout = Self::get_texture_layout(&ctx.device);
+
         let pipeline = PipelineBuilder::new(ctx, include_str!("../shaders/shape.wgsl"))
             .add_layout(vertex_layout)
             .add_layout(instance_layout)
-            .build(format, &[&self.proj_layout]);
+            .build(format, &[&self.proj_layout, &texture_layout]);
 
         let id = ShaderId(1);
         self.pipelines.insert(id, pipeline);
@@ -167,6 +169,33 @@ impl ShaderStore {
                 resource: buffer.as_entire_binding(),
             }],
             label: Some("Projection Bind Group"),
+        })
+    }
+
+    pub fn get_texture_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Texture Bind Group Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float {
+                            filterable: true
+                        },
+                    },
+                    count: None,
+                },
+
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
         })
     }
 }

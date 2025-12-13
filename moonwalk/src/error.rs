@@ -23,4 +23,10 @@ pub enum MoonWalkError {
 
     #[error("Failed to load font: {0}")]
     FontLoading(String),
+
+    #[error("Failed to load texture: {0}")]
+    TextureLoading(String),
+
+    #[error("IO/Asset error: {0}")]
+    IOError(String),
 }

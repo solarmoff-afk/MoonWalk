@@ -6,6 +6,7 @@ use glam::{Vec2, Vec4};
 
 use crate::easy_gpu::Context;
 use crate::error::MoonWalkError;
+use crate::rendering::texture::Texture;
 use crate::rendering::state::RenderState;
 use crate::objects::ObjectId;
 
@@ -97,6 +98,8 @@ impl MoonRenderer {
          self.context.recreate_surface(window, width, height);
     }
 
+    /// Прокси методы
+
     #[inline]
     pub fn new_rect(&mut self) -> ObjectId {
         self.state.store.new_rect()
@@ -125,6 +128,11 @@ impl MoonRenderer {
     #[inline]
     pub fn set_z_index(&mut self, id: ObjectId, z: f32) {
         self.state.store.config_z_index(id, z);
+    }
+
+    #[inline]
+    pub fn register_texture(&mut self, texture: Texture) -> u32 {
+        self.state.add_texture(texture)
     }
 
     // Специфично для прямоугольника
