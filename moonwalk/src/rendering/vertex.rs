@@ -35,13 +35,15 @@ impl QuadVertex {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct ObjectInstance {
-    pub pos_size: [f32; 4],
-    pub radii:    [f32; 4],
-    pub uv:       [f32; 4],
-    pub extra:    [f32; 2],
-    pub color:    u32,
-    pub color2:    u32,
-    pub type_id:  u32,
+    pub pos_size:       [f32; 4],
+    pub radii:          [f32; 4],
+    pub uv:             [f32; 4],
+    pub extra:          [f32; 2],
+    pub color:          u32,
+    pub color2:         u32,
+    pub type_id:        u32,
+    pub gradient_data:  [i16; 4],
+    pub _pad:           u32,
 }
 
 impl ObjectInstance {
@@ -56,6 +58,17 @@ impl ObjectInstance {
         
         // r это младший байт, нужно для WGPU
         (a << 24) | (b << 16) | (g << 8) | r
+    }
+
+    /// Эта функция запаковывает градиент [x, y, радиус, радиус] в массив из 4 i16,
+    /// это критически необходимо так как лимит 86 байт на передачу данных в шейдер
+    pub fn pack_gradient(data: [f32; 4]) -> [i16; 4] {
+        [
+            (data[0].clamp(-1.0, 1.0) * 32767.0) as i16,
+            (data[1].clamp(-1.0, 1.0) * 32767.0) as i16,
+            (data[2].clamp(-1.0, 1.0) * 32767.0) as i16,
+            (data[3].clamp(-1.0, 1.0) * 32767.0) as i16,
+        ]
     }
 }
 

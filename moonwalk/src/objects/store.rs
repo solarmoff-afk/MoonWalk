@@ -39,6 +39,18 @@ pub struct ObjectStore {
     pub texture_ids: Vec<u32>,
     pub uvs: Vec<[f32; 4]>,
 
+    // Параметры градиента для объекта. Формат данных:
+    //  [x, y, z, w]
+    // Использование:
+    //  - Если z меньше чем 0.0 - градиента нет. Это значение по-умолчанию
+    //  - если z и w равны 0.0 - это линейный градиент. (z и w это радиус, а радиус не
+    //     может быть отрицательным)
+    //  - если z больше или равен 0.0 и w больше чем z - это радиальный градиент. То есть
+    //    круговой переход от центра к краю. X и y в его случае это центр, а z и h это
+    //    внутренний и внешний радиус.
+    // [!] Все индексы (x, y, z и w) указаываются от 0 до 1 
+    pub gradient_data: Vec<[f32; 4]>,
+
     pub dirty: bool,
 }
 
@@ -59,6 +71,7 @@ impl ObjectStore {
             free_slots: Vec::with_capacity(128),
             texture_ids: Vec::with_capacity(1024),
             uvs: Vec::with_capacity(1024),
+            gradient_data: Vec::with_capacity(1024),
 
             // Объекты изначально не грязные потому-что их нет
             dirty: false,
@@ -79,6 +92,10 @@ impl ObjectStore {
             self.rect_radii[idx] = Vec4::ZERO;
             self.texture_ids[idx] = 0;
             self.uvs[idx] = [0.0, 0.0, 1.0, 1.0];
+
+            // Нет градиента, так как радиус (z) отрицательный
+            self.gradient_data[idx] = [0.0, 0.0, -1.0, 0.0];
+            
             self.dirty = true;
             
             return idx;
@@ -95,6 +112,7 @@ impl ObjectStore {
         self.alive.push(true);
         self.rect_radii.push(Vec4::ZERO);
         self.uvs.push([0.0, 0.0, 1.0, 1.0]);
+        self.gradient_data.push([0.0, 0.0, -1.0, 0.0]);
         self.object_types.push(ObjectType::Unknown);
         self.texture_ids.push(0);
 
@@ -193,6 +211,12 @@ impl ObjectStore {
     #[inline(always)]
     pub fn config_texture(&mut self, id: ObjectId, texture_id: u32) {
         self.texture_ids[id.index()] = texture_id;
+        self.dirty = true;
+    }
+
+    #[inline(always)]
+    pub fn config_gradient_data(&mut self, id: ObjectId, gradient_data: [f32; 4]) {
+        self.gradient_data[id.index()] = gradient_data; 
         self.dirty = true;
     }
 }

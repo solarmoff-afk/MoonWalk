@@ -147,9 +147,24 @@ impl MoonWalk {
         self.renderer.config_color(id, color);
     }
 
-    ///[WAIT DOC]
+    /// [WAIT DOC]
     pub fn set_color2(&mut self, id: ObjectId, color2: Vec4) {
         self.renderer.config_color2(id, color2);
+    }
+
+    /// [WAIT DOC]
+    pub fn linear_gradient(&mut self, id: ObjectId, direction: Vec2) {
+        self.renderer.config_gradient_data(id, [direction.x, direction.y, 0.0, 0.0]);
+    }
+
+    /// [WAIT DOC]
+    pub fn radial_gradient(&mut self, id: ObjectId, center: Vec2, radius: Vec2) {
+        self.renderer.config_gradient_data(id, [center.x, center.y, radius.x, radius.y]);
+    }
+
+    /// [WAIT DOC]
+    pub fn reset_gradient(&mut self, id: ObjectId) {
+        self.renderer.config_gradient_data(id, [0.0, 0.0, -1.0, 0.0]);
     }
 
     /// Функция для конфигурации скругления у прямоугольника.

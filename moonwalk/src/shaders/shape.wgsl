@@ -21,6 +21,7 @@ struct InstanceInput {
     @location(5) color_packed: u32,
     @location(6) color2_packed: u32,
     @location(7) type_id: u32,
+    @location(8) gradient_data: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -32,6 +33,7 @@ struct VertexOutput {
     @location(4) uv: vec2<f32>,
     @location(5) type_id: u32,
     @location(6) color2: vec4<f32>,
+    @location(7) gradient_data: vec4<f32>,
 };
 
 @vertex
@@ -65,8 +67,56 @@ fn vs_main(in: VertexInput, instance: InstanceInput) -> VertexOutput {
 
     out.uv = instance.uv.xy + (in.position * instance.uv.zw);
     out.type_id = instance.type_id;
+    out.gradient_data = instance.gradient_data;
 
     return out;
+}
+
+fn linear_gradient(
+    local_pos: vec2<f32>,
+    size: vec2<f32>,
+    dir: vec2<f32>,
+    color: vec4<f32>,
+    color2: vec4<f32>
+) -> vec4<f32> {
+    // Направление обязательно должно быть от 0 до 1 (по x и y) поэтому тут
+    // нужна нормализация
+    let direction = normalize(dir);
+    
+    let rel_pos = local_pos / size;
+
+    let proj_length = dot(size, abs(direction)); 
+    let proj = dot(rel_pos, direction);
+
+    let t = proj / proj_length;
+    
+    return mix(color, color2, clamp(t, 0.0, 1.0));
+}
+
+fn radial_gradient(
+    local_pos: vec2<f32>,
+    size: vec2<f32>,
+    center: vec2<f32>,
+    inner_radius: f32,
+    outer_radius: f32,
+    color: vec4<f32>,
+    color2: vec4<f32>,
+) -> vec4<f32> {
+    let rel_pos = local_pos / size;
+    
+    let delta = rel_pos - center;
+    let dist = length(delta);
+
+    if(outer_radius <= inner_radius) {
+        return color;
+    }
+
+    let t = (dist - inner_radius) / (outer_radius - inner_radius);
+    return mix(color, color2, clamp(t, 0.0, 1.0));
+}
+
+fn is_gradient(gradient_data: vec4<f32>) -> bool {
+    return gradient_data.z >= 0;
 }
 
 fn sd_rounded_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {

@@ -80,7 +80,7 @@ impl ShaderStore {
                     shader_location: 1
                 },
 
-                // 2. Radii (vec4<f32>) 16 байт
+                // Radii (vec4<f32>) 16 байт
                 // Смещение 16
                 wgpu::VertexAttribute { 
                     format: wgpu::VertexFormat::Float32x4, 
@@ -88,7 +88,7 @@ impl ShaderStore {
                     shader_location: 2
                 },
 
-                // 3. UV (vec4<f32>) 16 байт
+                // UV (vec4<f32>) 16 байт
                 // Смещение 16 + 16 = 32
                 wgpu::VertexAttribute { 
                     format: wgpu::VertexFormat::Float32x4, 
@@ -96,7 +96,7 @@ impl ShaderStore {
                     shader_location: 3
                 },
                 
-                // 4. Extra: Z + Rot (vec2<f32>) 8 байт
+                // Extra Z + Rot (vec2<f32>) 8 байт
                 // Смещение 32 + 16 = 48
                 wgpu::VertexAttribute { 
                     format: wgpu::VertexFormat::Float32x2,
@@ -126,6 +126,14 @@ impl ShaderStore {
                     format: wgpu::VertexFormat::Uint32,
                     offset: 64, 
                     shader_location: 7
+                },
+
+                // Gradient data (Snorm16x4) 8 байт
+                // Смещение 64 + 4 = 68
+                wgpu::VertexAttribute { 
+                    format: wgpu::VertexFormat::Snorm16x4, 
+                    offset: 68,
+                    shader_location: 8
                 },
             ],
         };

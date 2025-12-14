@@ -145,6 +145,11 @@ impl MoonRenderer {
         self.state.add_texture(texture)
     }
 
+    #[inline]
+    pub fn config_gradient_data(&mut self, id: ObjectId, gradient_data: [f32; 4]) {
+        self.state.store.config_gradient_data(id, gradient_data);
+    }
+
     // Специфично для прямоугольника
     #[inline]
     pub fn set_rounded(&mut self, id: ObjectId, radii: Vec4) {
