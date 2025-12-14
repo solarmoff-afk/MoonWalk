@@ -19,7 +19,8 @@ struct InstanceInput {
     @location(3) uv: vec4<f32>,
     @location(4) extra: vec2<f32>,
     @location(5) color_packed: u32,
-    @location(6) type_id: u32,
+    @location(6) color2_packed: u32,
+    @location(7) type_id: u32,
 };
 
 struct VertexOutput {
@@ -30,6 +31,7 @@ struct VertexOutput {
     @location(3) radii: vec4<f32>,
     @location(4) uv: vec2<f32>,
     @location(5) type_id: u32,
+    @location(6) color2: vec4<f32>,
 };
 
 @vertex
@@ -53,7 +55,10 @@ fn vs_main(in: VertexInput, instance: InstanceInput) -> VertexOutput {
     let final_y = rotated_y + center_offset.y + pos.y;
 
     out.clip_position = ubo.view_proj * vec4<f32>(final_x, final_y, z_index, 1.0);
+    
     out.color = unpack4x8unorm(instance.color_packed);
+    out.color2 = unpack4x8unorm(instance.color2_packed);
+    
     out.radii = instance.radii;
     out.size = size;
     out.local_pos = in.position * size;

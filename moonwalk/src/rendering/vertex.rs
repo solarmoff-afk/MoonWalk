@@ -40,6 +40,7 @@ pub struct ObjectInstance {
     pub uv:       [f32; 4],
     pub extra:    [f32; 2],
     pub color:    u32,
+    pub color2:    u32,
     pub type_id:  u32,
 }
 

@@ -147,6 +147,11 @@ impl MoonWalk {
         self.renderer.config_color(id, color);
     }
 
+    ///[WAIT DOC]
+    pub fn set_color2(&mut self, id: ObjectId, color2: Vec4) {
+        self.renderer.config_color2(id, color2);
+    }
+
     /// Функция для конфигурации скругления у прямоугольника.
     ///  - [!] Не работает для каких-либо объектов кроме прямоугольника.
     ///

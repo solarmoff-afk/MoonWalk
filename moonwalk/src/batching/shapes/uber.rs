@@ -76,6 +76,8 @@ impl UberBatch {
                 ],
 
                 color: ObjectInstance::pack_color(store.colors[idx].to_array()),
+
+                color2: ObjectInstance::pack_color(store.colors2[idx].to_array()),
             });
         }
         

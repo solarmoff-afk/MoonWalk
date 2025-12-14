@@ -74,34 +74,34 @@ impl ShaderStore {
             attributes: &[
                 // Pos + Size (vec4<f32>) 16 байт
                 // Смещение 0
-                wgpu::VertexAttribute { 
-                    format: wgpu::VertexFormat::Float32x4, 
-                    offset: 0,  
-                    shader_location: 1 
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x4,
+                    offset: 0,
+                    shader_location: 1
                 },
 
                 // 2. Radii (vec4<f32>) 16 байт
                 // Смещение 16
                 wgpu::VertexAttribute { 
                     format: wgpu::VertexFormat::Float32x4, 
-                    offset: 16, 
-                    shader_location: 2 
+                    offset: 16,
+                    shader_location: 2
                 },
 
                 // 3. UV (vec4<f32>) 16 байт
                 // Смещение 16 + 16 = 32
                 wgpu::VertexAttribute { 
                     format: wgpu::VertexFormat::Float32x4, 
-                    offset: 32, 
-                    shader_location: 3 
+                    offset: 32,
+                    shader_location: 3
                 },
                 
                 // 4. Extra: Z + Rot (vec2<f32>) 8 байт
                 // Смещение 32 + 16 = 48
                 wgpu::VertexAttribute { 
                     format: wgpu::VertexFormat::Float32x2,
-                    offset: 48, 
-                    shader_location: 4 
+                    offset: 48,
+                    shader_location: 4
                 },
                 
                 // Color (u32) 4 байта
@@ -109,15 +109,23 @@ impl ShaderStore {
                 wgpu::VertexAttribute { 
                     format: wgpu::VertexFormat::Uint32,
                     offset: 56, 
-                    shader_location: 5 
+                    shader_location: 5
                 },
 
-                // Type ID (u32) 4 байта
+                // Color2 (u32) 4 байта
                 // Смещение 56 + 4 = 60
                 wgpu::VertexAttribute { 
                     format: wgpu::VertexFormat::Uint32,
                     offset: 60, 
-                    shader_location: 6 
+                    shader_location: 6
+                },
+
+                // Type ID (u32) 4 байта
+                // Смещение 60 + 4 = 64
+                wgpu::VertexAttribute { 
+                    format: wgpu::VertexFormat::Uint32,
+                    offset: 64, 
+                    shader_location: 7
                 },
             ],
         };

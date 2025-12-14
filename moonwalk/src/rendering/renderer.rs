@@ -121,6 +121,11 @@ impl MoonRenderer {
     }
 
     #[inline]
+    pub fn config_color2(&mut self, id: ObjectId, color2: Vec4) {
+        self.state.store.config_color2(id, color2);
+    }
+
+    #[inline]
     pub fn config_rotation(&mut self, id: ObjectId, radians: f32) {
         self.state.store.config_rotation(id, radians);
     }

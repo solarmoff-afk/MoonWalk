@@ -15,7 +15,7 @@ pub struct ObjectStore {
 
     // Второй цвет для использования в градиентах
     pub colors2: Vec<Vec4>,
-    
+
     pub rotations: Vec<f32>,
     pub z_indices: Vec<f32>,
 
@@ -155,6 +155,12 @@ impl ObjectStore {
     #[inline(always)]
     pub fn config_color(&mut self, id: ObjectId, color: Vec4) {
         self.colors[id.index()] = color;
+        self.dirty = true;
+    }
+
+    #[inline(always)]
+    pub fn config_color2(&mut self, id: ObjectId, color2: Vec4) {
+        self.colors2[id.index()] = color2;
         self.dirty = true;
     }
     
