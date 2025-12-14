@@ -49,8 +49,9 @@ impl Application for TextureApp {
 
         mw.set_position(sprite, pos);
         mw.set_size(sprite, Vec2::splat(size));
-        mw.set_color(sprite, Vec4::ONE);
-        mw.set_color2(sprite, Vec4::new(0.4, 0.5, 0.2, 1.0));
+        mw.set_color(sprite, Vec4::new(1.0, 0.6, 0.1, 1.0));
+        mw.set_color2(sprite, Vec4::new(0.9, 0.3, 0.1, 1.0));
+        mw.linear_gradient(sprite, Vec2::new(1.0, 0.0));
         mw.set_z_index(sprite, 0.5);
         
         // if self.texture_id > 0 {

@@ -79,44 +79,62 @@ fn linear_gradient(
     color: vec4<f32>,
     color2: vec4<f32>
 ) -> vec4<f32> {
-    // Направление обязательно должно быть от 0 до 1 (по x и y) поэтому тут
-    // нужна нормализация
-    let direction = normalize(dir);
+    let uv = local_pos / size;
+    let uv_centered = uv - 0.5; 
+    let direction = normalize(dir + vec2<f32>(0.0001, 0.0001));
+    let t_projected = dot(uv_centered, direction);
+    let t = clamp(t_projected + 0.5, 0.0, 1.0);
     
-    let rel_pos = local_pos / size;
-
-    let proj_length = dot(size, abs(direction)); 
-    let proj = dot(rel_pos, direction);
-
-    let t = proj / proj_length;
-    
-    return mix(color, color2, clamp(t, 0.0, 1.0));
+    return mix(color, color2, t);
 }
 
 fn radial_gradient(
     local_pos: vec2<f32>,
     size: vec2<f32>,
-    center: vec2<f32>,
+    center_offset: vec2<f32>,
     inner_radius: f32,
     outer_radius: f32,
     color: vec4<f32>,
     color2: vec4<f32>,
 ) -> vec4<f32> {
-    let rel_pos = local_pos / size;
+    let uv_centered = (local_pos / size) - 0.5;
     
-    let delta = rel_pos - center;
+    let delta = uv_centered - center_offset;
     let dist = length(delta);
 
-    if(outer_radius <= inner_radius) {
+    if (outer_radius <= inner_radius) {
         return color;
     }
 
-    let t = (dist - inner_radius) / (outer_radius - inner_radius);
-    return mix(color, color2, clamp(t, 0.0, 1.0));
+    let t = clamp((dist - inner_radius) / (outer_radius - inner_radius), 0.0, 1.0);
+
+    return mix(color, color2, t);
 }
 
 fn is_gradient(gradient_data: vec4<f32>) -> bool {
     return gradient_data.z >= 0;
+}
+
+fn get_gradient_color(
+    local_pos: vec2<f32>,
+    size: vec2<f32>,
+    gradient_data: vec4<f32>,
+    color: vec4<f32>,
+    color2: vec4<f32>,
+) -> vec4<f32> {
+    if (is_gradient(gradient_data)) {
+        if (gradient_data.z == 0.0 && gradient_data.w == 0.0) {
+            return linear_gradient(local_pos, size, gradient_data.xy, color, color2);
+            // return vec4<f32>(0.0, 1.0, 0.0, 1.0);
+        } else {
+            return radial_gradient(local_pos, size, gradient_data.xy, abs(gradient_data.z), 
+                abs(gradient_data.w), color, color2);    
+            // return vec4<f32>(0.0, 0.0, 1.0, 1.0);
+        }
+    } else {
+        return color;
+        // return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+    }
 }
 
 fn sd_rounded_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
@@ -153,16 +171,24 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
+    let final_color = get_gradient_color(
+        in.local_pos,
+        in.size,
+        in.gradient_data,
+        in.color,
+        in.color2
+    );
+
     // Цвет
     if (in.type_id == 0u) {
-        return vec4<f32>(in.color.rgb, in.color.a * alpha);
+        return vec4<f32>(final_color.rgb, final_color.a * alpha);
     } else {
         // Текстура
         let tex_color = textureSample(t_diffuse, s_diffuse, in.uv);
         
         return vec4<f32>(
-            tex_color.rgb * in.color.rgb, 
-            tex_color.a * in.color.a * alpha
+            tex_color.rgb * final_color.rgb, 
+            tex_color.a * final_color.a * alpha
         );
     }
 }
