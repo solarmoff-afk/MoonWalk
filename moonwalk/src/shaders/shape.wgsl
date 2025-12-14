@@ -15,13 +15,13 @@ struct VertexInput {
 
 struct InstanceInput {
     @location(1) pos_size: vec4<f32>,
-    @location(2) radii: vec4<f32>,
-    @location(3) uv: vec4<f32>,
-    @location(4) extra: vec2<f32>,
-    @location(5) color_packed: u32,
+    @location(2) uv: vec4<f32>,
+    @location(3) radii_packed: vec4<u32>,
+    @location(4) gradient_data: vec4<f32>,
+    @location(5) extra: vec2<f32>,
     @location(6) color2_packed: u32,
-    @location(7) type_id: u32,
-    @location(8) gradient_data: vec4<f32>,
+    @location(7) color_packed: u32,
+    @location(8) type_id: u32,
 };
 
 struct VertexOutput {
@@ -61,7 +61,7 @@ fn vs_main(in: VertexInput, instance: InstanceInput) -> VertexOutput {
     out.color = unpack4x8unorm(instance.color_packed);
     out.color2 = unpack4x8unorm(instance.color2_packed);
     
-    out.radii = instance.radii;
+    out.radii = vec4<f32>(instance.radii_packed) / 16.0;
     out.size = size;
     out.local_pos = in.position * size;
 

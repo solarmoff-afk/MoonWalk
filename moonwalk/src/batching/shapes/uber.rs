@@ -63,7 +63,7 @@ impl UberBatch {
                     store.sizes[idx].y,
                 ],
 
-                radii: store.rect_radii[idx].to_array(),
+                radii: ObjectInstance::pack_radii(store.rect_radii[idx].to_array()),
 
                 uv: store.uvs[idx],
                 
@@ -81,8 +81,6 @@ impl UberBatch {
 
                 // gradient_data: store.gradient_data[idx],
                 gradient_data: ObjectInstance::pack_gradient(store.gradient_data[idx]),
-
-                _pad: 0,
             });
         }
         

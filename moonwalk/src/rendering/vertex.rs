@@ -36,14 +36,13 @@ impl QuadVertex {
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct ObjectInstance {
     pub pos_size:       [f32; 4],
-    pub radii:          [f32; 4],
     pub uv:             [f32; 4],
-    pub extra:          [f32; 2],
-    pub color:          u32,
-    pub color2:         u32,
-    pub type_id:        u32,
+    pub radii:          [u16; 4],
     pub gradient_data:  [i16; 4],
-    pub _pad:           u32,
+    pub extra:          [f32; 2],
+    pub color2:         u32,
+    pub color:          u32,
+    pub type_id:        u32,
 }
 
 impl ObjectInstance {
@@ -68,6 +67,19 @@ impl ObjectInstance {
             (data[1].clamp(-1.0, 1.0) * 32767.0) as i16,
             (data[2].clamp(-1.0, 1.0) * 32767.0) as i16,
             (data[3].clamp(-1.0, 1.0) * 32767.0) as i16,
+        ]
+    }
+
+    /// Функция для упаковки скругления углов из f32;4 в u16;4, что
+    /// позволяет экономить 8 байт что достаточно много, учитывая,
+    /// что лимит (Для железа на котором ведётся тестирование как минимуи)
+    /// 86 байт.
+    pub fn pack_radii(r: [f32; 4]) -> [u16; 4] {
+        [
+            (r[0] * 16.0) as u16,
+            (r[1] * 16.0) as u16,
+            (r[2] * 16.0) as u16,
+            (r[3] * 16.0) as u16,
         ]
     }
 }
