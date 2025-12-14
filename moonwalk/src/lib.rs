@@ -147,22 +147,32 @@ impl MoonWalk {
         self.renderer.config_color(id, color);
     }
 
-    /// [WAIT DOC]
+    /// Эта функция устаналивает второй цвет который нужен для градиента. Принимает
+    /// айди объекта и vec4 (Второй цвет поддерживает прозрачность как и первый)
+    /// Второй цвет начнёт работать только когда будет установлен линейный или
+    /// радиальный градиент
     pub fn set_color2(&mut self, id: ObjectId, color2: Vec4) {
         self.renderer.config_color2(id, color2);
     }
 
-    /// [WAIT DOC]
+    /// Эта функция устанавливает объекту объекту линейный градиент. Принимает его 
+    /// айди и vec2 направления (В x и y). Линейный градиент это градиент, который
+    /// направлен в одном конкретном направлении и цвет плавно меняется по этому
+    /// направлению
     pub fn linear_gradient(&mut self, id: ObjectId, direction: Vec2) {
         self.renderer.config_gradient_data(id, [direction.x, direction.y, 0.0, 0.0]);
     }
 
-    /// [WAIT DOC]
+    /// Эта функция устаналивает радиальный градиент объекту. Принимает айди объекта,
+    /// центр самого градиента (vec2 из glam) и радиусы (Внутри и снаружи). Тоже vec2
+    /// Радиальный градиент это градиент который выглядит как окружность внутри которой
+    /// и происходит плавная смена цвета (Чем ближе к центру окружности)
     pub fn radial_gradient(&mut self, id: ObjectId, center: Vec2, radius: Vec2) {
         self.renderer.config_gradient_data(id, [center.x, center.y, radius.x, radius.y]);
     }
 
-    /// [WAIT DOC]
+    /// Эта функция принимает айди объекта и удаляет градиент у него
+    /// Работает и для линейного и для радиального
     pub fn reset_gradient(&mut self, id: ObjectId) {
         self.renderer.config_gradient_data(id, [0.0, 0.0, -1.0, 0.0]);
     }

@@ -54,9 +54,9 @@ impl Application for TextureApp {
         mw.linear_gradient(sprite, Vec2::new(1.0, 0.0));
         mw.set_z_index(sprite, 0.5);
         
-        // if self.texture_id > 0 {
-        //     mw.set_texture(sprite, self.texture_id);
-        // }
+        if self.texture_id > 0 {
+            mw.set_texture(sprite, self.texture_id);
+        }
 
         mw.set_rounded(sprite, Vec4::splat(50.0)); 
     }
