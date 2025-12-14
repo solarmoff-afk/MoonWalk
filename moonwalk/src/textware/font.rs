@@ -1,10 +1,13 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
+use crate::textware::TextError;
+
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::textware::TextError;
+#[cfg(target_os = "android")]
+use std::ffi::CString;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct FontId(pub u64);
