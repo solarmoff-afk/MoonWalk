@@ -12,6 +12,10 @@ pub struct ObjectStore {
     pub positions: Vec<Vec2>,
     pub sizes: Vec<Vec2>,
     pub colors: Vec<Vec4>,
+
+    // Второй цвет для использования в градиентах
+    pub colors2: Vec<Vec4>,
+    
     pub rotations: Vec<f32>,
     pub z_indices: Vec<f32>,
 
@@ -45,6 +49,7 @@ impl ObjectStore {
             positions: Vec::with_capacity(1024),
             sizes: Vec::with_capacity(1024),
             colors: Vec::with_capacity(1024),
+            colors2: Vec::with_capacity(1024),
             rotations: Vec::with_capacity(1024),
             z_indices: Vec::with_capacity(1024),
             alive: Vec::with_capacity(1024),
@@ -67,6 +72,7 @@ impl ObjectStore {
             self.positions[idx] = Vec2::ZERO;
             self.sizes[idx] = Vec2::new(100.0, 100.0);
             self.colors[idx] = Vec4::ONE;
+            self.colors2[idx] = Vec4::ONE;
             self.rotations[idx] = 0.0;
             self.z_indices[idx] = 0.0;
             self.alive[idx] = true;
@@ -83,10 +89,12 @@ impl ObjectStore {
         self.positions.push(Vec2::ZERO); // Нулевая позиция (Левый верхний угол)
         self.sizes.push(Vec2::new(100.0, 100.0)); // Позиция 100 на 100
         self.colors.push(Vec4::ONE); // Цвет белый (1, 1, 1, 1)
+        self.colors2.push(Vec4::ONE); // Вторлой цвет тоже белый (1, 1, 1, 1)
         self.rotations.push(0.0); // Вращение: 0.0 радиан
         self.z_indices.push(0.0); // Нулевой z индекс
         self.alive.push(true);
-        self.rect_radii.push(Vec4::ZERO); 
+        self.rect_radii.push(Vec4::ZERO);
+        self.uvs.push([0.0, 0.0, 1.0, 1.0]);
         self.object_types.push(ObjectType::Unknown);
         self.texture_ids.push(0);
 
@@ -164,7 +172,7 @@ impl ObjectStore {
 
     #[inline(always)]
     pub fn config_uv(&mut self, id: ObjectId, uv: [f32; 4]) {
-        self.uvs[id.index()] = uv;
+        self.uvs[id.index()] = uv; 
         self.dirty = true;
     }
 

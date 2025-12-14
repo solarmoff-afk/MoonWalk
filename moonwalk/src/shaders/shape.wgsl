@@ -58,7 +58,6 @@ fn vs_main(in: VertexInput, instance: InstanceInput) -> VertexOutput {
     out.size = size;
     out.local_pos = in.position * size;
 
-    // ВРЕМЕННОЕ РЕШЕНИЕ
     out.uv = instance.uv.xy + (in.position * instance.uv.zw);
     out.type_id = instance.type_id;
 
