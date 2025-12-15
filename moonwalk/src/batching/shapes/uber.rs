@@ -63,9 +63,9 @@ impl UberBatch {
                     store.sizes[idx].y,
                 ],
 
-                radii: ObjectInstance::pack_radii(store.rect_radii[idx].to_array()),
+                radii: store.rect_radii_cache[idx],
 
-                uv: ObjectInstance::pack_uv(store.uvs[idx]),
+                uv: store.uvs_cache[idx],
 
                 type_id: tex_id, 
 
@@ -75,12 +75,11 @@ impl UberBatch {
                     store.rotations[idx],
                 ],
 
-                color: ObjectInstance::pack_color(store.colors[idx].to_array()),
+                color: store.colors_cache[idx],
 
-                color2: ObjectInstance::pack_color(store.colors2[idx].to_array()),
+                color2: store.colors2_cache[idx],
 
-                // gradient_data: store.gradient_data[idx],
-                gradient_data: ObjectInstance::pack_gradient(store.gradient_data[idx]),
+                gradient_data: store.gradient_data_cache[idx],
             });
         }
         

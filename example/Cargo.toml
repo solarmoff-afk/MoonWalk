@@ -3,14 +3,14 @@ name = "example"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-name = "app"
-path = "src/main.rs"
-
-# [[bin]]
-# name = "example"
+# [lib]
+# crate-type = ["cdylib", "rlib"]
+# name = "app"
 # path = "src/main.rs"
+
+[[bin]]
+name = "example"
+path = "src/main.rs"
 
 [dependencies]
 glam = { version = "0.24", features = ["scalar-math", "bytemuck"] }

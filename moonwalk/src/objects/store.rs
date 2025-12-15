@@ -5,6 +5,7 @@ use glam::{Vec2, Vec4};
 
 use crate::objects;
 use crate::objects::{ObjectId, ObjectType};
+use crate::rendering::vertex::ObjectInstance;
 
 /// Хранилище для объектов
 pub struct ObjectStore {
@@ -52,6 +53,21 @@ pub struct ObjectStore {
     pub gradient_data: Vec<[f32; 4]>,
 
     pub dirty: bool,
+
+    // Существует проблема с лимитом в 86 (или на старых устройствах 64) байта 
+    // на размер данных вершины. Эти ограничения устанавливаются судя по всему 
+    // самим драйверов графического процессора, поэтому следовать им обязательно.
+    // Так как все необходимые атрибуты занимают больше чем 86 байт необходимо
+    // их сжимать через функции упаковки. Эти функции выливаются в потерю
+    // производительности при частом вызове для большого количества объектов,
+    // а вызываются они при перестройке батча. Поэтому необходимо создать
+    // вектора для кэширования значения функции сжатия атрибута и вызывать
+    // только при изменении параметра который отвечает за этот атрибут
+    pub colors_cache: Vec<u32>,
+    pub colors2_cache: Vec<u32>,
+    pub rect_radii_cache: Vec<[u16; 4]>,
+    pub uvs_cache: Vec<[u16; 4]>,
+    pub gradient_data_cache: Vec<[i16; 4]>,
 }
 
 impl ObjectStore {
@@ -72,6 +88,13 @@ impl ObjectStore {
             texture_ids: Vec::with_capacity(1024),
             uvs: Vec::with_capacity(1024),
             gradient_data: Vec::with_capacity(1024),
+
+            // Для кэша сжатых значений
+            colors_cache: Vec::with_capacity(1024),
+            colors2_cache: Vec::with_capacity(1024),
+            rect_radii_cache: Vec::with_capacity(1024),
+            uvs_cache: Vec::with_capacity(1024),
+            gradient_data_cache: Vec::with_capacity(1024),
 
             // Объекты изначально не грязные потому-что их нет
             dirty: false,
@@ -97,6 +120,13 @@ impl ObjectStore {
             self.gradient_data[idx] = [0.0, 0.0, -1.0, 0.0];
             
             self.dirty = true;
+
+            // Для кэша сжатых значений
+            self.colors_cache[idx] = ObjectInstance::pack_color(Vec4::ONE.to_array());
+            self.colors2_cache[idx] = ObjectInstance::pack_color(Vec4::ONE.to_array());
+            self.rect_radii_cache[idx] = ObjectInstance::pack_radii(Vec4::ZERO.to_array());
+            self.uvs_cache[idx] = ObjectInstance::pack_uv([0.0, 0.0, 1.0, 1.0]);
+            self.gradient_data_cache[idx] = ObjectInstance::pack_gradient([0.0, 0.0, -1.0, 0.0]);
             
             return idx;
         }
@@ -119,6 +149,13 @@ impl ObjectStore {
         // После создания объекта нам нужно пересобрать всё, поэтому
         // делаем хранилище грязным
         self.dirty = true;
+
+        // Для кэша сжатых значений
+        self.colors_cache.push(ObjectInstance::pack_color(Vec4::ONE.to_array()));
+        self.colors2_cache.push(ObjectInstance::pack_color(Vec4::ONE.to_array()));
+        self.rect_radii_cache.push(ObjectInstance::pack_radii(Vec4::ZERO.to_array()));
+        self.uvs_cache.push(ObjectInstance::pack_uv([0.0, 0.0, 1.0, 1.0]));
+        self.gradient_data_cache.push(ObjectInstance::pack_gradient([0.0, 0.0, -1.0, 0.0]));
 
         index
     }
@@ -173,12 +210,14 @@ impl ObjectStore {
     #[inline(always)]
     pub fn config_color(&mut self, id: ObjectId, color: Vec4) {
         self.colors[id.index()] = color;
+        self.colors_cache[id.index()] = ObjectInstance::pack_color(color.to_array());
         self.dirty = true;
     }
 
     #[inline(always)]
     pub fn config_color2(&mut self, id: ObjectId, color2: Vec4) {
         self.colors2[id.index()] = color2;
+        self.colors2_cache[id.index()] = ObjectInstance::pack_color(color2.to_array());
         self.dirty = true;
     }
     
@@ -197,6 +236,7 @@ impl ObjectStore {
     #[inline(always)]
     pub fn config_uv(&mut self, id: ObjectId, uv: [f32; 4]) {
         self.uvs[id.index()] = uv; 
+        self.uvs_cache[id.index()] = ObjectInstance::pack_uv(uv);
         self.dirty = true;
     }
 
@@ -204,6 +244,7 @@ impl ObjectStore {
     pub fn set_rounded(&mut self, id: ObjectId, radii: Vec4) {
         if id.index() < self.rect_radii.len() {
              self.rect_radii[id.index()] = radii;
+             self.rect_radii_cache[id.index()] = ObjectInstance::pack_radii(radii.to_array());
              self.dirty = true;
         }
     }
@@ -216,7 +257,11 @@ impl ObjectStore {
 
     #[inline(always)]
     pub fn config_gradient_data(&mut self, id: ObjectId, gradient_data: [f32; 4]) {
-        self.gradient_data[id.index()] = gradient_data; 
+        self.gradient_data[id.index()] = gradient_data;
+        self.gradient_data_cache[id.index()] = ObjectInstance::pack_gradient(
+            gradient_data
+        );
+
         self.dirty = true;
     }
 }
