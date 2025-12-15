@@ -21,7 +21,7 @@
 - **chore**: Рутинные задачи (Обновление версий зависимостей)
 
 ### Примеры мест, где может быть изменение (не все)
-batching, render, shader, android, easygpu, textware, resources, errors, objects
+batching, render, shader, android, gpu, textware, resources, errors, objects
 
 ## Стилистика кода
 Рекомендуется писать код в стилистике, которая описана в файле [STYLE_GUIDE.md](STYLE_GUIDE.md) для того, чтобы поддерживать единобразие кодовой базы. Также в начале кадого нового файла должен быть такой заголовок (О и чём написано в стайл гайде) и перенос строки после него
