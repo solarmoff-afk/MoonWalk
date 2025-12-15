@@ -65,8 +65,8 @@ impl UberBatch {
 
                 radii: ObjectInstance::pack_radii(store.rect_radii[idx].to_array()),
 
-                uv: store.uvs[idx],
-                
+                uv: ObjectInstance::pack_uv(store.uvs[idx]),
+
                 type_id: tex_id, 
 
                 // Упаковываем z индекс и вращение

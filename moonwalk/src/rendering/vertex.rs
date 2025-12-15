@@ -36,7 +36,7 @@ impl QuadVertex {
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct ObjectInstance {
     pub pos_size:       [f32; 4],
-    pub uv:             [f32; 4],
+    pub uv:             [u16; 4],
     pub radii:          [u16; 4],
     pub gradient_data:  [i16; 4],
     pub extra:          [f32; 2],
@@ -80,6 +80,16 @@ impl ObjectInstance {
             (r[1] * 16.0) as u16,
             (r[2] * 16.0) as u16,
             (r[3] * 16.0) as u16,
+        ]
+    }
+
+    /// [WAIT DOC]
+    pub fn pack_uv(uv: [f32; 4]) -> [u16; 4] {
+        [
+            (uv[0] * 65535.0) as u16,
+            (uv[1] * 65535.0) as u16,
+            (uv[2] * 65535.0) as u16,
+            (uv[3] * 65535.0) as u16,
         ]
     }
 }
