@@ -3,8 +3,8 @@
 
 use bytemuck::Pod;
 
-use crate::easy_gpu::pipeline::Pipeline;
-use crate::easy_gpu::buffer::Buffer;
+use crate::gpu::pipeline::Pipeline;
+use crate::gpu::buffer::Buffer;
 
 pub struct RenderPass<'a> {
     raw: wgpu::RenderPass<'a>,
@@ -19,7 +19,7 @@ impl<'a> RenderPass<'a> {
         };
 
         let raw = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("EasyGPU Pass"),
+            label: Some("GPU Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view,
                 resolve_target: None,

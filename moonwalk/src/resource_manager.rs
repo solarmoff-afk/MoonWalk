@@ -6,7 +6,7 @@ use std::path::Path;
 #[cfg(target_os = "android")]
 use std::ffi::CString;
 
-use crate::easy_gpu::Context;
+use crate::gpu::Context;
 use crate::rendering::texture::Texture;
 use crate::error::MoonWalkError;
 
@@ -60,7 +60,7 @@ impl ResourceManager {
         }
     }
 
-    /// Загружает текстуру из файла через easy_gpu контекст и путь к нему
+    /// Загружает текстуру из файла через gpu контекст и путь к нему
     pub fn load_texture(&self, ctx: &Context, path: &str) -> Result<Texture, MoonWalkError> {
         let bytes = self.read_bytes(path)?;
         

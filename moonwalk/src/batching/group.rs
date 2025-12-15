@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::easy_gpu::Context;
+use crate::gpu::Context;
 use crate::batching::shapes::uber::UberBatch;
 use crate::objects::store::ObjectStore;
 use crate::rendering::texture::Texture;
@@ -23,7 +23,7 @@ impl BatchGroup {
         self.objects.prepare(ctx, store);
     }
 
-    pub fn render<'a>(&'a self, pass: &mut crate::easy_gpu::RenderPass<'a>, white_texture: &'a Texture, textures: &'a HashMap<u32, Texture>) {
+    pub fn render<'a>(&'a self, pass: &mut crate::gpu::RenderPass<'a>, white_texture: &'a Texture, textures: &'a HashMap<u32, Texture>) {
         self.objects.render(pass, white_texture, textures);
     }
 }

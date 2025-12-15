@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::easy_gpu::{Context, Pipeline, PipelineBuilder};
+use crate::gpu::{Context, Pipeline, PipelineBuilder};
 use crate::objects::ShaderId;
 use crate::error::MoonWalkError;
 

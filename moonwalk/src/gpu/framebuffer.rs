@@ -1,8 +1,8 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
-use crate::easy_gpu::context::Context;
-use crate::easy_gpu::texture::Texture;
+use crate::gpu::context::Context;
+use crate::gpu::texture::Texture;
 
 pub struct Framebuffer {
     pub view: wgpu::TextureView,

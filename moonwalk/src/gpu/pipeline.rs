@@ -3,7 +3,7 @@
 
 use std::borrow::Cow;
 
-use crate::easy_gpu::context::Context;
+use crate::gpu::context::Context;
 
 pub struct Pipeline {
     pub raw: wgpu::RenderPipeline,

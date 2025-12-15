@@ -4,7 +4,7 @@
 use wgpu;
 use std::sync::Arc;
 use moonwalk::rendering::texture::Texture;
-use moonwalk::easy_gpu::Context;
+use moonwalk::gpu::Context;
 
 #[test]
 fn test_texture_from_memory() {

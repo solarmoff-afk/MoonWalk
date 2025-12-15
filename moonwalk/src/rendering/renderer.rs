@@ -4,13 +4,13 @@
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use glam::{Vec2, Vec4};
 
-use crate::easy_gpu::Context;
+use crate::gpu::Context;
 use crate::error::MoonWalkError;
 use crate::rendering::texture::Texture;
 use crate::rendering::state::RenderState;
 use crate::objects::ObjectId;
 
-/// Структура рендерера. Она хранит контекст (easy_gpu -> wgpu)
+/// Структура рендерера. Она хранит контекст (gpu -> wgpu)
 /// и состояние рендера (матричный стэк, храниоище объектов и так далее)
 pub struct MoonRenderer {
     pub context: Context,
@@ -35,7 +35,7 @@ impl MoonRenderer {
         let state = RenderState::new(&context, width, height)?;
 
         Ok(Self {
-            context, // Контекст easy_gpu/wgpu
+            context, // Контекст gpu/wgpu
             state,   // Состояние рендерера
             scale_factor: 1.0,
         })

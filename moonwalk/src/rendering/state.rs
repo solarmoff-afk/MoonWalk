@@ -4,7 +4,7 @@
 use bytemuck::{Pod, Zeroable};
 use std::collections::HashMap;
 
-use crate::easy_gpu::{Context, Buffer, MatrixStack, RenderPass};
+use crate::gpu::{Context, Buffer, MatrixStack, RenderPass};
 use crate::batching::group::BatchGroup;
 use crate::rendering::pipeline::ShaderStore;
 use crate::rendering::texture::Texture;

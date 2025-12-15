@@ -1,7 +1,7 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
-use crate::easy_gpu::{Buffer, Context, RenderPass};
+use crate::gpu::{Buffer, Context, RenderPass};
 use crate::rendering::vertex::{QuadVertex, ObjectInstance};
 use crate::objects::store::ObjectStore;
 use crate::batching::common::BatchBuffer;

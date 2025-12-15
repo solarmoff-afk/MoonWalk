@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use wgpu::util::DeviceExt;
 use bytemuck::Pod;
 
-use crate::easy_gpu::context::Context;
+use crate::gpu::context::Context;
 
 pub struct Buffer<T: Pod> {
     pub raw: wgpu::Buffer,

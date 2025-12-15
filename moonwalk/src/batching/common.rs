@@ -3,7 +3,7 @@
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::easy_gpu::{Buffer, Context};
+use crate::gpu::{Buffer, Context};
 
 /// Трейт, который должна реализовать любая структура инстанса
 /// чтобы её можно было сортировать
