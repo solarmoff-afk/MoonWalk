@@ -13,6 +13,8 @@ moonwalk = { workspace = true }
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.30", features = ["android-native-activity"] }
 android-activity = { version = "0.6", features = ["native-activity"] }
+ndk = "0.8"
+ndk-sys = "0.5"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 winit = "0.30"

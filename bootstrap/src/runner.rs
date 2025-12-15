@@ -1,3 +1,6 @@
+// Часть проекта MoonWalk с открытым исходным кодом.
+// Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
+
 use std::time::Instant;
 use glam::{Vec2, Vec4};
 use moonwalk::MoonWalk;
@@ -29,6 +32,9 @@ struct AppRunner<A> {
     app: A,
     settings: WindowSettings,
     state: Option<AppState>,
+
+    #[cfg(target_os = "android")]
+    android_app: AndroidApp,
 }
 
 impl<A: Application> ApplicationHandler for AppRunner<A> {
@@ -62,11 +68,29 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
             return;
         }
 
+        #[cfg(not(target_os = "android"))]
         let mut moonwalk = MoonWalk::new(
             static_window, 
             initial_size.width, 
             initial_size.height
         ).expect("Failed to init MoonWalk");
+
+        #[cfg(target_os = "android")]
+        let mut moonwalk = {
+            let am_ptr = self.android_app.asset_manager().ptr();
+            let casted_ptr = am_ptr.cast();
+
+            let asset_manager = unsafe {
+                ndk::asset::AssetManager::from_ptr(casted_ptr)
+            };
+
+            MoonWalk::new(
+                static_window, 
+                initial_size.width, 
+                initial_size.height,
+                asset_manager,
+            ).expect("Failed to init MoonWalk")
+        };
         
         moonwalk.set_viewport(initial_size.width, initial_size.height);
         moonwalk.set_scale_factor(scale_factor as f32); 
@@ -169,7 +193,7 @@ impl Runner {
     #[cfg(target_os = "android")]
     pub fn run<A: Application + 'static>(app: A, settings: WindowSettings, android_app: AndroidApp) -> Result<(), Box<dyn std::error::Error>> {
         let event_loop = EventLoop::builder()
-            .with_android_app(android_app)
+            .with_android_app(android_app.clone()) 
             .build()?;
             
         event_loop.set_control_flow(ControlFlow::Poll);
@@ -178,6 +202,7 @@ impl Runner {
             app,
             settings,
             state: None,
+            android_app,
         };
 
         event_loop.run_app(&mut runner)?;

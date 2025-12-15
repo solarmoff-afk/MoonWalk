@@ -2,6 +2,9 @@ use moonwalk::{MoonWalk, ObjectId};
 use moonwalk_bootstrap::{Application, Runner, WindowSettings};
 use glam::{Vec2, Vec4};
 
+#[cfg(target_os = "android")]
+use android_activity::AndroidApp;
+
 struct TextureApp {
     sprite_id: Option<ObjectId>,
     texture_id: u32,
@@ -88,3 +91,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settings = WindowSettings::new("MoonWalk Texture Test", 800.0, 600.0).resizable(true);
     Runner::run(app, settings)
 }
+
+#[cfg(target_os = "android")]
+#[unsafe(no_mangle)]
+fn android_main(app: AndroidApp) {
+    android_logger::init_once(
+        android_logger::Config::default().with_max_level(log::LevelFilter::Info)
+    );
+
+    log::info!("MoonWalk: android_main started");
+
+    let stress_app = TextureApp::new();
+    let settings = WindowSettings::new("MoonWalk Android", 0.0, 0.0);
+    Runner::run(stress_app, settings, app).unwrap();
+}
+
+#[cfg(target_os = "android")]
+fn main() {}
