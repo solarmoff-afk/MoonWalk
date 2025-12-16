@@ -266,7 +266,10 @@ impl MoonWalk {
         Ok(id)
     }
 
-    // [WAIT DOC]
+    /// Снапшот (скриншот) это запекание конкретной области на экране либо в рендер
+    /// контейнере в указанных координатах (pos, Vec2 из glam) и с указанным размером
+    /// (size, Vec2 из glam). На выходе у функции обычное айди текстуры которое
+    /// можно использовать
     pub fn snapshot(&mut self, pos: Vec2, size: Vec2) -> u32 {
         self.renderer.request_snapshot(
             pos.x as u32, 
