@@ -4,7 +4,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-mod context;
+pub mod context;
 pub mod buffer;
 pub mod texture;
 pub mod pipeline;

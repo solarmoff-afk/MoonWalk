@@ -25,6 +25,7 @@ use wgpu::SurfaceError;
 use resource_manager::ResourceManager;
 
 pub use crate::objects::ObjectId;
+use crate::rendering::container::RenderContainer;
 use crate::rendering::renderer::MoonRenderer;
 
 /// Основная структура движка которая содержит рендерер. Конструктор new
@@ -273,5 +274,10 @@ impl MoonWalk {
             size.x as u32, 
             size.y as u32
         )
+    }
+
+    // [WAIT DOC]
+    pub fn new_render_container(&self, width: u32, height: u32) -> RenderContainer {
+        RenderContainer::new(&self.renderer.context, width, height)
     }
 }

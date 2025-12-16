@@ -41,7 +41,10 @@ impl Texture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING 
+                 | wgpu::TextureUsages::RENDER_ATTACHMENT 
+                 | wgpu::TextureUsages::COPY_SRC
+                 | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
 
@@ -136,10 +139,10 @@ impl Texture {
             
             format: format,
 
-            usage: wgpu::TextureUsages::TEXTURE_BINDING 
-                 | wgpu::TextureUsages::COPY_DST 
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
                  | wgpu::TextureUsages::RENDER_ATTACHMENT
-                 | wgpu::TextureUsages::COPY_SRC,
+                 | wgpu::TextureUsages::COPY_SRC
+                 | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
 
@@ -221,9 +224,10 @@ impl Texture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT 
-                 | wgpu::TextureUsages::TEXTURE_BINDING 
-                 | wgpu::TextureUsages::COPY_SRC, // Важно для снапшотов
+            usage: wgpu::TextureUsages::TEXTURE_BINDING 
+                 | wgpu::TextureUsages::RENDER_ATTACHMENT 
+                 | wgpu::TextureUsages::COPY_SRC
+                 | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
 
