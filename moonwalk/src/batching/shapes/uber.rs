@@ -21,6 +21,9 @@ pub struct UberBatch {
 
     // Сохранение списка команд за кадр
     commands: Vec<DrawCommand>,
+
+    // Буфер для снапшотов
+    blit_buffer: Buffer<ObjectInstance>,
 }
 
 impl UberBatch {
@@ -28,11 +31,24 @@ impl UberBatch {
         let static_vbo = Buffer::vertex(ctx, &QuadVertex::QUAD);
         let static_ibo = Buffer::<u32>::index(ctx, &QuadVertex::INDICES);
 
+         let dummy = [ObjectInstance { 
+            pos_size: [0.0; 4],
+            uv: [0; 4],
+            radii: [0; 4],
+            gradient_data: [0; 4], 
+            extra: [0.0; 2],
+            color: 0,
+            color2: 0,
+            type_id: 0, 
+        }];
+        let blit_buffer = Buffer::vertex(ctx, &dummy);
+
         Self {
             static_vbo,
             static_ibo,
             batch: BatchBuffer::new(),
             commands: Vec::with_capacity(32),
+            blit_buffer,
         }
     }
 
@@ -156,5 +172,43 @@ impl UberBatch {
                 );
             }
         }
+    }
+
+    /// Рисует текстуру на весь экран
+    pub fn blit<'a>(
+        &'a mut self, 
+        ctx: &Context, 
+        pass: &mut RenderPass<'a>, 
+        texture: &'a Texture, 
+        screen_width: u32, 
+        screen_height: u32
+    ) {
+        let instance = ObjectInstance {
+            pos_size: [0.0, 0.0, screen_width as f32, screen_height as f32],
+            uv: ObjectInstance::pack_uv([0.0, 0.0, 1.0, 1.0]),
+            radii: ObjectInstance::pack_radii([0.0; 4]),
+            type_id: 1, 
+            color: ObjectInstance::pack_color([1.0, 1.0, 1.0, 1.0]),
+            color2: 0,
+            gradient_data: ObjectInstance::pack_gradient([0.0, 0.0, -1.0, 0.0]),
+            extra: [0.0, 0.0],
+        };
+
+        self.blit_buffer.update(ctx, &[instance]);
+
+        // Отрисовка буфера
+        pass.set_vertex_buffer(0, &self.static_vbo);
+        pass.set_vertex_buffer(1, &self.blit_buffer);
+        pass.set_index_buffer(&self.static_ibo);
+        
+        pass.set_bind_group(1, &texture.bind_group);
+        
+        pass.draw_indexed_instanced_extended(
+            6,
+            1,
+            0,
+            0,
+            0,
+        );
     }
 }

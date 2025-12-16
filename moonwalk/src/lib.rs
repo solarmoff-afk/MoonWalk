@@ -264,4 +264,14 @@ impl MoonWalk {
         
         Ok(id)
     }
+
+    // [WAIT DOC]
+    pub fn snapshot(&mut self, pos: Vec2, size: Vec2) -> u32 {
+        self.renderer.request_snapshot(
+            pos.x as u32, 
+            pos.y as u32, 
+            size.x as u32, 
+            size.y as u32
+        )
+    }
 }

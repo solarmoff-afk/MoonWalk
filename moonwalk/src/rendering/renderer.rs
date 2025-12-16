@@ -10,12 +10,28 @@ use crate::rendering::texture::Texture;
 use crate::rendering::state::RenderState;
 use crate::objects::ObjectId;
 
+/// Wgpu работает асинхронно поэтому нам нужно при вызове публичного api для
+/// снапшота вернуть какой-то айди, добавить его в очередь (Как раз этой структуры)
+/// и превратить в текстуру когда это возможно (В функции рендера)
+struct SnapshotTask {
+    target_id: u32,
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32,
+}
+
 /// Структура рендерера. Она хранит контекст (gpu -> wgpu)
 /// и состояние рендера (матричный стэк, храниоище объектов и так далее)
 pub struct MoonRenderer {
     pub context: Context,
     pub state: RenderState,
     pub scale_factor: f32,
+
+    // [WAIT DOC]
+    snapshot_tasks: Vec<SnapshotTask>,
+
+    offscreen: Option<crate::rendering::texture::Texture>, 
 }
 
 impl MoonRenderer {
@@ -38,6 +54,11 @@ impl MoonRenderer {
             context, // Контекст gpu/wgpu
             state,   // Состояние рендерера
             scale_factor: 1.0,
+
+            // Обычно снапшотов очень мало, цифра 8 взята на всякий случай,
+            // но тут хватило бы и 4
+            snapshot_tasks: Vec::with_capacity(8),
+            offscreen: None,
         })
     }
 
@@ -68,20 +89,119 @@ impl MoonRenderer {
         }
     }
 
+    /// Регистрирует пустую текстуру, возвращает её, добавляет в очередь 
+    /// и запекает (Снапшотит/скриншотит) туда экран когда приходит время
+    pub fn request_snapshot(&mut self, x: u32, y: u32, w: u32, h: u32) -> u32 {
+        let format = self.context.config.format;
+        let texture = crate::rendering::texture::Texture::create_empty(
+            &self.context, w, h, format, "Snapshot Target"
+        );
+
+        // Регистрируем текстуру в состоянии чтобы добавить в очередь на снапшот
+        // и потом вернуть 
+        let id = self.state.add_texture(texture);
+
+        // Запекание будет в конце кадра в функции render
+        self.snapshot_tasks.push(
+            SnapshotTask {
+                target_id: id,
+                x, y, w, h
+            }
+        );
+
+        id
+    }
+
     /// Функция для отправки всего на рендер
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        // Берём текущий кадр
-        let frame = self.context.surface.as_ref().unwrap().get_current_texture()?;
-        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        
-        // Создаём кодировщик
+        let width = self.context.config.width;
+        let height = self.context.config.height;
+        let format = self.context.config.format;
+
+        let need_recreate = self.offscreen.as_ref()
+            .map_or(true, |tex| tex.texture.width() != width || tex.texture.height() != height);
+
+        if need_recreate {
+            self.offscreen = Some(crate::rendering::texture::Texture::create_empty(
+                &self.context,
+                width,
+                height,
+                format,
+                "Offscreen Target",
+            ));
+        }
+
+        let offscreen_tex = self.offscreen.as_ref().unwrap();
+        let render_target_view = &offscreen_tex.view; 
+
         let mut encoder = self.context.create_encoder();
 
-        // Рисуем текущее состояние
-        self.state.draw(&self.context, &mut encoder, &view);
+        // Здесь рисуется текущее состояние в буфер кадра
+        self.state.draw(&self.context, &mut encoder, render_target_view);
+        
+        if !self.snapshot_tasks.is_empty() {
+            for task in &self.snapshot_tasks {
+                if let Some(target_tex) = self.state.textures.get(&task.target_id) {
+                    encoder.copy_texture_to_texture(
+                        wgpu::TexelCopyTextureInfo {
+                            texture: &offscreen_tex.texture,
+                            mip_level: 0,
+                            origin: wgpu::Origin3d {
+                                x: task.x,
+                                y: task.y,
+                                z: 0
+                            },
+                            aspect: wgpu::TextureAspect::All,
+                        },
+
+                        wgpu::TexelCopyTextureInfo {
+                            texture: &target_tex.texture,
+                            mip_level: 0,
+                            origin: wgpu::Origin3d::ZERO,
+                            aspect: wgpu::TextureAspect::All,
+                        },
+
+                        wgpu::Extent3d {
+                            width: task.w,
+                            height: task.h,
+                            depth_or_array_layers: 1,
+                        }
+                    );
+                }
+            }
+
+            // Очищаем очередь задач после выполнения
+            self.snapshot_tasks.clear();
+        }
+
+        // Переносим картинку из буфера в свапчейн
+        let frame = self.context.surface.as_ref().unwrap().get_current_texture()?;
+        let surface_view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let mut blit_encoder = self.context.create_encoder();
+        {
+            let mut pass = crate::gpu::RenderPass::new(
+                &mut blit_encoder,
+                &surface_view,
+                None
+            );
+            
+            if let Some(pipeline) = self.state.shaders.get_pipeline(self.state.rect_shader) {
+                pass.set_pipeline(pipeline);
+                pass.set_bind_group(0, &self.state.proj_bind_group);
+                
+                self.state.batches.objects.blit(
+                    &self.context,
+                    &mut pass,
+                    &offscreen_tex,
+                    width, 
+                    height
+                );
+            }
+        }
 
         // Отправляем всё на рендер через контекст рендеринга
-        self.context.submit(encoder);
+        self.context.queue.submit([encoder.finish(), blit_encoder.finish()]);
 
         frame.present();
         Ok(())

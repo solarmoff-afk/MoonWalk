@@ -154,4 +154,21 @@ impl RenderState {
         
         id
     }
+
+    /// [WAIT DOC]
+    pub fn blit<'a>(&'a mut self, ctx: &Context, pass: &mut RenderPass<'a>, texture: &'a Texture) {
+        if let Some(pipeline) = self.shaders.get_pipeline(self.rect_shader) {
+            pass.set_pipeline(pipeline);
+            
+            pass.set_bind_group(0, &self.proj_bind_group);
+            
+            self.batches.objects.blit(
+                ctx, 
+                pass, 
+                texture, 
+                ctx.config.width, 
+                ctx.config.height
+            );
+        }
+    }
 }
