@@ -112,6 +112,18 @@ impl MoonRenderer {
         id
     }
 
+    /// Эта функция берёт айди существующей текстуры и использует её как таргет
+    /// для снапшота который ставит в очередь
+    pub fn update_snapshot(&mut self, x: u32, y: u32, w: u32, h: u32, id: u32) {
+        // Запекание будет в конце кадра в функции render
+        self.snapshot_tasks.push(
+            SnapshotTask {
+                target_id: id,
+                x, y, w, h
+            }
+        );
+    }
+
     /// Функция для отправки всего на рендер
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let width = self.context.config.width;

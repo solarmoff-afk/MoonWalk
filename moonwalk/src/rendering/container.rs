@@ -19,9 +19,6 @@ pub struct RenderContainer {
     pub target: Texture,
     pub width: u32,
     pub height: u32,
-
-    matrix_stack: MatrixStack,
-    uniform_buffer: Buffer<GlobalUniform>,
 }
 
 impl RenderContainer {
@@ -69,8 +66,6 @@ impl RenderContainer {
         Self {
             store: ObjectStore::new(),
             batch: UberBatch::new(ctx),
-            matrix_stack,
-            uniform_buffer,
             proj_bind_group,
             target,
             width,
@@ -212,5 +207,35 @@ impl RenderContainer {
         renderer.context.submit(encoder);
         
         id
+    }
+
+    pub fn update_snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32, id: u32) {
+        let renderer = &mut mw.renderer;
+        let target_tex = renderer.state.textures.get(&id).unwrap();
+        
+        let mut encoder = renderer.context.create_encoder();
+        encoder.copy_texture_to_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.target.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d { x, y, z: 0 },
+                aspect: wgpu::TextureAspect::All,
+            },
+
+            wgpu::TexelCopyTextureInfo {
+                texture: &target_tex.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+
+            wgpu::Extent3d {
+                width: w,
+                height: h,
+                depth_or_array_layers: 1
+            }
+        );
+        
+        renderer.context.submit(encoder);
     }
 }
