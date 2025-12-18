@@ -18,6 +18,8 @@ pub mod objects;
 pub mod resource_manager;
 mod batching;
 mod textware;
+mod fallback;
+mod debug;
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use glam::{Vec2, Vec4};

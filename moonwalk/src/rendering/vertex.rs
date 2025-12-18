@@ -43,9 +43,21 @@ pub struct ObjectInstance {
     pub color2:         u32,
     pub color:          u32,
     pub type_id:        u32,
+    pub _pad:           u32,
 }
 
 impl ObjectInstance {
+    // let dummy = [ObjectInstance { 
+    //     pos_size: [0.0; 4],
+    //     uv: [0; 4],
+    //     radii: [0; 4],
+    //     gradient_data: [0; 4], 
+    //     extra: [0.0; 2],
+    //     color: 0,
+    //     color2: 0,
+    //     type_id: 0, 
+    // }];
+
     /// Оптимизация низкого уровня для экономии
     /// данных который проходят через шину CPU-GPU
     /// Хелпер для упаковки [r, g, b, a] (0.0 - 1.0) в u32 (0xAABBGGRR)
@@ -98,4 +110,30 @@ impl SortableInstance for ObjectInstance {
     fn get_z_index(&self) -> f32 {
         self.extra[0]
     }
+}
+
+// На устройствах со слабым gpu лимит байт на вершину может быть ещё меньше,
+// 32 байта. Оптимизировать данные под 32 байта невероятно сложно и долго
+// (С точки зрения времени упаковки и распаковки), поэтому нужно разделение
+// на 2 инстанса
+
+// Первая часть, 32 байта
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct InstancePartA {
+    pub pos_size: [f32; 4], // 16
+    pub uv:       [u16; 4], // 8
+    pub extra:    [f32; 2], // 8
+}
+
+// Вторая часть, 32 байта
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct InstancePartB {
+    pub radii:         [u16; 4], // 8
+    pub gradient_data: [i16; 4], // 8
+    pub color2:        u32,      // 4
+    pub color:         u32,      // 4
+    pub type_id:       u32,      // 4
+    pub _pad:          u32,      // 4
 }

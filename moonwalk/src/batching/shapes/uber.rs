@@ -3,9 +3,16 @@
 
 use crate::gpu::{Buffer, Context, RenderPass};
 use crate::rendering::vertex::{QuadVertex, ObjectInstance};
+use crate::rendering::texture::Texture;
 use crate::objects::store::ObjectStore;
 use crate::batching::common::BatchBuffer;
-use crate::rendering::texture::Texture;
+use crate::fallback::batch::SplitStorage;
+
+// Абстракция хранилища gpu объекта
+enum GpuStorage {
+    Fast(Option<Buffer<ObjectInstance>>), // Один буфер (нормальный режим, 64+ байта)
+    Split(SplitStorage), // Два буфера (fallback, меньше 64 байт)
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct DrawCommand {
@@ -22,8 +29,8 @@ pub struct UberBatch {
     // Сохранение списка команд за кадр
     commands: Vec<DrawCommand>,
 
-    // Буфер для снапшотов
-    blit_buffer: Buffer<ObjectInstance>,
+    storage: GpuStorage,
+    blit_storage: GpuStorage,
 }
 
 impl UberBatch {
@@ -31,24 +38,52 @@ impl UberBatch {
         let static_vbo = Buffer::vertex(ctx, &QuadVertex::QUAD);
         let static_ibo = Buffer::<u32>::index(ctx, &QuadVertex::INDICES);
 
-         let dummy = [ObjectInstance { 
-            pos_size: [0.0; 4],
-            uv: [0; 4],
-            radii: [0; 4],
-            gradient_data: [0; 4], 
-            extra: [0.0; 2],
-            color: 0,
-            color2: 0,
-            type_id: 0, 
-        }];
-        let blit_buffer = Buffer::vertex(ctx, &dummy);
+        let use_split = crate::fallback::check_fallback(ctx);
+
+        let (storage, blit_storage) = if !use_split {
+            // Обычный режим, если gpu поддерживает 64 байта
+            let dummy = [ObjectInstance {
+                    pos_size: [0.0; 4],
+                    uv: [0; 4],
+                    radii: [0; 4],
+                    gradient_data: [0; 4],
+                    extra: [0.0; 2],
+                    color: 0,
+                    color2: 0,
+                    type_id: 0,
+                    _pad: 0,
+                }];
+            (
+                GpuStorage::Fast(None),
+                GpuStorage::Fast(Some(Buffer::vertex(ctx, &dummy)))
+            )
+        } else {
+            // Разделяемый режим, если gpu не поддерживает 64 байта
+            let mut blit_split = SplitStorage::new();
+            blit_split.update(ctx, &[ObjectInstance {
+                pos_size: [0.0; 4],
+                uv: [0; 4],
+                radii: [0; 4],
+                gradient_data: [0; 4],
+                extra: [0.0; 2],
+                color: 0,
+                color2: 0,
+                type_id: 0,
+                _pad: 0,
+            }]);
+            (
+                GpuStorage::Split(SplitStorage::new()),
+                GpuStorage::Split(blit_split)
+            )
+        };
 
         Self {
             static_vbo,
             static_ibo,
             batch: BatchBuffer::new(),
             commands: Vec::with_capacity(32),
-            blit_buffer,
+            storage,
+            blit_storage,
         }
     }
 
@@ -96,6 +131,9 @@ impl UberBatch {
                 color2: store.colors2_cache[idx],
 
                 gradient_data: store.gradient_data_cache[idx],
+
+                // Чтобы размер структуры был 64 байта либо два раза по 32 (В фаалбек режиме)
+                _pad: 0
             });
         }
         
@@ -133,44 +171,77 @@ impl UberBatch {
             });
         }
 
+        match &mut self.storage {
+            GpuStorage::Fast(buf_opt) => {
+                // Обычный режим, то есть просто обновляем буфер
+                if !self.batch.cpu_buffer.is_empty() {
+                    if let Some(buf) = buf_opt {
+                        buf.update(ctx, &self.batch.cpu_buffer);
+                    } else {
+                        *buf_opt = Some(Buffer::vertex(ctx, &self.batch.cpu_buffer));
+                    }
+                }
+            }
+            GpuStorage::Split(split) => {
+                // Фаллбек режим, разделение на два буфера
+                split.update(ctx, &self.batch.cpu_buffer);
+            }
+        }
+
         self.batch.upload(ctx);
     }
 
     pub fn render<'a>(
-            &'a self,
-            pass: &mut RenderPass<'a>,
-            white_texture: &'a Texture,
-            textures: &'a std::collections::HashMap<u32, Texture>,
-        ) {
-        if let Some(inst_buf) = &self.batch.gpu_buffer {
-            if self.commands.is_empty() {
-                return;
+        &'a self,
+        pass: &mut RenderPass<'a>,
+        white_texture: &'a Texture,
+        textures: &'a std::collections::HashMap<u32, Texture>,
+    ) {
+        // Проверка есть ли данные для рендера
+        let has_data = match &self.storage {
+            GpuStorage::Fast(buf) => buf.is_some(),
+            GpuStorage::Split(split) => split.is_ready(),
+        };
+
+        if !has_data || self.commands.is_empty() {
+            return;
+        }
+
+        pass.set_vertex_buffer(0, &self.static_vbo);
+        
+        match &self.storage {
+            GpuStorage::Fast(Some(buf)) => {
+                pass.set_vertex_buffer(1, buf);
             }
+            
+            GpuStorage::Split(split) => {
+                split.bind(pass); // Биндит slot 1 и 2
+            }
+            
+            _ => return, 
+        }
 
-            pass.set_vertex_buffer(0, &self.static_vbo);
-            pass.set_vertex_buffer(1, inst_buf);
-            pass.set_index_buffer(&self.static_ibo);
+        pass.set_index_buffer(&self.static_ibo);
 
-            for cmd in &self.commands {
-                if cmd.texture_id == 0 {
-                    pass.set_bind_group(1, &white_texture.bind_group);
+        for cmd in &self.commands {
+            if cmd.texture_id == 0 {
+                pass.set_bind_group(1, &white_texture.bind_group);
+            } else {
+                if let Some(tex) = textures.get(&cmd.texture_id) {
+                    pass.set_bind_group(1, &tex.bind_group);
                 } else {
-                    if let Some(tex) = textures.get(&cmd.texture_id) {
-                        pass.set_bind_group(1, &tex.bind_group);
-                    } else {
-                        // Текстуры нет, а значит нужно вернуть белую текстуру
-                        pass.set_bind_group(1, &white_texture.bind_group);
-                    }
+                    // Текстуры нет, а значит нужно вернуть белую текстуру
+                    pass.set_bind_group(1, &white_texture.bind_group);
                 }
-
-                pass.draw_indexed_instanced_extended(
-                    6, 
-                    cmd.count, 
-                    0, 
-                    0, 
-                    cmd.start_index
-                );
             }
+
+            pass.draw_indexed_instanced_extended(
+                6, 
+                cmd.count, 
+                0, 
+                0, 
+                cmd.start_index
+            );
         }
     }
 
@@ -192,17 +263,29 @@ impl UberBatch {
             color2: 0,
             gradient_data: ObjectInstance::pack_gradient([0.0, 0.0, -1.0, 0.0]),
             extra: [0.0, 0.0],
+            _pad: 0 // _pad
         };
 
-        self.blit_buffer.update(ctx, &[instance]);
+         match &mut self.blit_storage {
+            GpuStorage::Fast(buf) => {
+                buf.as_mut().unwrap().update(ctx, &[instance]);
+            }
+
+            GpuStorage::Split(split) => {
+                split.update(ctx, &[instance]);
+            }
+        }
 
         // Отрисовка буфера
         pass.set_vertex_buffer(0, &self.static_vbo);
-        pass.set_vertex_buffer(1, &self.blit_buffer);
+
+        match &self.blit_storage {
+            GpuStorage::Fast(buf) => pass.set_vertex_buffer(1, buf.as_ref().unwrap()),
+            GpuStorage::Split(split) => split.bind(pass),
+        }
+
         pass.set_index_buffer(&self.static_ibo);
-        
         pass.set_bind_group(1, &texture.bind_group);
-        
         pass.draw_indexed_instanced_extended(
             6,
             1,
