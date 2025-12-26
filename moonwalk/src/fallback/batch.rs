@@ -24,7 +24,9 @@ impl SplitStorage {
     /// Эта функция берёт массив заполненный полным ObjectInstance и дробит
     /// данные на два буфера по 32 байта чтобы передать их отдельно
     pub fn update(&mut self, ctx: &Context, data: &[ObjectInstance]) {
-        if data.is_empty() { return; }
+        if data.is_empty() {
+            return;
+        }
 
         // Расщепление на CPU (неизбежная плата за совместимость)
 
@@ -48,7 +50,7 @@ impl SplitStorage {
                 color2: item.color2,
                 color: item.color,
                 type_id: item.type_id,
-                _pad: 0,
+                effect_data: item.effect_data,
             });
         }
 

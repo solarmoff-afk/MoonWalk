@@ -51,7 +51,7 @@ impl UberBatch {
                     color: 0,
                     color2: 0,
                     type_id: 0,
-                    _pad: 0,
+                    effect_data: [0; 2],
                 }];
             (
                 GpuStorage::Fast(None),
@@ -69,7 +69,7 @@ impl UberBatch {
                 color: 0,
                 color2: 0,
                 type_id: 0,
-                _pad: 0,
+                effect_data: [0, 0],
             }]);
             (
                 GpuStorage::Split(SplitStorage::new()),
@@ -132,8 +132,7 @@ impl UberBatch {
 
                 gradient_data: store.gradient_data_cache[idx],
 
-                // Чтобы размер структуры был 64 байта либо два раза по 32 (В фаалбек режиме)
-                _pad: 0
+                effect_data: store.effect_data_cache[idx],
             });
         }
         
@@ -263,7 +262,7 @@ impl UberBatch {
             color2: 0,
             gradient_data: ObjectInstance::pack_gradient([0.0, 0.0, -1.0, 0.0]),
             extra: [0.0, 0.0],
-            _pad: 0 // _pad
+            effect_data: ObjectInstance::pack_effects(0.0, 0.0),
         };
 
          match &mut self.blit_storage {

@@ -235,6 +235,11 @@ impl MoonWalk {
         self.renderer.state.store.config_uv(id, uv);
     }
 
+    /// [WAIT DOC]
+    pub fn set_effect(&mut self, id: ObjectId, border_width: f32, box_shadow: f32) {
+        self.renderer.set_effect(id, [border_width, box_shadow]);
+    }
+
     /// Эта функция пересоздаёт холст для рендеринга. На android
     /// при сворачивании приложение старый холст удаляется поэтому
     /// нам нужен новый

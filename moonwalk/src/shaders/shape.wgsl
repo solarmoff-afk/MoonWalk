@@ -22,6 +22,7 @@ struct InstanceInput {
     @location(6) color2_packed: u32,
     @location(7) color_packed: u32,
     @location(8) type_id: u32,
+    @location(9) effect_data: vec2<u32>,
 };
 
 struct VertexOutput {
@@ -34,6 +35,7 @@ struct VertexOutput {
     @location(5) type_id: u32,
     @location(6) color2: vec4<f32>,
     @location(7) gradient_data: vec4<f32>,
+    @location(8) @interpolate(flat) effect_data: vec2<u32>,
 };
 
 @vertex
@@ -68,6 +70,7 @@ fn vs_main(in: VertexInput, instance: InstanceInput) -> VertexOutput {
     out.uv = instance.uv.xy + (in.position * instance.uv.zw);
     out.type_id = instance.type_id;
     out.gradient_data = instance.gradient_data;
+    out.effect_data = instance.effect_data;
 
     return out;
 }
@@ -163,15 +166,27 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let min_half = min(half_size.x, half_size.y);
     let r = min(in.radii, vec4<f32>(min_half));
 
+    let border_width = f32(in.effect_data.x) / 16.0;
+    let shadow_soft = f32(in.effect_data.y) / 16.0;
+
     let dist = sd_rounded_box(p, half_size, r);
     
-    let alpha = 1.0 - smoothstep(-0.5, 0.5, dist / length(vec2<f32>(dpdx(dist), dpdy(dist))));
+    var alpha = 0.0;
+
+    // Режим тени или обычный режим
+    if (shadow_soft > 0.0) {
+        // Мягкая тень (Blur)
+        alpha = 1.0 - smoothstep(-shadow_soft, shadow_soft, dist);
+    } else {
+        // Жесткий край
+        alpha = 1.0 - smoothstep(-0.5, 0.5, dist / length(vec2<f32>(dpdx(dist), dpdy(dist))));
+    }
 
     if (alpha <= 0.0) {
         discard;
     }
 
-    let final_color = get_gradient_color(
+    var final_color = get_gradient_color(
         in.local_pos,
         in.size,
         in.gradient_data,
@@ -179,16 +194,17 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         in.color2
     );
 
-    // Цвет
-    if (in.type_id == 0u) {
-        return vec4<f32>(final_color.rgb, final_color.a * alpha);
-    } else {
-        // Текстура
+    // Текстура
+    if (in.type_id > 0u) {
         let tex_color = textureSample(t_diffuse, s_diffuse, in.uv);
-        
-        return vec4<f32>(
-            tex_color.rgb * final_color.rgb, 
-            tex_color.a * final_color.a * alpha
-        );
+        final_color = tex_color * final_color;
     }
+
+    // Режим обводки
+    if (border_width > 0.0 && shadow_soft == 0.0) {
+        let border_factor = smoothstep(-border_width - 0.5, -border_width + 0.5, dist);
+        final_color = mix(final_color, in.color2, border_factor);
+    }
+
+    return vec4<f32>(final_color.rgb, final_color.a * alpha);
 }

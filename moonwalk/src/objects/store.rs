@@ -52,6 +52,10 @@ pub struct ObjectStore {
     // [!] Все индексы (x, y, z и w) указаываются от 0 до 1 
     pub gradient_data: Vec<[f32; 4]>,
 
+    // Параметры эффектов, тут задаются данные обводки (1 индекс) и box-shadow
+    // вторым индексом
+    pub effect_data: Vec<[f32; 2]>,
+
     pub dirty: bool,
 
     // Существует проблема с лимитом в 86 (или на старых устройствах 64) байта 
@@ -68,6 +72,7 @@ pub struct ObjectStore {
     pub rect_radii_cache: Vec<[u16; 4]>,
     pub uvs_cache: Vec<[u16; 4]>,
     pub gradient_data_cache: Vec<[i16; 4]>,
+    pub effect_data_cache: Vec<[u16; 2]>,
 }
 
 impl ObjectStore {
@@ -88,6 +93,7 @@ impl ObjectStore {
             texture_ids: Vec::with_capacity(1024),
             uvs: Vec::with_capacity(1024),
             gradient_data: Vec::with_capacity(1024),
+            effect_data: Vec::with_capacity(1024),
 
             // Для кэша сжатых значений
             colors_cache: Vec::with_capacity(1024),
@@ -95,6 +101,7 @@ impl ObjectStore {
             rect_radii_cache: Vec::with_capacity(1024),
             uvs_cache: Vec::with_capacity(1024),
             gradient_data_cache: Vec::with_capacity(1024),
+            effect_data_cache: Vec::with_capacity(1024),
 
             // Объекты изначально не грязные потому-что их нет
             dirty: false,
@@ -118,6 +125,8 @@ impl ObjectStore {
 
             // Нет градиента, так как радиус (z) отрицательный
             self.gradient_data[idx] = [0.0, 0.0, -1.0, 0.0];
+
+            self.effect_data[idx] = [0.0, 0.0];
             
             self.dirty = true;
 
@@ -127,7 +136,8 @@ impl ObjectStore {
             self.rect_radii_cache[idx] = ObjectInstance::pack_radii(Vec4::ZERO.to_array());
             self.uvs_cache[idx] = ObjectInstance::pack_uv([0.0, 0.0, 1.0, 1.0]);
             self.gradient_data_cache[idx] = ObjectInstance::pack_gradient([0.0, 0.0, -1.0, 0.0]);
-            
+            self.effect_data_cache[idx] = ObjectInstance::pack_effects(0.0, 0.0);
+
             return idx;
         }
         
@@ -143,6 +153,7 @@ impl ObjectStore {
         self.rect_radii.push(Vec4::ZERO);
         self.uvs.push([0.0, 0.0, 1.0, 1.0]);
         self.gradient_data.push([0.0, 0.0, -1.0, 0.0]);
+        self.effect_data.push([0.0, 0.0]);
         self.object_types.push(ObjectType::Unknown);
         self.texture_ids.push(0);
 
@@ -156,6 +167,7 @@ impl ObjectStore {
         self.rect_radii_cache.push(ObjectInstance::pack_radii(Vec4::ZERO.to_array()));
         self.uvs_cache.push(ObjectInstance::pack_uv([0.0, 0.0, 1.0, 1.0]));
         self.gradient_data_cache.push(ObjectInstance::pack_gradient([0.0, 0.0, -1.0, 0.0]));
+        self.effect_data_cache.push(ObjectInstance::pack_effects(0.0, 0.0));
 
         index
     }
@@ -260,6 +272,16 @@ impl ObjectStore {
         self.gradient_data[id.index()] = gradient_data;
         self.gradient_data_cache[id.index()] = ObjectInstance::pack_gradient(
             gradient_data
+        );
+
+        self.dirty = true;
+    }
+
+    #[inline(always)]
+    pub fn config_effect_data(&mut self, id: ObjectId, effect_data: [f32; 2]) {
+        self.effect_data[id.index()] = effect_data;
+        self.effect_data_cache[id.index()] = ObjectInstance::pack_effects(
+            effect_data[0], effect_data[1]
         );
 
         self.dirty = true;

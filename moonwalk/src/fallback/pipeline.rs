@@ -15,7 +15,6 @@ pub fn create_split_pipeline(
     ctx: &Context,
     format: wgpu::TextureFormat
 ) -> Pipeline {
-    
     let layout_a = wgpu::VertexBufferLayout {
         array_stride: 32,
         step_mode: wgpu::VertexStepMode::Instance,
@@ -46,7 +45,7 @@ pub fn create_split_pipeline(
         step_mode: wgpu::VertexStepMode::Instance,
         attributes: &[
             // Radii (локация 3), gradient (локация 4), color2 (локация 6),
-            // color (локация 7) и type (локация 8)
+            // color (локация 7), type (локация 8) и эффекты (локация 9)
             wgpu::VertexAttribute { 
                 format: wgpu::VertexFormat::Uint16x4,
                 offset: 0,
@@ -75,6 +74,12 @@ pub fn create_split_pipeline(
                 format: wgpu::VertexFormat::Uint32,
                 offset: 24,
                 shader_location: 8
+            },
+
+            wgpu::VertexAttribute {
+                format: wgpu::VertexFormat::Uint16x2,
+                offset: 28,
+                shader_location: 9
             },
         ],
     };

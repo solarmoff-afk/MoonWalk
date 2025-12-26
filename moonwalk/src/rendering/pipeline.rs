@@ -105,6 +105,14 @@ impl ShaderStore {
                         offset: 56, 
                         shader_location: 8
                     },
+
+                    // Effect Data (u16, u16) 4 байта
+                    // Смещение 56 + 4 = 60
+                    wgpu::VertexAttribute { 
+                        format: wgpu::VertexFormat::Uint16x2,
+                        offset: 60, 
+                        shader_location: 9
+                    },
                 ],
             };
 

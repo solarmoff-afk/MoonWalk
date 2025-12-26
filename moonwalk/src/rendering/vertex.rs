@@ -43,7 +43,7 @@ pub struct ObjectInstance {
     pub color2:         u32,
     pub color:          u32,
     pub type_id:        u32,
-    pub _pad:           u32,
+    pub effect_data:    [u16; 2],
 }
 
 impl ObjectInstance {
@@ -104,6 +104,14 @@ impl ObjectInstance {
             (uv[3] * 65535.0) as u16,
         ]
     }
+
+    /// [WAIT DOC]
+    pub fn pack_effects(border: f32, shadow: f32) -> [u16; 2] {
+        [
+            (border * 16.0) as u16,
+            (shadow * 16.0) as u16,
+        ]
+    }
 }
 
 impl SortableInstance for ObjectInstance {
@@ -135,5 +143,5 @@ pub struct InstancePartB {
     pub color2:        u32,      // 4
     pub color:         u32,      // 4
     pub type_id:       u32,      // 4
-    pub _pad:          u32,      // 4
+    pub effect_data:   [u16; 2], // 4
 }
