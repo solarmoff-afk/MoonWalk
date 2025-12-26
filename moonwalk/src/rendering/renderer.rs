@@ -9,6 +9,7 @@ use crate::error::MoonWalkError;
 use crate::rendering::texture::Texture;
 use crate::rendering::state::RenderState;
 use crate::objects::ObjectId;
+use crate::filters::FilterSystem;
 
 /// Wgpu работает асинхронно поэтому нам нужно при вызове публичного api для
 /// снапшота вернуть какой-то айди, добавить его в очередь (Как раз этой структуры)
@@ -27,11 +28,12 @@ pub struct MoonRenderer {
     pub context: Context,
     pub state: RenderState,
     pub scale_factor: f32,
+    pub filters: FilterSystem,
 
     // [WAIT DOC]
     snapshot_tasks: Vec<SnapshotTask>,
 
-    offscreen: Option<crate::rendering::texture::Texture>, 
+    offscreen: Option<crate::rendering::texture::Texture>,
 }
 
 impl MoonRenderer {
@@ -46,6 +48,8 @@ impl MoonRenderer {
         let context = pollster::block_on(
             Context::new(window, width, height)
         );
+
+        let filters = FilterSystem::new(&context);
         
         // Создаём состояние рендерера
         let state = RenderState::new(&context, width, height)?;
@@ -54,6 +58,7 @@ impl MoonRenderer {
             context, // Контекст gpu/wgpu
             state,   // Состояние рендерера
             scale_factor: 1.0,
+            filters,
 
             // Обычно снапшотов очень мало, цифра 8 взята на всякий случай,
             // но тут хватило бы и 4
@@ -228,6 +233,18 @@ impl MoonRenderer {
         width: u32, height: u32
     ) {
          self.context.recreate_surface(window, width, height);
+    }
+
+    pub fn apply_blur(&mut self, texture_id: u32, radius: f32, horizontal: bool) {
+        if let Some(texture) = self.state.textures.get(&texture_id) {
+            self.filters.apply_blur(&self.context, texture, radius, horizontal);
+        }
+    }
+
+    pub fn apply_color_matrix(&mut self, texture_id: u32, matrix: [[f32; 4]; 4], offset: [f32; 4]) {
+        if let Some(texture) = self.state.textures.get(&texture_id) {
+            self.filters.apply_color_matrix(&self.context, texture, matrix, offset);
+        }
     }
 
     /// Прокси методы

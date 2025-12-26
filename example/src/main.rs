@@ -28,7 +28,7 @@ impl Application for TextureApp {
         println!("Loading Texture App...");
         self.screen_size = viewport;
 
-        match mw.load_texture("test.png") {
+        match mw.load_texture("test.jpg") {
             Ok(id) => {
                 println!("Texture loaded with ID: {}", id);
                 self.texture_id = id;
@@ -52,12 +52,15 @@ impl Application for TextureApp {
 
         mw.set_position(sprite, pos);
         mw.set_size(sprite, Vec2::splat(size));
-        mw.set_color(sprite, Vec4::new(1.0, 0.6, 0.1, 1.0));
+        // mw.set_color(sprite, Vec4::new(1.0, 0.6, 0.1, 1.0));
         mw.set_color2(sprite, Vec4::new(0.9, 0.3, 0.1, 1.0));
         // mw.linear_gradient(sprite, Vec2::new(1.0, 0.0));
         mw.set_z_index(sprite, 0.5);
         mw.set_effect(sprite, 10.0, 0.0);
         
+        mw.blur_texture(self.texture_id, 10.0, true);
+        mw.blur_texture(self.texture_id, 10.0, false);
+
         if self.texture_id > 0 {
             mw.set_texture(sprite, self.texture_id);
         }
