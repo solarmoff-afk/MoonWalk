@@ -43,7 +43,7 @@ impl Application for TextApp {
         println!("🚀 Loading Text App...");
         self.screen_size = viewport;
 
-        let font_id = match mw.load_font("font.ttf") {
+        let font_id = match mw.load_font("font.ttf", "CustomFont") {
             Ok(id) => {
                 println!("Font loaded!");
                 id
