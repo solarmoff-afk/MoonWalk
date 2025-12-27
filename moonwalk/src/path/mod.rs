@@ -1,6 +1,8 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
+pub mod svg;
+
 use wgpu::util::DeviceExt;
 use lyon::math::point;
 use lyon::path::Path;
@@ -284,5 +286,9 @@ impl PathBuilder {
         );
         
         mw.renderer.register_texture(texture)
+    }
+
+    pub fn get_internal_builder(&mut self) -> &mut lyon::path::Builder {
+        &mut self.builder
     }
 }

@@ -69,10 +69,12 @@ impl Application for TextureApp {
 
         let mut pb = mw.new_path_builder();
         pb.set_color(Vec4::new(1.0, 0.0, 0.0, 1.0));
-        pb.move_to(10.0, 10.0);
-        pb.line_to(100.0, 10.0);
-        pb.line_to(50.0, 100.0);
-        pb.close();
+        // pb.move_to(10.0, 10.0);
+        // pb.line_to(100.0, 10.0);
+        // pb.line_to(50.0, 100.0);
+        // pb.close();
+
+        mw.parse_svg_path(&mut pb, "M 10 10 L 90 10 L 50 90 Z").unwrap();
 
         let tex_id = pb.tessellate(mw, 200, 200);
 

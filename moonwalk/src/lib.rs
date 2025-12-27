@@ -476,4 +476,9 @@ impl MoonWalk {
     pub fn new_path_builder(&self) -> PathBuilder {
         PathBuilder::new()
     }
+
+    /// [WAIT DOC]
+    pub fn parse_svg_path(&self, pb: &mut crate::path::PathBuilder, data: &str) -> Result<(), String> {
+        crate::path::svg::parse_svg_path(pb, data)
+    }
 }
