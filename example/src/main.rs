@@ -28,7 +28,7 @@ impl Application for TextureApp {
         println!("Loading Texture App...");
         self.screen_size = viewport;
 
-        match mw.load_texture("test.jpg") {
+        match mw.load_texture("assets/test.jpg") {
             Ok(id) => {
                 println!("Texture loaded with ID: {}", id);
                 self.texture_id = id;
