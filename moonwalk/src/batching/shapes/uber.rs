@@ -187,8 +187,8 @@ impl UberBatch {
                             extra: [z, rot],
                             type_id: atlas_id, 
                             color: color,
-                            color2: 0,
-                            effect_data: [0, 0],
+                            color2: store.colors2_cache[idx],
+                            effect_data: store.effect_data_cache[idx],
                         });
                     }
                 }
