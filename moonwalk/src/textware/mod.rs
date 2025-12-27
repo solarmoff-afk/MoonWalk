@@ -41,12 +41,20 @@ pub struct TextMesh {
     pub indices: Vec<u16>,
 }
 
+/// [WAIT DOC]
+struct BufferState {
+    text_hash: u64,
+    font_id: u64,
+    font_size_bits: u32,
+    bounds_bits: (u32, u32),
+}
+
 /// Основная структура для этого модуля, хранит кэщ и шрифтовую систему 
 pub struct TextWare {
     pub atlas_id: Option<u32>,
     pub font_system: FontSystem,
     pub glyph_cache: GlyphCache,
-    buffers: HashMap<u64, cosmic_text::Buffer>,
+    buffers: HashMap<u64, (cosmic_text::Buffer, BufferState)>,
 }
 
 /// Сам текст, его цвет, айди шрифта, цвет и cosmic-text буфер
@@ -54,6 +62,16 @@ pub struct Text {
     pub buffer: cosmic_text::Buffer,
     pub color: [f32; 4],
     font_id: Option<FontId>,
+}
+
+/// Необходимо кэшировать строку для оптимизации 
+fn hash_str(s: &str) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    
+    let mut hasher = DefaultHasher::new();
+    s.hash(&mut hasher);
+    hasher.finish()
 }
 
 impl TextWare {
@@ -207,31 +225,51 @@ impl TextWare {
         max_width: f32,
         max_height: f32,
     ) -> &cosmic_text::Buffer {
-        let family_name_str = if let Some(name) = self.font_system.get_family_name(font_id) {
-             Some(name.clone())
-        } else {
-             None
+        let current_state = BufferState {
+            text_hash: hash_str(text),
+            font_id: font_id.0,
+            font_size_bits: font_size.to_bits(),
+            bounds_bits: (max_width.to_bits(), max_height.to_bits()),
         };
 
-        let font_system = &mut self.font_system.sys;
+        let entry = self.buffers.entry(id).or_insert_with(|| {
+            let font_system = &mut self.font_system.sys;
+            let buffer = cosmic_text::Buffer::new(font_system, Metrics::new(font_size, font_size));
 
-        let buffer = self.buffers.entry(id).or_insert_with(|| {
-            cosmic_text::Buffer::new(font_system, Metrics::new(font_size, font_size))
+            (buffer, BufferState { text_hash: 0, font_id: u64::MAX, font_size_bits: 0, bounds_bits: (0,0) })
         });
-
-        let metrics = Metrics::new(font_size, font_size * 1.2);
-        buffer.set_metrics(font_system, metrics);
-
-        buffer.set_size(font_system, max_width, max_height);
-
-        let mut attrs = Attrs::new();
         
-        if let Some(name) = family_name_str.as_deref() {
-             attrs = attrs.family(Family::Name(name));
-        }
+        let (buffer, cached_state) = entry;
 
-        buffer.set_text(font_system, text, attrs, Shaping::Advanced);
-        buffer.shape_until_scroll(font_system, false);
+        let changed = 
+            cached_state.text_hash != current_state.text_hash ||
+            cached_state.font_id != current_state.font_id ||
+            cached_state.font_size_bits != current_state.font_size_bits ||
+            cached_state.bounds_bits != current_state.bounds_bits;
+
+        if changed {
+            let family_name_str = if let Some(name) = self.font_system.get_family_name(font_id) {
+                 Some(name.clone())
+            } else {
+                 None
+            };
+
+            let font_system = &mut self.font_system.sys;
+            
+            let metrics = Metrics::new(font_size, font_size * 1.2);
+            buffer.set_metrics(font_system, metrics);
+            buffer.set_size(font_system, max_width, max_height); 
+            
+            let mut attrs = Attrs::new();
+            if let Some(name) = family_name_str.as_deref() {
+                 attrs = attrs.family(Family::Name(name));
+            }
+
+            buffer.set_text(font_system, text, attrs, Shaping::Advanced);
+            buffer.shape_until_scroll(font_system, false);
+             
+            *cached_state = current_state;
+        }
 
         buffer
     }
@@ -251,7 +289,7 @@ impl TextWare {
 
         let mut glyphs = Vec::new();
         
-        for run in buffer.layout_runs() {
+        for run in buffer.0.layout_runs() {
             for glyph in run.glyphs {
                 let physical = glyph.physical((0., 0.), 1.0);
                 let x = glyph.x; 
