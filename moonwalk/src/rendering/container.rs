@@ -153,6 +153,11 @@ impl RenderContainer {
         self.store.remove(id);
     }
 
+    #[inline]
+    pub fn set_effect(&mut self, id: crate::objects::ObjectId, border_width: f32, box_shadow: f32) {
+        self.store.config_effect_data(id, [border_width, box_shadow]);
+    }
+
     pub fn draw(&mut self, mw: &mut MoonWalk, clear_color: Option<Vec4>) {
         let renderer = &mut mw.renderer;
         let ctx = &renderer.context;
