@@ -10,7 +10,9 @@ use crate::objects::ObjectId;
 use crate::batching::shapes::uber::UberBatch;
 use crate::rendering::state::GlobalUniform;
 use crate::rendering::texture::Texture;
+use crate::textware::FontId;
 use crate::MoonWalk;
+use crate::FontAsset;
 
 pub struct RenderContainer {
     pub store: ObjectStore,
@@ -127,6 +129,26 @@ impl RenderContainer {
         self.store.config_gradient_data(id, gradient_data);
     }
 
+    pub fn new_text(&mut self, content: &str, font: FontAsset, size: f32) -> crate::objects::ObjectId {
+        let internal_id = FontId(font.0);
+        self.store.new_text(content.to_string(), internal_id, size)
+    }
+
+    #[inline]
+    pub fn set_text(&mut self, id: crate::objects::ObjectId, content: &str) {
+        self.store.set_text(id, content.to_string());
+    }
+
+     #[inline]
+    pub fn set_font_size(&mut self, id: crate::objects::ObjectId, size: f32) {
+        self.store.set_font_size(id, size);
+    }
+
+    #[inline]
+    pub fn set_text_size(&mut self, id: crate::objects::ObjectId, w: f32, h: f32) {
+        self.store.set_text_bounds(id, w, h);
+    }
+    
     pub fn remove(&mut self, id: ObjectId) {
         self.store.remove(id);
     }
