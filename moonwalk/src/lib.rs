@@ -16,6 +16,7 @@ pub mod error;
 pub mod rendering;
 pub mod objects;
 pub mod resource_manager;
+pub mod path;
 mod batching;
 mod textware;
 mod fallback;
@@ -26,6 +27,7 @@ use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use glam::{Vec2, Vec4};
 use wgpu::SurfaceError;
 use resource_manager::ResourceManager;
+use path::PathBuilder;
 
 pub use crate::objects::ObjectId;
 use crate::rendering::container::RenderContainer;
@@ -468,5 +470,10 @@ impl MoonWalk {
             max_width
         );
         Vec2::new(w, h)
+    }
+
+    /// [WAIT DOC]
+    pub fn new_path_builder(&self) -> PathBuilder {
+        PathBuilder::new()
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "moonwalk"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2021"
 
 [lib]
@@ -20,6 +20,7 @@ cosmic-text = "0.11"
 swash = "0.1"
 rayon = "1.11"
 image = "0.25.9"
+lyon = "1.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk = "0.8"

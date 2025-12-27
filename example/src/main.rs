@@ -65,7 +65,19 @@ impl Application for TextureApp {
             mw.set_texture(sprite, self.texture_id);
         }
 
-        mw.set_rounded(sprite, Vec4::splat(50.0)); 
+        mw.set_rounded(sprite, Vec4::splat(50.0));
+
+        let mut pb = mw.new_path_builder();
+        pb.set_color(Vec4::new(1.0, 0.0, 0.0, 1.0));
+        pb.move_to(10.0, 10.0);
+        pb.line_to(100.0, 10.0);
+        pb.line_to(50.0, 100.0);
+        pb.close();
+
+        let tex_id = pb.tessellate(mw, 200, 200);
+
+        let id = mw.new_rect();
+        mw.set_texture(id, tex_id);
     }
 
     fn on_update(&mut self, dt: f32) {
