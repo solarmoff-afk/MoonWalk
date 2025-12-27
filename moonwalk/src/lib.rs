@@ -390,11 +390,8 @@ impl MoonWalk {
     /// должен поставляться с программой) используя путь к шрифту. Возвращает структуру
     /// FontAsset (обёртка для u64) который нужен чтобы не использовать структуру FontId
     /// из TextWare
-    pub fn load_font(&mut self, path: &str) -> Result<FontAsset, crate::error::MoonWalkError> {
+    pub fn load_font(&mut self, path: &str, name: &str) -> Result<FontAsset, crate::error::MoonWalkError> {
         let bytes = self.resources.read_bytes(path)?;
-        
-        // [MAYBE]
-        let name = "CustomFont";
         
         let internal_id = self.renderer.text_engine.font_system.load_font_from_bytes(&bytes, name)?;
 
