@@ -9,9 +9,9 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+pub mod cache;
 mod error;
 mod font;
-mod cache;
 
 pub use error::TextError;
 pub use font::{FontSystem, FontId};
@@ -19,6 +19,13 @@ pub use cache::GlyphCache;
 pub use cosmic_text::{Attrs, Metrics, Family, Wrap};
 
 use bytemuck::{Pod, Zeroable};
+use cosmic_text::Shaping;
+use std::collections::HashMap;
+
+/// DONT TOUCH / НЕ ТРОГАТЬ
+/// В ШЕЙДЕРЕ ИДЁТ ХАРДКОД НА u32::MAX, изменение приведёт к поломке текстовой
+/// системы. Это критически важно
+pub const ATLAS_ID: u32 = u32::MAX;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -36,23 +43,27 @@ pub struct TextMesh {
 
 /// Основная структура для этого модуля, хранит кэщ и шрифтовую систему 
 pub struct TextWare {
-    font_system: FontSystem,
-    glyph_cache: GlyphCache,
+    pub atlas_id: Option<u32>,
+    pub font_system: FontSystem,
+    pub glyph_cache: GlyphCache,
+    buffers: HashMap<u64, cosmic_text::Buffer>,
 }
 
 /// Сам текст, его цвет, айди шрифта, цвет и cosmic-text буфер
 pub struct Text {
     pub buffer: cosmic_text::Buffer,
     pub color: [f32; 4],
-    font_id: Option<FontId>, 
+    font_id: Option<FontId>,
 }
 
 impl TextWare {
     #[cfg(not(target_os = "android"))]
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         Self {
+            atlas_id: Some(ATLAS_ID),
             font_system: FontSystem::new(),
             glyph_cache: GlyphCache::new(device, queue),
+            buffers: HashMap::new(),
         }
     }
 
@@ -61,8 +72,10 @@ impl TextWare {
     #[cfg(target_os = "android")]
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, asset_manager: ndk::asset::AssetManager) -> Self {
         Self {
+            atlas_id: Some(ATLAS_ID),
             font_system: FontSystem::new(asset_manager),
             glyph_cache: GlyphCache::new(device, queue),
+            buffers: HashMap::new(),
         }
     }
 
@@ -136,8 +149,8 @@ impl TextWare {
         self.glyph_cache.upload_pending(queue);
     }
 
-    pub fn get_bind_group(&self) -> &wgpu::BindGroup {
-        self.glyph_cache.get_bind_group()
+    pub fn get_bind_group(&self) -> wgpu::BindGroup {
+        self.glyph_cache.get_bind_group().clone()
     }
 
     pub fn generate_mesh(&mut self, text: &mut Text) -> TextMesh {
@@ -181,5 +194,72 @@ impl TextWare {
         }
 
         TextMesh { vertices, indices }
+    }
+
+    /// Подготавливает текст (layout) и возвращает буфер с глифами.
+    /// Используется в UberBatch.
+    pub fn process_text(
+        &mut self,
+        id: u64,
+        text: &str,
+        font_id: FontId,
+        font_size: f32,
+        max_width: f32,
+        max_height: f32,
+    ) -> &cosmic_text::Buffer {
+        let family_name_str = if let Some(name) = self.font_system.get_family_name(font_id) {
+             Some(name.clone())
+        } else {
+             None
+        };
+
+        let font_system = &mut self.font_system.sys;
+
+        let buffer = self.buffers.entry(id).or_insert_with(|| {
+            cosmic_text::Buffer::new(font_system, Metrics::new(font_size, font_size))
+        });
+
+        let metrics = Metrics::new(font_size, font_size * 1.2);
+        buffer.set_metrics(font_system, metrics);
+
+        buffer.set_size(font_system, max_width, max_height);
+
+        let mut attrs = Attrs::new();
+        
+        if let Some(name) = family_name_str.as_deref() {
+             attrs = attrs.family(Family::Name(name));
+        }
+
+        buffer.set_text(font_system, text, attrs, Shaping::Advanced);
+        buffer.shape_until_scroll(font_system, false);
+
+        buffer
+    }
+
+    pub fn collect_glyphs(
+        &mut self, 
+        id: u64, 
+        text: &str,
+        font_id: FontId,
+        font_size: f32,
+        max_width: f32,
+        max_height: f32
+    ) -> Vec<(f32, f32, cosmic_text::CacheKey)> {
+        self.process_text(id, text, font_id, font_size, max_width, max_height);
+
+        let buffer = self.buffers.get(&id).expect("Buffer not found after process");
+
+        let mut glyphs = Vec::new();
+        
+        for run in buffer.layout_runs() {
+            for glyph in run.glyphs {
+                let physical = glyph.physical((0., 0.), 1.0);
+                let x = glyph.x; 
+                let y = run.line_y + physical.y as f32;
+                glyphs.push((x, y, physical.cache_key));
+            }
+        }
+        
+        glyphs
     }
 }

@@ -16,6 +16,7 @@ pub struct ShaderId(pub u32);
 pub enum ObjectType {
     Unknown = 0,
     Rect = 1,
+    Text = 2,
 }
 
 impl ObjectType {
@@ -40,7 +41,7 @@ impl ObjectId {
     }
 
     #[inline(always)]
-    pub fn get_type(&self) -> Option<ObjectType> { // Возвращаем Option
+    pub fn get_type(&self) -> Option<ObjectType> {
         let ty_val = ((self.0 >> Self::TYPE_SHIFT) & 0xFF) as u8;
         ObjectType::from_u8(ty_val)
     }

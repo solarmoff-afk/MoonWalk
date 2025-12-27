@@ -195,7 +195,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     );
 
     // Текстура
-    if (in.type_id > 0u) {
+    if (in.type_id == 4294967295u) { // u32::MAX
+        let mask = textureSample(t_diffuse, s_diffuse, in.uv).r;
+        final_color.a = final_color.a * mask;
+    } else if (in.type_id > 0u) {
         let tex_color = textureSample(t_diffuse, s_diffuse, in.uv);
         final_color = tex_color * final_color;
     }

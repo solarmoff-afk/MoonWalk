@@ -11,6 +11,7 @@ use crate::rendering::texture::Texture;
 use crate::objects::store::ObjectStore;
 use crate::objects::ShaderId;
 use crate::error::MoonWalkError;
+use crate::textware::TextWare;
 
 /// Структура для единой юниформы под все шейдеры. Не передаём
 /// матрицу модели для экономии передачи данных через шину.
@@ -98,9 +99,9 @@ impl RenderState {
     }
 
     /// Функция для рисования всех объектов
-    pub fn draw(&mut self, ctx: &Context, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+    pub fn draw(&mut self, ctx: &Context, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, text_engine: &mut TextWare, atlas_bg: Option<&wgpu::BindGroup>) {
         // Подготавливаем батчи
-        self.batches.objects.prepare(ctx, &self.store);
+        self.batches.objects.prepare(ctx, &self.store, text_engine);
         
         // Если объекты грязные (dirty) - снимаем флаг 
         // (так как изменения уже отрисованы)
@@ -130,7 +131,7 @@ impl RenderState {
             pass.set_pipeline(pipeline);
             
             // Отрисовываем прямоугольники
-            self.batches.objects.render(&mut pass, &self.white_texture, &self.textures);
+            self.batches.objects.render(&mut pass, &self.white_texture, &self.textures, atlas_bg);
         }
     }
 

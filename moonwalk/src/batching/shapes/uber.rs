@@ -7,6 +7,7 @@ use crate::rendering::texture::Texture;
 use crate::objects::store::ObjectStore;
 use crate::batching::common::BatchBuffer;
 use crate::fallback::batch::SplitStorage;
+use crate::textware::TextWare;
 
 // Абстракция хранилища gpu объекта
 enum GpuStorage {
@@ -87,7 +88,7 @@ impl UberBatch {
         }
     }
 
-    pub fn prepare(&mut self, ctx: &Context, store: &ObjectStore) {
+    pub fn prepare(&mut self, ctx: &Context, store: &ObjectStore, text_engine: &mut TextWare) {
         if !store.dirty {
             return;
         }
@@ -134,6 +135,64 @@ impl UberBatch {
 
                 effect_data: store.effect_data_cache[idx],
             });
+        }
+
+        // Отдельный цикл для батчинга глифов. Перед этим нужно точно знать что
+        // атлас существует, иначе рендеринг просто бесполезен
+        if let Some(atlas_id) = text_engine.atlas_id {
+            for &global_id in store.text_ids.iter() {
+                let idx = global_id.index();
+                if !store.alive[idx] {
+                    continue;
+                }
+
+                let text = &store.text_contents[idx];
+                if text.is_empty() {
+                    continue;
+                }
+
+                let glyphs = text_engine.collect_glyphs(
+                    global_id.index() as u64,
+                    text,
+                    store.font_ids[idx],
+                    store.font_sizes[idx],
+                    store.text_bounds[idx].x,
+                    store.text_bounds[idx].y
+                );
+
+                let pos = store.positions[idx];
+                let color = store.colors_cache[idx];
+                let z = store.z_indices[idx];
+                let rot = store.rotations[idx];
+                
+                for (gx, gy, key) in glyphs {
+                    if let Some((image, uv_rect)) = text_engine.glyph_cache.get_glyph(key, &mut text_engine.font_system) {
+                        let w = image.placement.width as f32;
+                        let h = image.placement.height as f32;
+                        let left = image.placement.left as f32;
+                        let top = image.placement.top as f32;
+
+                        let x = pos.x + gx + left;
+                        let y = pos.y + gy - top;
+
+                        let (u, v, uw, vh) = uv_rect;
+                        let uv_arr = [u, v, uw, vh];
+
+                        // [MAYBE]
+                        self.batch.push(ObjectInstance {
+                            pos_size: [x, y, w, h],
+                            uv: ObjectInstance::pack_uv(uv_arr),
+                            radii: ObjectInstance::pack_radii([0.0; 4]),
+                            gradient_data: store.gradient_data_cache[idx],
+                            extra: [z, rot],
+                            type_id: atlas_id, 
+                            color: color,
+                            color2: 0,
+                            effect_data: [0, 0],
+                        });
+                    }
+                }
+            }
         }
         
         self.batch.sort();
@@ -195,6 +254,7 @@ impl UberBatch {
         pass: &mut RenderPass<'a>,
         white_texture: &'a Texture,
         textures: &'a std::collections::HashMap<u32, Texture>,
+        atlas_bind_group: Option<&'a wgpu::BindGroup>,
     ) {
         // Проверка есть ли данные для рендера
         let has_data = match &self.storage {
@@ -225,6 +285,13 @@ impl UberBatch {
         for cmd in &self.commands {
             if cmd.texture_id == 0 {
                 pass.set_bind_group(1, &white_texture.bind_group);
+            } else if cmd.texture_id == crate::textware::ATLAS_ID {
+                if let Some(bg) = atlas_bind_group {
+                    pass.set_bind_group(1, bg);
+                } else {
+                    // Если атлас потерялся, рисуем белым (чтобы не крашнулось)
+                    pass.set_bind_group(1, &white_texture.bind_group);
+                }
             } else {
                 if let Some(tex) = textures.get(&cmd.texture_id) {
                     pass.set_bind_group(1, &tex.bind_group);

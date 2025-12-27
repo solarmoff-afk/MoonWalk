@@ -134,9 +134,11 @@ impl RenderContainer {
     pub fn draw(&mut self, mw: &mut MoonWalk, clear_color: Option<Vec4>) {
         let renderer = &mut mw.renderer;
         let ctx = &renderer.context;
+        let text_engine = &mut renderer.text_engine;
         
-        self.batch.prepare(ctx, &self.store);
-
+        self.batch.prepare(ctx, &self.store, text_engine);
+        let atlas_bg = text_engine.get_bind_group();
+        
         let wgpu_clear_color = clear_color.map(|c| wgpu::Color {
             r: c.x as f64,
             g: c.y as f64,
@@ -161,6 +163,7 @@ impl RenderContainer {
                     &mut pass, 
                     &renderer.state.white_texture, 
                     &renderer.state.textures,
+                    Some(&atlas_bg),
                 );
             }
         }

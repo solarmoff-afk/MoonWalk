@@ -29,4 +29,7 @@ pub enum MoonWalkError {
 
     #[error("IO/Asset error: {0}")]
     IOError(String),
+
+    #[error("Text error: {0}")]
+    TextError(#[from] crate::textware::TextError),
 }

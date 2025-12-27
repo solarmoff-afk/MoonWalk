@@ -73,6 +73,12 @@ pub struct ObjectStore {
     pub uvs_cache: Vec<[u16; 4]>,
     pub gradient_data_cache: Vec<[i16; 4]>,
     pub effect_data_cache: Vec<[u16; 2]>,
+
+    pub text_ids: Vec<ObjectId>,
+    pub text_contents: Vec<String>,
+    pub font_ids: Vec<crate::textware::FontId>,
+    pub font_sizes: Vec<f32>,
+    pub text_bounds: Vec<Vec2>,
 }
 
 impl ObjectStore {
@@ -102,6 +108,13 @@ impl ObjectStore {
             uvs_cache: Vec::with_capacity(1024),
             gradient_data_cache: Vec::with_capacity(1024),
             effect_data_cache: Vec::with_capacity(1024),
+
+            // Текстов обычно меньше чем прямоугольников
+            text_ids: Vec::with_capacity(128),
+            text_contents: Vec::with_capacity(128),
+            font_ids: Vec::with_capacity(128),
+            font_sizes: Vec::with_capacity(128),
+            text_bounds: Vec::with_capacity(128),
 
             // Объекты изначально не грязные потому-что их нет
             dirty: false,
@@ -138,6 +151,11 @@ impl ObjectStore {
             self.gradient_data_cache[idx] = ObjectInstance::pack_gradient([0.0, 0.0, -1.0, 0.0]);
             self.effect_data_cache[idx] = ObjectInstance::pack_effects(0.0, 0.0);
 
+            self.text_contents[idx].clear();
+            self.font_ids[idx] = crate::textware::FontId(0);
+            self.font_sizes[idx] = 0.0;
+            self.text_bounds[idx] = Vec2::new(9999.0, 9999.0);
+
             return idx;
         }
         
@@ -169,6 +187,11 @@ impl ObjectStore {
         self.gradient_data_cache.push(ObjectInstance::pack_gradient([0.0, 0.0, -1.0, 0.0]));
         self.effect_data_cache.push(ObjectInstance::pack_effects(0.0, 0.0));
 
+        self.text_contents.push(String::new());
+        self.font_ids.push(crate::textware::FontId(0));
+        self.font_sizes.push(0.0);
+        self.text_bounds.push(Vec2::new(9999.0, 9999.0));
+
         index
     }
 
@@ -184,6 +207,45 @@ impl ObjectStore {
         }
 
         id
+    }
+
+    pub fn new_text(&mut self, text: String, font_id: crate::textware::FontId, font_size: f32) -> ObjectId {
+        let index = self.alloc_common();
+        let id = objects::ObjectId::new(objects::ObjectType::Text, index);
+
+        if self.object_types[index] != ObjectType::Text {
+            self.text_ids.push(id);
+            self.object_types[index] = ObjectType::Text;
+        }
+
+        self.text_contents[index] = text;
+        self.font_ids[index] = font_id;
+        self.font_sizes[index] = font_size;
+        
+        self.dirty = true;
+        id
+    }
+
+    #[inline(always)]
+    pub fn set_text(&mut self, id: ObjectId, text: String) {
+        let idx = id.index();
+        
+        if self.text_contents[idx] != text {
+            self.text_contents[idx] = text;
+            self.dirty = true;
+        }
+    }
+
+    #[inline(always)]
+    pub fn set_font_size(&mut self, id: ObjectId, size: f32) {
+        self.font_sizes[id.index()] = size;
+        self.dirty = true;
+    }
+
+    #[inline(always)]
+    pub fn set_text_bounds(&mut self, id: ObjectId, w: f32, h: f32) {
+        self.text_bounds[id.index()] = Vec2::new(w, h);
+        self.dirty = true;
     }
 
     pub fn remove(&mut self, id: ObjectId) {

@@ -29,6 +29,7 @@ pub struct MoonRenderer {
     pub state: RenderState,
     pub scale_factor: f32,
     pub filters: FilterSystem,
+    pub text_engine: crate::textware::TextWare,
 
     // [WAIT DOC]
     snapshot_tasks: Vec<SnapshotTask>,
@@ -54,11 +55,14 @@ impl MoonRenderer {
         // Создаём состояние рендерера
         let state = RenderState::new(&context, width, height)?;
 
+        let text_engine = crate::textware::TextWare::new(&context.device, &context.queue);
+
         Ok(Self {
             context, // Контекст gpu/wgpu
             state,   // Состояние рендерера
             scale_factor: 1.0,
             filters,
+            text_engine,
 
             // Обычно снапшотов очень мало, цифра 8 взята на всякий случай,
             // но тут хватило бы и 4
@@ -153,8 +157,11 @@ impl MoonRenderer {
 
         let mut encoder = self.context.create_encoder();
 
+        self.text_engine.prepare(&self.context.queue);
+        let atlas_bg = self.text_engine.get_bind_group();
+
         // Здесь рисуется текущее состояние в буфер кадра
-        self.state.draw(&self.context, &mut encoder, render_target_view);
+        self.state.draw(&self.context, &mut encoder, render_target_view, &mut self.text_engine, Some(&atlas_bg));
         
         if !self.snapshot_tasks.is_empty() {
             for task in &self.snapshot_tasks {

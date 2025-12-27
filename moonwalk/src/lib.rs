@@ -45,6 +45,10 @@ pub struct MoonWalk {
     pub resources: ResourceManager,
 }
 
+/// Обёртка над u64 для хранения айди шрифта (FontId из модуля textware)
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FontAsset(pub u64);
+
 impl MoonWalk {
     #[cfg(not(target_os = "android"))]
     pub fn new(
@@ -362,5 +366,49 @@ impl MoonWalk {
     pub fn hue_shift(&mut self, texture_id: u32, degrees: f32) {
         let (matrix, offset) = crate::filters::color_matrix::matrix_hue(degrees);
         self.renderer.apply_color_matrix(texture_id, matrix, offset);
+    }
+
+    /// [WAIT DOC]
+    pub fn load_font(&mut self, path: &str) -> Result<FontAsset, crate::error::MoonWalkError> {
+        let bytes = self.resources.read_bytes(path)?;
+        
+        // [MAYBE]
+        let name = "CustomFont";
+        
+        let internal_id = self.renderer.text_engine.font_system.load_font_from_bytes(&bytes, name)?;
+
+        Ok(FontAsset(internal_id.0))
+    }
+
+    /// [WAIT DOC]
+    pub fn load_font_from_bytes(
+        &mut self, 
+        bytes: &[u8], 
+        name: &str
+    ) -> Result<FontAsset, crate::error::MoonWalkError> {
+        let id = self.renderer.text_engine.font_system.load_font_from_bytes(bytes, name)?;
+        Ok(FontAsset(id.0))
+    }
+
+    /// [WAIT DOC]
+    pub fn new_text(&mut self, content: &str, font: FontAsset, size: f32) -> ObjectId {
+        // Конвертируем обратно во внутренний тип
+        let internal_id = crate::textware::FontId(font.0);
+        self.renderer.state.store.new_text(content.to_string(), internal_id, size)
+    }
+
+    /// [WAIT DOC]
+    pub fn set_text(&mut self, id: ObjectId, content: &str) {
+        self.renderer.state.store.set_text(id, content.to_string());
+    }
+
+    /// [WAIT DOC]
+    pub fn set_font_size(&mut self, id: ObjectId, size: f32) {
+        self.renderer.state.store.set_font_size(id, size);
+    }
+    
+    /// [WAIT DOC]
+    pub fn set_text_size(&mut self, id: ObjectId, w: f32, h: f32) {
+        self.renderer.state.store.set_text_bounds(id, w, h);
     }
 }
