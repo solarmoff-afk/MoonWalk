@@ -47,6 +47,7 @@ struct BufferState {
     font_id: u64,
     font_size_bits: u32,
     bounds_bits: (u32, u32),
+    align_byte: u8,
 }
 
 /// Основная структура для этого модуля, хранит кэщ и шрифтовую систему 
@@ -55,6 +56,7 @@ pub struct TextWare {
     pub font_system: FontSystem,
     pub glyph_cache: GlyphCache,
     buffers: HashMap<u64, (cosmic_text::Buffer, BufferState)>,
+    scratch_buffer: cosmic_text::Buffer,
 }
 
 /// Сам текст, его цвет, айди шрифта, цвет и cosmic-text буфер
@@ -77,11 +79,19 @@ fn hash_str(s: &str) -> u64 {
 impl TextWare {
     #[cfg(not(target_os = "android"))]
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+        let mut font_system = FontSystem::new();
+
+        let scratch_buffer = cosmic_text::Buffer::new(
+            &mut font_system.sys, 
+            Metrics::new(24.0, 24.0)
+        ); 
+
         Self {
             atlas_id: Some(ATLAS_ID),
-            font_system: FontSystem::new(),
+            font_system,
             glyph_cache: GlyphCache::new(device, queue),
             buffers: HashMap::new(),
+            scratch_buffer,
         }
     }
 
@@ -89,11 +99,19 @@ impl TextWare {
     /// из-за необходимости использовать AssetManager на ОС андроид
     #[cfg(target_os = "android")]
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, asset_manager: ndk::asset::AssetManager) -> Self {
+        let mut font_system = FontSystem::new(asset_manager);
+
+        let scratch_buffer = cosmic_text::Buffer::new(
+            &mut font_system.sys, 
+            Metrics::new(24.0, 24.0)
+        );
+
         Self {
             atlas_id: Some(ATLAS_ID),
-            font_system: FontSystem::new(asset_manager),
+            font_system,
             glyph_cache: GlyphCache::new(device, queue),
             buffers: HashMap::new(),
+            scratch_buffer,
         }
     }
 
@@ -224,19 +242,23 @@ impl TextWare {
         font_size: f32,
         max_width: f32,
         max_height: f32,
+        align: u8,
     ) -> &cosmic_text::Buffer {
         let current_state = BufferState {
             text_hash: hash_str(text),
             font_id: font_id.0,
             font_size_bits: font_size.to_bits(),
             bounds_bits: (max_width.to_bits(), max_height.to_bits()),
+            align_byte: align,
         };
 
         let entry = self.buffers.entry(id).or_insert_with(|| {
             let font_system = &mut self.font_system.sys;
             let buffer = cosmic_text::Buffer::new(font_system, Metrics::new(font_size, font_size));
 
-            (buffer, BufferState { text_hash: 0, font_id: u64::MAX, font_size_bits: 0, bounds_bits: (0,0) })
+            (buffer, BufferState { 
+                text_hash: 0, font_id: u64::MAX, font_size_bits: 0, bounds_bits: (0,0), align_byte: 255 
+            })
         });
         
         let (buffer, cached_state) = entry;
@@ -266,6 +288,18 @@ impl TextWare {
             }
 
             buffer.set_text(font_system, text, attrs, Shaping::Advanced);
+
+            let cosmic_align = match align {
+                1 => Some(cosmic_text::Align::Center),
+                2 => Some(cosmic_text::Align::End),
+                3 => Some(cosmic_text::Align::Justified),
+                _ => Some(cosmic_text::Align::Left), // 0
+            };
+
+            for line in buffer.lines.iter_mut() {
+                line.set_align(cosmic_align);
+            }
+
             buffer.shape_until_scroll(font_system, false);
              
             *cached_state = current_state;
@@ -281,9 +315,10 @@ impl TextWare {
         font_id: FontId,
         font_size: f32,
         max_width: f32,
-        max_height: f32
+        max_height: f32,
+        align: u8,
     ) -> Vec<(f32, f32, cosmic_text::CacheKey)> {
-        self.process_text(id, text, font_id, font_size, max_width, max_height);
+        self.process_text(id, text, font_id, font_size, max_width, max_height, align);
 
         let buffer = self.buffers.get(&id).expect("Buffer not found after process");
 
@@ -299,5 +334,51 @@ impl TextWare {
         }
         
         glyphs
+    }
+
+    pub fn measure_text(
+        &mut self,
+        text: &str,
+        font_id: FontId,
+        font_size: f32,
+        max_width: f32,
+    ) -> (f32, f32) {
+        let family_name_str = if let Some(name) = self.font_system.get_family_name(font_id) {
+             Some(name.clone())
+        } else {
+             None
+        };
+
+        let font_system = &mut self.font_system.sys;
+        let buffer = &mut self.scratch_buffer;
+
+        let metrics = Metrics::new(font_size, font_size * 1.2);
+        let line_height = metrics.line_height;
+
+        buffer.set_metrics(font_system, metrics);
+
+        // Высота f32::MAX чтобы измерить полный текст без обрезки
+        buffer.set_size(font_system, max_width, f32::MAX); 
+        
+        let mut attrs = Attrs::new();
+        if let Some(name) = family_name_str.as_deref() {
+             attrs = attrs.family(Family::Name(name));
+        }
+
+        // Шейпинг (Это очень дорогая часть, но она критически необходима)
+        buffer.set_text(font_system, text, attrs, Shaping::Advanced);
+        buffer.shape_until_scroll(font_system, false);
+
+        let mut width = 0.0f32;
+        let mut height = 0.0f32;
+
+        for run in buffer.layout_runs() {
+            width = width.max(run.line_w);
+            height = height.max(run.line_y + line_height);
+        }
+        
+        // Округляем вверх ceil т. к. рендеринг может требовать целых пикселей,
+        // но тут возвращается флоат для точности
+        (width, height)
     }
 }

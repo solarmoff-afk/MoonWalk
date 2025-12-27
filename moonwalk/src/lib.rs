@@ -49,6 +49,15 @@ pub struct MoonWalk {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FontAsset(pub u64);
 
+/// Типы выранивания текста. Влево, вправо, по центру и
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextAlign {
+    Left,
+    Center,
+    Right,
+    Justified,
+}
+
 impl MoonWalk {
     #[cfg(not(target_os = "android"))]
     pub fn new(
@@ -410,5 +419,27 @@ impl MoonWalk {
     /// [WAIT DOC]
     pub fn set_text_size(&mut self, id: ObjectId, w: f32, h: f32) {
         self.renderer.state.store.set_text_bounds(id, w, h);
+    }
+
+    /// [WAIT DOC]
+    pub fn set_text_align(&mut self, id: ObjectId, align: TextAlign) {
+        let val = match align {
+            TextAlign::Left => 0,
+            TextAlign::Center => 1,
+            TextAlign::Right => 2,
+            TextAlign::Justified => 3,
+        };
+        self.renderer.state.store.set_text_align(id, val);
+    }
+    
+    /// [WAIT DOC]
+    pub fn measure_text(&mut self, text: &str, font: FontAsset, size: f32, max_width: f32) -> Vec2 {
+        let (w, h) = self.renderer.text_engine.measure_text(
+            text, 
+            crate::textware::FontId(font.0), 
+            size, 
+            max_width
+        );
+        Vec2::new(w, h)
     }
 }

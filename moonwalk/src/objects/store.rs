@@ -31,6 +31,9 @@ pub struct ObjectStore {
     // Данные специфичные для прямоугольника
     pub rect_radii: Vec<Vec4>,
 
+    // Данные специфичные для текстов
+    pub text_aligns: Vec<u8>,
+
     // Оптимизация: перерождение объектов. При удалении объекта его айди
     // добавляется в этот вектор и при следующем добавлении нового
     // объекта от может взять свой айди из этого вектора тем самым
@@ -95,6 +98,7 @@ impl ObjectStore {
             object_types: Vec::with_capacity(1024),
             rect_ids: Vec::with_capacity(1024),
             rect_radii: Vec::with_capacity(1024),
+            text_aligns: Vec::with_capacity(128),
             free_slots: Vec::with_capacity(128),
             texture_ids: Vec::with_capacity(1024),
             uvs: Vec::with_capacity(1024),
@@ -133,6 +137,7 @@ impl ObjectStore {
             self.z_indices[idx] = 0.0;
             self.alive[idx] = true;
             self.rect_radii[idx] = Vec4::ZERO;
+            self.text_aligns[idx] = 0;
             self.texture_ids[idx] = 0;
             self.uvs[idx] = [0.0, 0.0, 1.0, 1.0];
 
@@ -169,6 +174,7 @@ impl ObjectStore {
         self.z_indices.push(0.0); // Нулевой z индекс
         self.alive.push(true);
         self.rect_radii.push(Vec4::ZERO);
+        self.text_aligns.push(0);
         self.uvs.push([0.0, 0.0, 1.0, 1.0]);
         self.gradient_data.push([0.0, 0.0, -1.0, 0.0]);
         self.effect_data.push([0.0, 0.0]);
@@ -347,5 +353,14 @@ impl ObjectStore {
         );
 
         self.dirty = true;
+    }
+
+    #[inline(always)]
+    pub fn set_text_align(&mut self, id: ObjectId, align: u8) {
+        let idx = id.index();
+        if self.text_aligns[idx] != align {
+            self.text_aligns[idx] = align;
+            self.dirty = true;
+        }
     }
 }

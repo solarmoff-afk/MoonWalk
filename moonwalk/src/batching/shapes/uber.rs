@@ -151,13 +151,15 @@ impl UberBatch {
                     continue;
                 }
 
+                let align = store.text_aligns[idx];
                 let glyphs = text_engine.collect_glyphs(
                     global_id.index() as u64,
                     text,
                     store.font_ids[idx],
                     store.font_sizes[idx],
                     store.text_bounds[idx].x,
-                    store.text_bounds[idx].y
+                    store.text_bounds[idx].y,
+                    align,
                 );
 
                 let pos = store.positions[idx];
