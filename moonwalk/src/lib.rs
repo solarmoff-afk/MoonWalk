@@ -49,7 +49,8 @@ pub struct MoonWalk {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FontAsset(pub u64);
 
-/// Типы выранивания текста. Влево, вправо, по центру и
+/// Типы выранивания текста. Влево, вправо, по центру и по ширине (строки растягиваются так, чтобы
+/// касаться и левого и правого края блока)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TextAlign {
     Left,
@@ -249,7 +250,15 @@ impl MoonWalk {
         self.renderer.state.store.config_uv(id, uv);
     }
 
-    /// [WAIT DOC]
+    /// Эта функция устаналивает эффекты для объекта. Работает идеально только
+    /// с прямоугольниками. Принимает айди объекта, ширину обводки и настройку
+    /// для размытия углов (box_shadow Так как используется технология как в CSS)
+    /// Цвет обводки объекта указывается в color2, обводка у которой есть градиент
+    /// не поддерживается. Box_shadow не создаёт тень под объектом, а размывает границы.
+    /// box_shadow не может заменить тени в Material design 3 либо в других дизайн
+    /// системах где используется блюр по Гауссу, для реализации таких теней
+    /// нужно создать рендер контейнер, сделать снапшот и применить блюр к текстуре
+    /// два раза (горизонтально и вертикально) используя функцию mw.blur_texture(...)
     pub fn set_effect(&mut self, id: ObjectId, border_width: f32, box_shadow: f32) {
         self.renderer.set_effect(id, [border_width, box_shadow]);
     }
@@ -274,7 +283,7 @@ impl MoonWalk {
     ///      при старте программы
     /// На windows, linux, macos, bsd и android указывается путь в файловой системе
     /// На android указывается либо путь к файловой системе
-    //   (Определяется по "/" как первый символ)
+    ///   (Определяется по "/" как первый символ)
     /// либо как имя файла в assets.
     ///
     /// [?] Android примеры:
@@ -377,7 +386,10 @@ impl MoonWalk {
         self.renderer.apply_color_matrix(texture_id, matrix, offset);
     }
 
-    /// [WAIT DOC]
+    /// Эта функция загружает шрифт во время выполнения программы (Этот шрифт обязательно
+    /// должен поставляться с программой) используя путь к шрифту. Возвращает структуру
+    /// FontAsset (обёртка для u64) который нужен чтобы не использовать структуру FontId
+    /// из TextWare
     pub fn load_font(&mut self, path: &str) -> Result<FontAsset, crate::error::MoonWalkError> {
         let bytes = self.resources.read_bytes(path)?;
         
@@ -389,7 +401,9 @@ impl MoonWalk {
         Ok(FontAsset(internal_id.0))
     }
 
-    /// [WAIT DOC]
+    /// Эта функция загружает шрифт из набора байт который чаще всего известен уже на этапе
+    /// компиляции. Создана для того, чтобы вшивать шрифт в бинарник/разделяемую библиотеку
+    /// используя макрос для получения набора байтов из файла во время компиляции
     pub fn load_font_from_bytes(
         &mut self, 
         bytes: &[u8], 
@@ -399,29 +413,42 @@ impl MoonWalk {
         Ok(FontAsset(id.0))
     }
 
-    /// [WAIT DOC]
+    /// Эта функция создаёт текст. Рендеринг текстов менее производительный чем
+    /// рендеринг прямоугольников, но чаще всего текстов и меньше чем прямоугольников
+    /// (В играх и UI). Это не должно быть критичным, но нужно учитывать.
+    /// В будущем могут быть работы по дополнительной оптимизации
     pub fn new_text(&mut self, content: &str, font: FontAsset, size: f32) -> ObjectId {
         // Конвертируем обратно во внутренний тип
         let internal_id = crate::textware::FontId(font.0);
         self.renderer.state.store.new_text(content.to_string(), internal_id, size)
     }
 
-    /// [WAIT DOC]
+    /// Эта функция меняет уже существующий текст, принимает айди объекта (текста)
+    /// у которого нужно изменить контент и новый контент
     pub fn set_text(&mut self, id: ObjectId, content: &str) {
         self.renderer.state.store.set_text(id, content.to_string());
     }
 
-    /// [WAIT DOC]
+    /// Эта функция меняет размер шрифта у текста. Принимает айди текста и новый
+    /// размер шрифта в формате f32
     pub fn set_font_size(&mut self, id: ObjectId, size: f32) {
         self.renderer.state.store.set_font_size(id, size);
     }
     
-    /// [WAIT DOC]
+    /// Эта функция меняет границы текста. Не путать с set_font_size,
+    /// она меняет размер шрифта, а эта функция меняет размер границ текста
+    /// (как и было указанно ранее). Границы текста необходимы для переноса текста
+    /// принимает айди, новую шириную и новую высоту
     pub fn set_text_size(&mut self, id: ObjectId, w: f32, h: f32) {
         self.renderer.state.store.set_text_bounds(id, w, h);
     }
 
-    /// [WAIT DOC]
+    /// Эта функция нужна для выравнивания текста. Принимает его айди и
+    /// направление для выравнивания. В enum TextAlign есть направления:
+    /// 1. Left, выравнивания по левой стороне
+    /// 2. Center, выравнивание по центру
+    /// 3. Right, выравнивание по правой стороне
+    /// 4. Justified, текст прижат к сторонам своих границ (они меняются через set_text_size) 
     pub fn set_text_align(&mut self, id: ObjectId, align: TextAlign) {
         let val = match align {
             TextAlign::Left => 0,
@@ -432,7 +459,10 @@ impl MoonWalk {
         self.renderer.state.store.set_text_align(id, val);
     }
     
-    /// [WAIT DOC]
+    /// Эта функция нужна для получения размеров текста. Принимает контент строкой, шрифт
+    /// (FontAsset, его можно получить через функцию load_font и load_font_from_bytes)
+    /// размер шрифта и максимальную ширину. На выходе идёт Vec2 из крейта glam который
+    /// содержит ширину и высоту текста по указанным параметрам
     pub fn measure_text(&mut self, text: &str, font: FontAsset, size: f32, max_width: f32) -> Vec2 {
         let (w, h) = self.renderer.text_engine.measure_text(
             text, 
