@@ -13,6 +13,7 @@ use crate::rendering::texture::Texture;
 use crate::textware::FontId;
 use crate::MoonWalk;
 use crate::FontAsset;
+use crate::TextAlign;
 
 pub struct RenderContainer {
     pub store: ObjectStore,
@@ -147,6 +148,27 @@ impl RenderContainer {
     #[inline]
     pub fn set_text_size(&mut self, id: crate::objects::ObjectId, w: f32, h: f32) {
         self.store.set_text_bounds(id, w, h);
+    }
+
+    #[inline]
+    pub fn set_text_align(&mut self, id: crate::objects::ObjectId, align: TextAlign) {
+        let val = match align {
+            TextAlign::Left => 0,
+            TextAlign::Center => 1,
+            TextAlign::Right => 2,
+            TextAlign::Justified => 3,
+        };
+        self.store.set_text_align(id, val);
+    }
+
+    pub fn measure_text(&mut self, mw: &mut MoonWalk, text: &str, font: FontAsset, size: f32, max_width: f32) -> Vec2 {
+        let (w, h) = mw.renderer.text_engine.measure_text(
+            text, 
+            crate::textware::FontId(font.0), 
+            size, 
+            max_width
+        );
+        Vec2::new(w, h)
     }
     
     pub fn remove(&mut self, id: ObjectId) {
