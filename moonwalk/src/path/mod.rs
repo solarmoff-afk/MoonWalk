@@ -38,11 +38,13 @@ impl VectorSystem {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },
+
                 count: None,
             }],
         });
@@ -61,6 +63,7 @@ impl VectorSystem {
         let pipeline = ctx.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Vector Pipeline"),
             layout: Some(&pipeline_layout),
+
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
@@ -68,6 +71,7 @@ impl VectorSystem {
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<VectorVertex>() as wgpu::BufferAddress,
                     step_mode: wgpu::VertexStepMode::Vertex,
+
                     attributes: &[wgpu::VertexAttribute {
                         format: wgpu::VertexFormat::Float32x2,
                         offset: 0,
@@ -81,7 +85,7 @@ impl VectorSystem {
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: Some("fs_main"),
-                
+
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Rgba8UnormSrgb,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
@@ -90,7 +94,7 @@ impl VectorSystem {
 
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
-
+            
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 front_face: wgpu::FrontFace::Ccw, 
@@ -110,8 +114,7 @@ impl VectorSystem {
         }
     }
 
-    /// Эта функция рисует геометрию в новую текстуру
-    pub fn render_to_texture(
+    pub fn render(
         &self,
         ctx: &Context,
         vertices: &[VectorVertex],
@@ -119,14 +122,8 @@ impl VectorSystem {
         width: u32,
         height: u32,
         color: [f32; 4],
-    ) -> Texture {
-        let texture = Texture::create_render_target(
-            ctx, 
-            width, 
-            height, 
-            wgpu::TextureFormat::Rgba8UnormSrgb
-        );
-
+        target: &Texture,
+    ) {
         let vertex_buffer = ctx.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vector VBO"),
             contents: bytemuck::cast_slice(vertices),
@@ -170,7 +167,7 @@ impl VectorSystem {
                 label: Some("Vector Pass"),
                 
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &texture.view,
+                    view: &target.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
@@ -191,6 +188,25 @@ impl VectorSystem {
         }
 
         ctx.submit(encoder);
+    }
+
+    pub fn render_to_texture(
+        &self,
+        ctx: &Context,
+        vertices: &[VectorVertex],
+        indices: &[u16],
+        width: u32,
+        height: u32,
+        color: [f32; 4],
+    ) -> Texture {
+        let texture = Texture::create_render_target(
+            ctx, 
+            width, 
+            height, 
+            wgpu::TextureFormat::Rgba8UnormSrgb
+        );
+
+        self.render(ctx, vertices, indices, width, height, color, &texture);
 
         texture
     }
@@ -286,6 +302,48 @@ impl PathBuilder {
         );
         
         mw.renderer.register_texture(texture)
+    }
+
+    pub fn tessellate_to(self, mw: &mut crate::MoonWalk, texture_id: u32, width: u32, height: u32) {
+        let path = self.builder.build();
+        
+        let mut geometry: VertexBuffers<VectorVertex, u16> = VertexBuffers::new();
+        
+        if self.is_stroke {
+            let mut tessellator = StrokeTessellator::new();
+            let options = StrokeOptions::default().with_line_width(self.stroke_width);
+            
+            let _ = tessellator.tessellate_path(
+                &path,
+                &options,
+                &mut BuffersBuilder::new(&mut geometry, |vertex: StrokeVertex| {
+                    VectorVertex { position: [vertex.position().x, vertex.position().y] }
+                }),
+            );
+        } else {
+            let mut tessellator = FillTessellator::new();
+            let options = FillOptions::default();
+            
+            let _ = tessellator.tessellate_path(
+                &path,
+                &options,
+                &mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
+                    VectorVertex { position: [vertex.position().x, vertex.position().y] }
+                }),
+            );
+        }
+
+        if let Some(texture) = mw.renderer.state.textures.get(&texture_id) {
+            mw.renderer.vector_system.render(
+                &mw.renderer.context, 
+                &geometry.vertices, 
+                &geometry.indices, 
+                width, 
+                height, 
+                self.color,
+                texture
+            );
+        }
     }
 
     pub fn get_internal_builder(&mut self) -> &mut lyon::path::Builder {
