@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>MoonWalk Example</title>
+    <style>
+        body { margin: 0; background: #111; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="module">
+        import init from "./app.js";
+
+        async function run() {
+            await init("./app.wasm");
+        }
+
+        run();
+    </script>
+</body>
+</html>
