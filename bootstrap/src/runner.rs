@@ -5,6 +5,7 @@ use std::time::Instant;
 use glam::{Vec2, Vec4};
 use moonwalk::MoonWalk;
 use wgpu;
+use moonwalk::error::MoonWalkError;
 
 use winit::{
     application::ApplicationHandler,
@@ -146,7 +147,7 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
                 match state.moonwalk.render_frame(Vec4::new(0.02, 0.02, 0.05, 1.0)) {
                     Ok(_) => {},
                     
-                    Err(wgpu::SurfaceError::Lost) => {
+                    Err(MoonWalkError::SurfaceError(wgpu::SurfaceError::Lost)) => {
                         let size = state.window.inner_size();
                         if size.width > 0 && size.height > 0 {
                             state.moonwalk.recreate_surface(
@@ -157,7 +158,7 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
                         }
                     },
                     
-                    Err(wgpu::SurfaceError::OutOfMemory) => {
+                    Err(MoonWalkError::SurfaceError(wgpu::SurfaceError::OutOfMemory)) => {
                         eprintln!("Out of memory!");
                         event_loop.exit();
                     },

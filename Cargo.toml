@@ -2,7 +2,7 @@
 resolver = "2"
 members = ["bootstrap",
     "example",
-    "moonwalk"
+    "moonwalk",
 ]
 
 [profile.release]
