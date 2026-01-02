@@ -2,7 +2,7 @@
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
 use thiserror::Error;
-use wgpu::CreateSurfaceError;
+use wgpu::{CreateSurfaceError, SurfaceError};
 
 #[derive(Debug, Error)]
 pub enum MoonWalkError {
@@ -14,6 +14,9 @@ pub enum MoonWalkError {
     
     #[error("Failed to create wgpu surface")]
     CreateSurfaceError(#[from] CreateSurfaceError),
+
+    #[error("Wgpu surface error")]
+    SurfaceError(#[from] SurfaceError),
 
     #[error("No suitable surface format found")]
     NoSuitableSurfaceFormat,

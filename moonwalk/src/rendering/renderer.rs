@@ -138,7 +138,7 @@ impl MoonRenderer {
     }
 
     /// Функция для отправки всего на рендер
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&mut self) -> Result<(), MoonWalkError> {
         let width = self.context.config.width;
         let height = self.context.config.height;
         let format = self.context.config.format;
@@ -202,8 +202,9 @@ impl MoonRenderer {
             self.snapshot_tasks.clear();
         }
 
-        // Переносим картинку из буфера в свапчейн
-        let frame = self.context.surface.as_ref().unwrap().get_current_texture()?;
+        let frame = self.context.surface.as_ref().unwrap().get_current_texture()
+            .map_err(|e| MoonWalkError::SurfaceError(e))?;
+
         let surface_view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut blit_encoder = self.context.create_encoder();

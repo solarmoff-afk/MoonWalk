@@ -25,13 +25,13 @@ mod filters;
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use glam::{Vec2, Vec4};
-use wgpu::SurfaceError;
 use resource_manager::ResourceManager;
 use path::PathBuilder;
 
 pub use crate::objects::ObjectId;
 use crate::rendering::container::RenderContainer;
 use crate::rendering::renderer::MoonRenderer;
+use crate::error::MoonWalkError;
 
 /// Основная структура движка которая содержит рендерер. Конструктор new
 /// принимает окно (Которое можно получить через winit), ширину окна и
@@ -117,7 +117,7 @@ impl MoonWalk {
     /// WindowEvent::RedrawRequested => { ... }
     /// Первый аргумент это структура Vec4 из крейта GLAM, сюда нужно
     /// передать цвет которым будет заливаться экран.
-    pub fn render_frame(&mut self, _clear_color: Vec4) -> Result<(), SurfaceError> {
+    pub fn render_frame(&mut self, _clear_color: Vec4) -> Result<(), MoonWalkError> {
         self.renderer.render()
     }
 
