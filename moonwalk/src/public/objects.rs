@@ -230,4 +230,11 @@ impl MoonWalk {
     pub fn remove(&mut self, id: ObjectId) {
         self.renderer.state.store.remove(id);
     }
+
+    /// [WAIT DOC]
+    pub fn remove_all(&mut self) {
+        for id in 0..self.renderer.state.store.alive.len() {
+            self.renderer.state.store.remove(ObjectId(id));
+        }
+    }
 }
