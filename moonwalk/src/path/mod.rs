@@ -156,10 +156,6 @@ impl VectorSystem {
         height: u32,
         color: [f32; 4],
     ) -> Texture {
-        if vertices.is_empty() || indices.is_empty() {
-            return;
-        }
-
         let texture = Texture::create_render_target(
             ctx, 
             width, 
