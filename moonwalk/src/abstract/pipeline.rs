@@ -16,15 +16,13 @@ lazy_static::lazy_static! {
         Mutex::new(HashMap::new());
 }
 
-/// Структура для кэширования пайплайна, включает device_id на всякий случай (пайплайны 
-/// действительны только на одной видеокарте поэтому кэшируем и её айди)
+/// Структура для кэширования пайплайна
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct PipelineCacheKey {
     shader_hash: u64,
     vertex_layouts_hash: u64,
     bind_groups_hash: u64,
     format_hash: u64,
-    device_id: u64,
 }
 
 /// Формат данных для вершинных атрибутов
@@ -768,18 +766,11 @@ impl MoonPipeline {
         self.render_config.depth_write.hash(&mut hasher);
         let format_hash = hasher.finish();
 
-        // Получение айди устройства (видеокарты)
-        // [HACK]
-        // Получить айди нельщя, но мы можем за него адрес в памяти
-        let device_ptr = &ctx.device as *const wgpu::Device;
-        let device_id = device_ptr as usize as u64;
-
         PipelineCacheKey {
             shader_hash,
             vertex_layouts_hash,
             bind_groups_hash,
             format_hash,
-            device_id: device_id.try_into().unwrap(),
         }
     }
 
@@ -1177,11 +1168,6 @@ impl MoonPipeline {
     /// Очистить кэш пайплайнов для всех устройств
     pub fn clear_pipeline_cache() {
         PIPELINE_CACHE.lock().clear();
-    }
-
-    /// Очистить кэш для конкретного устройства
-    pub fn clear_pipeline_cache_for_device(device_id: u64) {
-        PIPELINE_CACHE.lock().retain(|k, _| k.device_id != device_id);
     }
 }
 
