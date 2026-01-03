@@ -79,6 +79,10 @@ impl VectorSystem {
         color: [f32; 4],
         target: &Texture,
     ) {
+        if vertices.is_empty() || indices.is_empty() {
+            return;
+        }
+
         let vertex_buffer = ctx.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vector VBO"),
             contents: bytemuck::cast_slice(vertices),
@@ -152,6 +156,10 @@ impl VectorSystem {
         height: u32,
         color: [f32; 4],
     ) -> Texture {
+        if vertices.is_empty() || indices.is_empty() {
+            return;
+        }
+
         let texture = Texture::create_render_target(
             ctx, 
             width, 

@@ -1,6 +1,6 @@
 [package]
 name = "moonwalk"
-version = "0.13.1"
+version = "0.13.2"
 edition = "2021"
 
 [lib]
@@ -30,11 +30,3 @@ android_logger = "0.13"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 objc = "0.2"
-
-[dev-dependencies]
-criterion = "0.5"
-winit = "0.30"
-
-[[bench]]
-name = "simple"
-harness = false
