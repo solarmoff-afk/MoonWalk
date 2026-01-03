@@ -18,9 +18,12 @@ pub mod rendering;
 pub mod objects;
 pub mod resource_manager;
 pub mod path;
+
+// abstract зарезервирован в расте поэтому нужно экранирование
+pub mod r#abstract;
+
 mod batching;
 mod textware;
-mod fallback;
 mod debug;
 mod filters;
 

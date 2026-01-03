@@ -44,7 +44,7 @@ impl RenderState {
     ) -> Result<Self, MoonWalkError> {
         // Создаём хранилище для шейдеров. Каждый шейдер это отдельный
         // конвейер для рендеринга.
-        let mut shaders = ShaderStore::new(ctx);
+        let mut shaders = ShaderStore::new(ctx)?;
 
         // Создаём шейдер для прямоугольника.
         let rect_shader = shaders.create_default_rect(ctx, ctx.config.format)?;
@@ -63,9 +63,17 @@ impl RenderState {
         
         // Создаём буфер для шейдерных данных (Юниформ)
         let uniform_buffer = Buffer::uniform(ctx, &uniform_data);
-        let proj_bind_group = shaders.get_proj_bind_group(ctx, &uniform_buffer.raw);
+        
+        // Обновляем проекцию в ShaderStore и получаем bind group
+        shaders.update_projection(ctx, &uniform_buffer.raw);
+        
+        // Получаем bind group из ShaderStore
+        let proj_bind_group = shaders.get_proj_bind_group()
+            .expect("Projection bind group not initialized")
+            .clone();
 
-        // Костыль: движок использует 1 пайплайн (1 шейдер) для объектов и с текстурой и без
+        // [HACK]
+        // движок использует 1 пайплайн (1 шейдер) для объектов и с текстурой и без
         // и для этого в шейдере [shaders/shape.wgsl] передаётся текстура, поэтому она нужна
         // даже когда объект просто цветной (без текстуры). Я решил сделать текстуру 1 на 1
         // пиксель с белым цветом (ВАЖНО! Чтобы цвет объекта не изменился)
@@ -94,8 +102,14 @@ impl RenderState {
         let uniform_data = GlobalUniform {
             view_proj: self.matrix_stack.projection.to_cols_array_2d(),
         };
-        
+
         self.uniform_buffer.update_one(ctx, &uniform_data);
+        self.shaders.update_projection(ctx, &self.uniform_buffer.raw);
+        
+        // Обновляем proj_bind_group после обновления проекции
+        self.proj_bind_group = self.shaders.get_proj_bind_group()
+            .expect("Projection bind group not initialized")
+            .clone();
     }
 
     /// Функция для рисования всех объектов

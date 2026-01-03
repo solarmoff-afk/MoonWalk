@@ -1,14 +1,23 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
-pub mod pipeline;
 pub mod color_matrix;
 
 use wgpu::util::DeviceExt;
 use bytemuck::{Pod, Zeroable};
 
 use crate::gpu::context::Context;
+use crate::gpu::Buffer;
 use crate::rendering::texture::Texture;
+use crate::r#abstract::*;
+use crate::error::MoonWalkError;
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+struct DummyVertex {
+    _dummy: f32,
+}
+
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -27,93 +36,93 @@ struct ColorMatrixUniform {
 }
 
 pub struct FilterSystem {
-    // Это временная текстура для рендеринга текстуры с фильтром, так как нельзя
-    // читать и записывать одновременно
     swap_texture: Option<Texture>,
     
-    // Пайплайн для блюра по гаусу
     blur_pipeline: wgpu::RenderPipeline,
-    
-    // Пайплайн для базовых эффектов (яркость, контраст, насыщеность и тон)
     color_pipeline: wgpu::RenderPipeline,
     
-    // Лайауты
     uniform_layout: wgpu::BindGroupLayout,
     texture_layout: wgpu::BindGroupLayout,
+    dummy_vbo: Buffer<DummyVertex>,
 }
 
 impl FilterSystem {
-    pub fn new(ctx: &Context) -> Self {
-        let format = wgpu::TextureFormat::Rgba8UnormSrgb;
+    pub fn new(ctx: &Context) -> Result<Self, MoonWalkError> {
+        let dummy_vertices = [DummyVertex {
+            _dummy: 0.0
+        }];
 
-        let uniform_layout = ctx.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Filter Uniform Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
+        let dummy_vbo = Buffer::vertex(ctx, &dummy_vertices);
 
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
+        let uniform_layout = BindGroup::new()
+            .add_uniform(0, ShaderStage::Fragment)
+            .build(ctx)?;
 
-                count: None,
-            }],
-        });
+        let texture_layout = BindGroup::new()
+            .add_texture(0, TextureType::Float)
+            .add_sampler(1, SamplerType::Linear)
+            .build(ctx)?;
 
-        let texture_layout = ctx.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Filter Texture Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    
-                    count: None,
-                },
-                
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-        });
+        let blur_pipeline = MoonPipeline::new(include_str!("shaders/blur.wgsl"))
+            .vertex_shader("vs_main")
+            .fragment_shader("fs_main")
+            .add_vertex_layout(
+                VertexLayout::new()
+                    .stride(0)
+                    .step_mode(StepMode::Vertex)
+            )
+            .add_bind_group(
+                BindGroup::new()
+                    .add_uniform(0, ShaderStage::Fragment)
+            ) 
+            .add_bind_group(
+                BindGroup::new()
+                    .add_texture(0, TextureType::Float)
+                    .add_sampler(1, SamplerType::Linear)
+            )
+            .blend(BlendMode::None)
+            .cull(CullMode::None)
+            .topology(Topology::TriangleList)
+            .depth_test(false)
+            .depth_write(false)
+            .label("blur_filter")
+            .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[])?;
 
-        let blur_pipeline = pipeline::create_filter_pipeline(
-            ctx,
-            include_str!("shaders/blur.wgsl"),
-            &uniform_layout,
-            &texture_layout,
-            format,
-        );
+        let color_pipeline = MoonPipeline::new(include_str!("shaders/color_matrix.wgsl"))
+            .vertex_shader("vs_main")
+            .fragment_shader("fs_main")
+            .add_vertex_layout(
+                VertexLayout::new()
+                    .stride(0)
+                    .step_mode(StepMode::Vertex)
+            )
+            .add_bind_group(
+                BindGroup::new()
+                    .add_uniform(0, ShaderStage::Fragment)
+            )
+            .add_bind_group(
+                BindGroup::new()
+                    .add_texture(0, TextureType::Float)
+                    .add_sampler(1, SamplerType::Linear)
+            )
+            .blend(BlendMode::None)
+            .cull(CullMode::None)
+            .topology(Topology::TriangleList)
+            .depth_test(false)
+            .depth_write(false)
+            .label("color_filter")
+            .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[])?;
 
-        let color_pipeline = pipeline::create_filter_pipeline(
-            ctx,
-            include_str!("shaders/color_matrix.wgsl"),
-            &uniform_layout,
-            &texture_layout,
-            format,
-        );
-
-        Self {
+        Ok(Self {
             swap_texture: None,
-            blur_pipeline,
-            color_pipeline,
+            blur_pipeline: blur_pipeline.pipeline.raw,
+            color_pipeline: color_pipeline.pipeline.raw,
             uniform_layout,
             texture_layout,
-        }
+            dummy_vbo,
+        })
     }
 
-    /// Эта функция обновляет существующую текстуру добавляя блюр по гаусу. Принимает gpu контекст,
-    /// саму текстуру, радиус размытия и горизонтальный ли проход (true/false)
     pub fn apply_blur(&mut self, ctx: &Context, target_texture: &Texture, radius: f32, horizontal: bool) {
         let width = target_texture.texture.width();
         let height = target_texture.texture.height();
@@ -167,7 +176,6 @@ impl FilterSystem {
         ctx.submit(encoder);
     }
 
-    /// Вспомогательная функция для создания временной текстуры
     fn ensure_swap_texture(&mut self, ctx: &Context, w: u32, h: u32, format: wgpu::TextureFormat) {
         let need_create = self.swap_texture.as_ref()
             .map_or(true, |t| t.texture.width() != w || t.texture.height() != h);
@@ -177,7 +185,6 @@ impl FilterSystem {
         }
     }
 
-    /// Общая логика выполнения прохода фильтра
     fn execute_pass(
         &self,
         ctx: &Context,
@@ -240,6 +247,11 @@ impl FilterSystem {
             pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &uniform_bg, &[]);
             pass.set_bind_group(1, &texture_bg, &[]);
+
+            // [HACK]
+            // Взятие слайса напрямую из raw буфера
+            pass.set_vertex_buffer(0, self.dummy_vbo.raw.slice(..));
+
             pass.draw(0..3, 0..1);
         }
         

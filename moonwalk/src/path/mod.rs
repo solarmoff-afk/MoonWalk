@@ -9,8 +9,10 @@ use lyon::path::Path;
 use lyon::tessellation::*;
 use bytemuck::{Pod, Zeroable};
 
+use crate::MoonWalkError;
 use crate::gpu::context::Context;
 use crate::rendering::texture::Texture;
+use crate::r#abstract::*;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -28,94 +30,47 @@ pub struct VectorVertex {
 /// Система для рендеринга векторной графики (векторных путей) в текстуры
 pub struct VectorSystem {
     pipeline: wgpu::RenderPipeline,
-    bind_group_layout: wgpu::BindGroupLayout,
+    bind_group: Option<wgpu::BindGroup>,
 }
 
 impl VectorSystem {
-    pub fn new(ctx: &Context) -> Self {
-        let bind_group_layout = ctx.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Vector Bind Group Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-
-                count: None,
-            }],
-        });
-
-        let pipeline_layout = ctx.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Vector Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
-
-        let shader = ctx.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Vector Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("path.wgsl").into()),
-        });
-
-        let pipeline = ctx.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Vector Pipeline"),
-            layout: Some(&pipeline_layout),
-
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-
-                buffers: &[wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<VectorVertex>() as wgpu::BufferAddress,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-
-                    attributes: &[wgpu::VertexAttribute {
-                        format: wgpu::VertexFormat::Float32x2,
-                        offset: 0,
-                        shader_location: 0,
-                    }],
-                }],
-
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                front_face: wgpu::FrontFace::Ccw, 
-                cull_mode: None,
-                ..Default::default()
-            },
-
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        });
-
-        Self {
-            pipeline,
-            bind_group_layout,
-        }
+    pub fn new(ctx: &Context) -> Result<Self, MoonWalkError> {
+        let shader_source = include_str!("path.wgsl");
+        
+        let pipeline = MoonPipeline::new(shader_source)
+            .vertex_shader("vs_main")
+            .fragment_shader("fs_main")
+            .add_vertex_layout(
+                VertexLayout::new()
+                    .stride(8)
+                    .step_mode(StepMode::Vertex)
+                    .add_attr(
+                        VertexAttr::new()
+                            .format(Format::Float32x2)
+                            .location(0)
+                            .offset(0)
+                    )
+            )
+            .add_bind_group(
+                BindGroup::new()
+                    .add_uniform(0, ShaderStage::Both)
+            )
+            .blend(BlendMode::Alpha)
+            .cull(CullMode::None)
+            .topology(Topology::TriangleList)
+            .depth_test(false)
+            .depth_write(false)
+            .label("vector_path")
+            .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[])?;
+        
+        Ok(Self {
+            pipeline: pipeline.pipeline.raw,
+            bind_group: None,
+        })
     }
 
     pub fn render(
-        &self,
+        &mut self,
         ctx: &Context,
         vertices: &[VectorVertex],
         indices: &[u16],
@@ -150,22 +105,19 @@ impl VectorSystem {
             usage: wgpu::BufferUsages::UNIFORM,
         });
 
-        let bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &self.bind_group_layout,
-            
+        self.bind_group = Some(ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.get_bind_group_layout(ctx),
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: uniform_buffer.as_entire_binding(),
             }],
-
             label: None,
-        });
+        }));
 
         let mut encoder = ctx.create_encoder();
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Vector Pass"),
-                
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &target.view,
                     resolve_target: None,
@@ -174,14 +126,15 @@ impl VectorSystem {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
 
             pass.set_pipeline(&self.pipeline);
-            pass.set_bind_group(0, &bind_group, &[]);
+            if let Some(bind_group) = &self.bind_group {
+                pass.set_bind_group(0, bind_group, &[]);
+            }
             pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             pass.draw_indexed(0..indices.len() as u32, 0, 0..1);
@@ -191,7 +144,7 @@ impl VectorSystem {
     }
 
     pub fn render_to_texture(
-        &self,
+        &mut self,
         ctx: &Context,
         vertices: &[VectorVertex],
         indices: &[u16],
@@ -209,6 +162,13 @@ impl VectorSystem {
         self.render(ctx, vertices, indices, width, height, color, &texture);
 
         texture
+    }
+
+    fn get_bind_group_layout(&self, ctx: &Context) -> wgpu::BindGroupLayout {
+        BindGroup::new()
+            .add_uniform(0, ShaderStage::Both)
+            .build(ctx)
+            .expect("Failed to create vector bind group layout")
     }
 }
 

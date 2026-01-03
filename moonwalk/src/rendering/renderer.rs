@@ -52,8 +52,8 @@ impl MoonRenderer {
             Context::new(window, width, height)
         );
 
-        let filters = FilterSystem::new(&context);
-        let vector_system = VectorSystem::new(&context);
+        let filters = FilterSystem::new(&context)?;
+        let vector_system = VectorSystem::new(&context)?;
         
         // Создаём состояние рендерера
         let state = RenderState::new(&context, width, height)?;
