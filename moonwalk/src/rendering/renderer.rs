@@ -53,7 +53,7 @@ impl MoonRenderer {
         );
 
         let filters = FilterSystem::new(&context);
-        let vector_system = VectorSystem::new(&context);
+        let vector_system = VectorSystem::new(&context)?;
         
         // Создаём состояние рендерера
         let state = RenderState::new(&context, width, height)?;
