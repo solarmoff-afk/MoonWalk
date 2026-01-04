@@ -30,7 +30,7 @@ impl MoonWalk {
     pub fn load_font(&mut self, path: &str, name: &str) -> Result<FontAsset, crate::error::MoonWalkError> {
         let bytes = self.resources.read_bytes(path)?;
         
-        let internal_id = self.renderer.text_engine.font_system.load_font_from_bytes(&bytes, name)?;
+        let internal_id = self.renderer.text_engine.load_font_bytes(&bytes, name)?;
 
         Ok(FontAsset(internal_id.0))
     }
@@ -43,7 +43,7 @@ impl MoonWalk {
         bytes: &[u8], 
         name: &str
     ) -> Result<FontAsset, crate::error::MoonWalkError> {
-        let id = self.renderer.text_engine.font_system.load_font_from_bytes(bytes, name)?;
+        let id = self.renderer.text_engine.load_font_bytes(bytes, name)?;
         Ok(FontAsset(id.0))
     }
 }

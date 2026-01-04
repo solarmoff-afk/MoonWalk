@@ -5,9 +5,6 @@ use crate::textware::TextError;
 
 use std::collections::HashMap;
 
-#[cfg(target_os = "android")]
-use std::ffi::CString;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct FontId(pub u64);
 
@@ -15,15 +12,9 @@ pub struct FontSystem {
     pub(crate) sys: cosmic_text::FontSystem,
     next_id: u64,
     families: HashMap<FontId, String>,
-
-    /// AssetManager только на android. На десктопе и iOS всё
-    /// работает через прямые пути
-    #[cfg(target_os = "android")]
-    asset_manager: ndk::asset::AssetManager,
 }
 
 impl FontSystem {
-    #[cfg(not(target_os = "android"))]
     pub fn new() -> Self {
         Self {
             sys: cosmic_text::FontSystem::new(),
@@ -32,53 +23,12 @@ impl FontSystem {
         }
     }
 
-    #[cfg(target_os = "android")]
-    pub fn new(asset_manager: ndk::asset::AssetManager) -> Self {
-        Self {
-            sys: cosmic_text::FontSystem::new(),
-            next_id: 1,
-            families: HashMap::new(),
-            asset_manager,
-        }
-    }
-
-    pub fn load_font(&mut self, path: &str) -> Result<FontId, TextError> {
-        let font_data = {
-            #[cfg(target_os = "android")]
-            {
-                // Создание C строки поскольку крейт ndk это обёртка над c кодом, а там
-                // строки отличаются от растовских 
-                let c_path = CString::new(path)
-                    .map_err(|e| TextError::FontLoading(format!("Path contains null byte: {}", e)))?;
-
-                let mut asset = self.asset_manager.open(&c_path)
-                    .ok_or_else(|| TextError::FontLoading(format!("Asset not found: {}", path)))?;
-                
-                asset.buffer().map(|b| b.to_vec())
-                    .map_err(|e| TextError::FontLoading(e.to_string()))
-            }
-
-            #[cfg(not(target_os = "android"))]
-            {
-                std::fs::read(path).map_err(|e| TextError::FontLoading(e.to_string()))
-            }
-        }?;
-
-        self.load_font_data_internal(font_data)
-    }
-
     pub fn load_font_from_bytes(&mut self, data: &[u8], _name: &str) -> Result<FontId, TextError> {
         // Имя игнорируется так как реальное имя берётся из метаданных. _name остаётся
         // из-за обратной совместимости
-        self.load_font_data_internal(data.to_vec())
-    }
-
-    // Внутренняя функция для регистрации шрифта и извлечения его реального имени
-    fn load_font_data_internal(&mut self, data: Vec<u8>) -> Result<FontId, TextError> {
-
         let count_before = self.sys.db().faces().count();
         
-        self.sys.db_mut().load_font_data(data);
+        self.sys.db_mut().load_font_data(data.to_vec());
         
         let count_after = self.sys.db().faces().count();
         

@@ -77,7 +77,6 @@ fn hash_str(s: &str) -> u64 {
 }
 
 impl TextWare {
-    #[cfg(not(target_os = "android"))]
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         let mut font_system = FontSystem::new();
 
@@ -95,34 +94,10 @@ impl TextWare {
         }
     }
 
-    /// Специфичная функция new для андроид, разделение нужно
-    /// из-за необходимости использовать AssetManager на ОС андроид
-    #[cfg(target_os = "android")]
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, asset_manager: ndk::asset::AssetManager) -> Self {
-        let mut font_system = FontSystem::new(asset_manager);
-
-        let scratch_buffer = cosmic_text::Buffer::new(
-            &mut font_system.sys, 
-            Metrics::new(24.0, 24.0)
-        );
-
-        Self {
-            atlas_id: Some(ATLAS_ID),
-            font_system,
-            glyph_cache: GlyphCache::new(device, queue),
-            buffers: HashMap::new(),
-            scratch_buffer,
-        }
-    }
-
     /// Данная функция нужна для статического добавления шрифта в проект,
     /// не предназначена для FFI. 
     pub fn load_font_bytes(&mut self, data: &[u8], name: &str) -> Result<FontId, TextError> {
         self.font_system.load_font_from_bytes(data, name)
-    }
-
-    pub fn load_font_file(&mut self, path: &str) -> Result<FontId, TextError> {
-        self.font_system.load_font(path)
     }
 
     pub fn create_text(&mut self, content: &str, font_id: Option<FontId>, font_size: f32, line_height: Option<f32>) -> Text {
