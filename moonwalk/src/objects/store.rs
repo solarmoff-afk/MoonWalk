@@ -389,6 +389,8 @@ impl ObjectStore {
         let test_min = position - half_size;
         let test_max = position + half_size;
 
+        let mut best_candidate: Option<(usize, f32)> = None; // (index, z_index)
+
         for (idx, alive) in self.alive.iter().enumerate() {
             if !alive {
                 continue;
@@ -407,12 +409,21 @@ impl ObjectStore {
                test_min.x < obj_max.x && 
                test_max.y > obj_min.y && 
                test_min.y < obj_max.y {
-                let object_type = self.object_types[idx];
-                let id = objects::ObjectId::new(object_type, idx);
-                return Some(id);
+                let z_index = self.z_indices[idx];
+                
+                match best_candidate {
+                    None => best_candidate = Some((idx, z_index)),
+                    Some((_, best_z)) if z_index > best_z => {
+                        best_candidate = Some((idx, z_index))
+                    },
+                    _ => {}
+                }
             }
         }
 
-        None
+        best_candidate.map(|(idx, _)| {
+            let object_type = self.object_types[idx];
+            objects::ObjectId::new(object_type, idx)
+        })
     }
 }
