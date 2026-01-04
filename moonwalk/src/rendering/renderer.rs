@@ -247,6 +247,18 @@ impl MoonRenderer {
          self.context.recreate_surface(window, width, height);
     }
 
+    /// Этот метод позволяет включить или выключить вертикальную
+    /// синхронизацию
+    pub fn set_vsync(&mut self, enable: bool) {
+        let mode = if enable {
+            wgpu::PresentMode::Fifo
+        } else {
+            wgpu::PresentMode::AutoNoVsync
+        };
+        
+        self.context.set_present_mode(mode);
+    }
+
     pub fn apply_blur(&mut self, texture_id: u32, radius: f32, horizontal: bool) {
         if let Some(texture) = self.state.textures.get(&texture_id) {
             self.filters.apply_blur(&self.context, texture, radius, horizontal);

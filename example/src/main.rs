@@ -80,6 +80,13 @@ impl Application for TextureApp {
 
         let id = mw.new_rect();
         mw.set_texture(id, tex_id);
+
+        if let Ok(font) = mw.load_font("assets/web_ibm_mda.ttf", "BenchFont") {
+            let id2 = mw.new_text("MoonWalk UI", font, 16.0);
+            mw.set_position(id2, Vec2::new(20.0, 50.0));
+        } else {
+             println!("Note: Text tests will be skipped (no assets/font.ttf)");
+        } 
     }
 
     fn on_update(&mut self, dt: f32) {

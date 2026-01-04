@@ -64,6 +64,13 @@ pub enum TextAlign {
     Justified,
 }
 
+#[derive(Debug, Clone)]
+pub struct GraphicsInfo {
+    pub name: String,
+    pub backend: String, // "Vulkan", "Metal", "Dx12"
+    pub driver: String,
+}
+
 impl MoonWalk {
     #[cfg(not(target_os = "android"))]
     pub fn new(
@@ -95,5 +102,15 @@ impl MoonWalk {
             renderer,
             resources,
         })
+    }
+
+    pub fn get_graphics_info(&self) -> GraphicsInfo {
+        let info = &self.renderer.context.adapter_info;
+        
+        GraphicsInfo {
+            name: info.name.clone(),
+            backend: format!("{:?}", info.backend),
+            driver: info.driver.clone(),
+        }
     }
 }

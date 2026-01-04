@@ -146,4 +146,9 @@ impl Context {
     pub fn submit(&self, encoder: wgpu::CommandEncoder) {
         self.queue.submit(std::iter::once(encoder.finish()));
     }
+
+    pub fn set_present_mode(&mut self, mode: wgpu::PresentMode) {
+        self.config.present_mode = mode;
+        self.configure_surface();
+    }
 }

@@ -1,0 +1,27 @@
+[package]
+name = "benchmark"
+version = "0.1.0"
+edition = "2024"
+
+# [lib]
+# crate-type = ["cdylib", "rlib"]
+# name = "app"
+# path = "src/main.rs"
+
+[[bin]]
+name = "benchmark"
+path = "src/main.rs"
+
+[dependencies]
+glam = { version = "0.24", features = ["scalar-math", "bytemuck"] }
+moonwalk_bootstrap = { path = "../bootstrap" }
+moonwalk = { workspace = true }
+env_logger = "0.10"
+sysinfo = "0.30"
+chrono = "0.4"
+log = "0.4"
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.13"
+winit = { version = "0.30", features = ["android-native-activity"] }
+android-activity = { version = "0.6", features = ["native-activity"] }
