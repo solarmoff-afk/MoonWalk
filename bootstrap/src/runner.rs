@@ -9,7 +9,7 @@ use moonwalk::error::MoonWalkError;
 
 use winit::{
     application::ApplicationHandler,
-    event::WindowEvent,
+    event::{MouseButton, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::{Window, WindowId},
     dpi::LogicalSize,
@@ -28,6 +28,7 @@ struct AppState {
     moonwalk: MoonWalk,
     last_frame_time: Instant,
     clear_color: Vec4,
+    last_cursor_pos: Vec2,
 }
 
 struct AppRunner<A> {
@@ -107,6 +108,7 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
             moonwalk,
             last_frame_time: Instant::now(),
             clear_color,
+            last_cursor_pos: Vec2::ZERO,
         });
     }
 
@@ -139,10 +141,21 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
                 state.moonwalk.set_scale_factor(scale_factor as f32);
             },
 
+            WindowEvent::MouseInput { state: button_state, button, .. } => {
+                if button == MouseButton::Left {
+                    let phase = match button_state {
+                        winit::event::ElementState::Pressed => TouchPhase::Started,
+                        winit::event::ElementState::Released => TouchPhase::Ended,
+                    };
+                    self.app.on_touch(&mut state.moonwalk, phase, state.last_cursor_pos);
+                }
+            },
+
             WindowEvent::CursorMoved { position, .. } => {
                 let scale = state.window.scale_factor();
                 let logical_pos = position.to_logical::<f32>(scale);
-                self.app.on_touch(&mut state.moonwalk, TouchPhase::Moved, Vec2::new(logical_pos.x, logical_pos.y));
+                state.last_cursor_pos = Vec2::new(logical_pos.x, logical_pos.y);
+                self.app.on_touch(&mut state.moonwalk, TouchPhase::Moved, state.last_cursor_pos);
             },
 
             WindowEvent::Touch(touch) => {
