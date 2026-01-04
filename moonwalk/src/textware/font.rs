@@ -4,7 +4,6 @@
 use crate::textware::TextError;
 
 use std::collections::HashMap;
-use std::path::Path;
 
 #[cfg(target_os = "android")]
 use std::ffi::CString;
@@ -65,30 +64,44 @@ impl FontSystem {
             }
         }?;
 
-        self.sys.db_mut().load_font_data(font_data);
-
-        let family_name = Path::new(path)
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("unknown")
-            .to_string();
-
-        let id = FontId(self.next_id);
-        self.next_id += 1;
-
-        self.families.insert(id, family_name);
-
-        Ok(id)
+        self.load_font_data_internal(font_data)
     }
 
-    pub fn load_font_from_bytes(&mut self, data: &[u8], name: &str) -> Result<FontId, TextError> {
-        self.sys.db_mut().load_font_data(data.to_vec());
+    pub fn load_font_from_bytes(&mut self, data: &[u8], _name: &str) -> Result<FontId, TextError> {
+        // Имя игнорируется так как реальное имя берётся из метаданных. _name остаётся
+        // из-за обратной совместимости
+        self.load_font_data_internal(data.to_vec())
+    }
+
+    // Внутренняя функция для регистрации шрифта и извлечения его реального имени
+    fn load_font_data_internal(&mut self, data: Vec<u8>) -> Result<FontId, TextError> {
+
+        let count_before = self.sys.db().faces().count();
         
+        self.sys.db_mut().load_font_data(data);
+        
+        let count_after = self.sys.db().faces().count();
+        
+        if count_after <= count_before {
+            return Err(TextError::FontLoading("Failed to parse font data".to_string()));
+        }
+
+        // Получение последнего добавленного шрифта из базы faces возвращает итератор
+        // по всем шрифтам
+        let face = self.sys.db().faces().last()
+            .ok_or_else(|| TextError::FontLoading("Database error after loading".to_string()))?;
+
+        // Получение настоящего имени семейства из метаданных families возвращает список 
+        // кортежей имя и язык поэтому используется первое имя
+        let real_family_name = face.families.first()
+            .map(|(name, _)| name.clone())
+            .unwrap_or_else(|| "Unknown Family".to_string());
+
         let id = FontId(self.next_id);
         self.next_id += 1;
-        
-        self.families.insert(id, name.to_string());
-        
+
+        self.families.insert(id, real_family_name);
+
         Ok(id)
     }
 
