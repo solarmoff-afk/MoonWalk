@@ -237,4 +237,14 @@ impl MoonWalk {
             self.renderer.state.store.remove(ObjectId(id));
         }
     }
+
+    /// Устанавливает hit группу для объекта
+    pub fn set_hit_group(&mut self, id: ObjectId, group: u16) {
+        self.renderer.state.store.set_hit_group(id, group);
+    }
+
+    /// Проверяет коллизию AABB виртуального объекта с объектами указанной hit группы
+    pub fn resolve_hit(&self, position: Vec2, size: Vec2, target_group: u16) -> Option<ObjectId> {
+        self.renderer.state.store.resolve_hit(position, size, target_group)
+    }
 }

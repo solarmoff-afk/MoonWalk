@@ -82,6 +82,9 @@ pub struct ObjectStore {
     pub font_ids: Vec<crate::textware::FontId>,
     pub font_sizes: Vec<f32>,
     pub text_bounds: Vec<Vec2>,
+
+    // Hit группы для коллизий
+    pub hit_groups: Vec<u16>,
 }
 
 impl ObjectStore {
@@ -122,6 +125,8 @@ impl ObjectStore {
 
             // Объекты изначально не грязные потому-что их нет
             dirty: false,
+
+            hit_groups: Vec::with_capacity(1024),
         }
     }
 
@@ -161,6 +166,9 @@ impl ObjectStore {
             self.font_sizes[idx] = 0.0;
             self.text_bounds[idx] = Vec2::new(9999.0, 9999.0);
 
+            // Hit группа по умолчанию
+            self.hit_groups[idx] = 0;
+
             return idx;
         }
         
@@ -197,6 +205,8 @@ impl ObjectStore {
         self.font_ids.push(crate::textware::FontId(0));
         self.font_sizes.push(0.0);
         self.text_bounds.push(Vec2::new(9999.0, 9999.0));
+
+        self.hit_groups.push(0);
 
         index
     }
@@ -362,5 +372,47 @@ impl ObjectStore {
             self.text_aligns[idx] = align;
             self.dirty = true;
         }
+    }
+
+    #[inline(always)]
+    pub fn set_hit_group(&mut self, id: ObjectId, group: u16) {
+        let idx = id.index();
+        if self.hit_groups[idx] != group {
+            self.hit_groups[idx] = group;
+            self.dirty = true;
+        }
+    }
+
+    #[inline(always)]
+    pub fn resolve_hit(&self, position: Vec2, size: Vec2, target_group: u16) -> Option<ObjectId> {
+        let half_size = size * 0.5;
+        let test_min = position - half_size;
+        let test_max = position + half_size;
+
+        for (idx, alive) in self.alive.iter().enumerate() {
+            if !alive {
+                continue;
+            }
+
+            if self.hit_groups[idx] != target_group {
+                continue;
+            }
+
+            let obj_half_size = self.sizes[idx] * 0.5;
+            let obj_pos = self.positions[idx];
+            let obj_min = obj_pos - obj_half_size;
+            let obj_max = obj_pos + obj_half_size;
+
+            if test_max.x > obj_min.x && 
+               test_min.x < obj_max.x && 
+               test_max.y > obj_min.y && 
+               test_min.y < obj_max.y {
+                let object_type = self.object_types[idx];
+                let id = objects::ObjectId::new(object_type, idx);
+                return Some(id);
+            }
+        }
+
+        None
     }
 }
