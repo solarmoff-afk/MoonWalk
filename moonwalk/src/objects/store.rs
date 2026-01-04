@@ -389,7 +389,7 @@ impl ObjectStore {
         let test_min = position - half_size;
         let test_max = position + half_size;
 
-        let mut best_candidate: Option<(usize, f32)> = None; // (index, z_index)
+        let mut best_candidate: Option<(usize, f32)> = None;
 
         for (idx, alive) in self.alive.iter().enumerate() {
             if !alive {
@@ -400,15 +400,15 @@ impl ObjectStore {
                 continue;
             }
 
-            let obj_half_size = self.sizes[idx] * 0.5;
+            let obj_size = self.sizes[idx];
             let obj_pos = self.positions[idx];
-            let obj_min = obj_pos - obj_half_size;
-            let obj_max = obj_pos + obj_half_size;
+            let obj_min = obj_pos;
+            let obj_max = obj_pos + obj_size;
 
             if test_max.x > obj_min.x && 
-               test_min.x < obj_max.x && 
-               test_max.y > obj_min.y && 
-               test_min.y < obj_max.y {
+            test_min.x < obj_max.x && 
+            test_max.y > obj_min.y && 
+            test_min.y < obj_max.y {
                 let z_index = self.z_indices[idx];
                 
                 match best_candidate {
