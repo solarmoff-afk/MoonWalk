@@ -1,7 +1,7 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
-use glam::Vec2;
+use glam::{Vec2, Vec4};
 
 #[derive(Debug, Clone)]
 pub struct WindowSettings {
@@ -12,6 +12,7 @@ pub struct WindowSettings {
     pub resizable: bool,
     pub transparent: bool,
     pub decorated: bool,
+    pub clear_color: Option<Vec4>,
 }
 
 impl WindowSettings {
@@ -24,6 +25,7 @@ impl WindowSettings {
             resizable: true,
             transparent: false,
             decorated: true,
+            clear_color: None,
         }
     }
 

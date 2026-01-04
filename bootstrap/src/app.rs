@@ -1,7 +1,8 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
-use glam::Vec2;
+
+use glam::{Vec2, Vec4};
 use moonwalk::MoonWalk;
 
 pub trait Application {
@@ -14,4 +15,9 @@ pub trait Application {
     fn on_draw(&mut self, mw: &mut MoonWalk);
 
     fn on_exit(&mut self) {}
+
+    /// Вызывается перед рендером, может вернуть цвет для очистки экрана
+    fn on_pre_render(&mut self) -> Option<Vec4> {
+        None
+    }
 }

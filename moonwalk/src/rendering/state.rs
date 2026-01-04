@@ -3,6 +3,7 @@
 
 use bytemuck::{Pod, Zeroable};
 use std::collections::HashMap;
+use glam::{Vec2, Vec4};
 
 use crate::gpu::{Context, Buffer, MatrixStack, RenderPass};
 use crate::batching::group::BatchGroup;
@@ -113,7 +114,7 @@ impl RenderState {
     }
 
     /// Функция для рисования всех объектов
-    pub fn draw(&mut self, ctx: &Context, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, text_engine: &mut TextWare, atlas_bg: Option<&wgpu::BindGroup>) {
+    pub fn draw(&mut self, ctx: &Context, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, text_engine: &mut TextWare, atlas_bg: Option<&wgpu::BindGroup>, clear_color: Vec4) {
         // Подготавливаем батчи
         self.batches.objects.prepare(ctx, &self.store, text_engine);
         
@@ -130,10 +131,10 @@ impl RenderState {
             
             // Цвет заливки
             Some(wgpu::Color {
-                r: 0.1,
-                g: 0.1,
-                b: 0.1,
-                a: 1.0
+                r: clear_color.x as f64,
+                g: clear_color.y as f64,
+                b: clear_color.z as f64,
+                a: clear_color.w as f64
             })
         );
 

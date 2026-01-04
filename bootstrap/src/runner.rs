@@ -27,6 +27,7 @@ struct AppState {
     window: &'static Window,
     moonwalk: MoonWalk,
     last_frame_time: Instant,
+    clear_color: Vec4,
 }
 
 struct AppRunner<A> {
@@ -36,6 +37,18 @@ struct AppRunner<A> {
 
     #[cfg(target_os = "android")]
     android_app: AndroidApp,
+}
+
+impl<A: Application> AppRunner<A> {
+    pub fn set_clear_color(&mut self, color: Vec4) {
+        if let Some(state) = &mut self.state {
+            state.clear_color = color;
+        }
+    }
+    
+    pub fn get_clear_color(&self) -> Option<Vec4> {
+        self.state.as_ref().map(|state| state.clear_color)
+    }
 }
 
 impl<A: Application> ApplicationHandler for AppRunner<A> {
@@ -59,8 +72,11 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
         let scale_factor = static_window.scale_factor();
         let logical_size = initial_size.to_logical::<f32>(scale_factor);
 
+        let clear_color = self.settings.clear_color.unwrap_or(Vec4::new(0.02, 0.02, 0.05, 1.0));
+
         if let Some(state) = &mut self.state {
             state.window = static_window;
+            state.clear_color = clear_color;
             state.moonwalk.recreate_surface(static_window, initial_size.width, initial_size.height);
             state.moonwalk.set_viewport(initial_size.width, initial_size.height);
             state.moonwalk.set_scale_factor(scale_factor as f32); 
@@ -102,6 +118,7 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
             window: static_window,
             moonwalk,
             last_frame_time: Instant::now(),
+            clear_color,
         });
     }
 
@@ -144,7 +161,11 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
                 self.app.on_update(delta_time);
                 self.app.on_draw(&mut state.moonwalk);
                 
-                match state.moonwalk.render_frame(Vec4::new(0.02, 0.02, 0.05, 1.0)) {
+                if let Some(new_color) = self.app.on_pre_render() {
+                    state.clear_color = new_color;
+                }
+                
+                match state.moonwalk.render_frame(state.clear_color) {
                     Ok(_) => {},
                     
                     Err(MoonWalkError::SurfaceError(wgpu::SurfaceError::Lost)) => {

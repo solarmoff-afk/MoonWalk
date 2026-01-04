@@ -138,7 +138,7 @@ impl MoonRenderer {
     }
 
     /// Функция для отправки всего на рендер
-    pub fn render(&mut self) -> Result<(), MoonWalkError> {
+    pub fn render(&mut self, clear_color: Vec4) -> Result<(), MoonWalkError> {
         let width = self.context.config.width;
         let height = self.context.config.height;
         let format = self.context.config.format;
@@ -165,7 +165,7 @@ impl MoonRenderer {
         let atlas_bg = self.text_engine.get_bind_group();
 
         // Здесь рисуется текущее состояние в буфер кадра
-        self.state.draw(&self.context, &mut encoder, render_target_view, &mut self.text_engine, Some(&atlas_bg));
+        self.state.draw(&self.context, &mut encoder, render_target_view, &mut self.text_engine, Some(&atlas_bg), clear_color);
         
         if !self.snapshot_tasks.is_empty() {
             for task in &self.snapshot_tasks {
