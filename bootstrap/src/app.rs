@@ -5,6 +5,14 @@
 use glam::{Vec2, Vec4};
 use moonwalk::MoonWalk;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TouchPhase {
+    Started,
+    Moved,
+    Ended,
+    Cancelled,
+}
+
 pub trait Application {
     fn on_start(&mut self, mw: &mut MoonWalk, viewport: Vec2);
 
@@ -20,4 +28,6 @@ pub trait Application {
     fn on_pre_render(&mut self) -> Option<Vec4> {
         None
     }
+
+    fn on_touch(&mut self, _moonwalk: &mut MoonWalk, _phase: TouchPhase, _position: Vec2) {}
 }

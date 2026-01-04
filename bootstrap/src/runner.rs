@@ -20,7 +20,7 @@ use winit::platform::android::EventLoopBuilderExtAndroid;
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
 
-use crate::app::Application;
+use crate::app::{Application, TouchPhase};
 use crate::window::WindowSettings;
 
 struct AppState {
@@ -37,18 +37,6 @@ struct AppRunner<A> {
 
     #[cfg(target_os = "android")]
     android_app: AndroidApp,
-}
-
-impl<A: Application> AppRunner<A> {
-    pub fn set_clear_color(&mut self, color: Vec4) {
-        if let Some(state) = &mut self.state {
-            state.clear_color = color;
-        }
-    }
-    
-    pub fn get_clear_color(&self) -> Option<Vec4> {
-        self.state.as_ref().map(|state| state.clear_color)
-    }
 }
 
 impl<A: Application> ApplicationHandler for AppRunner<A> {
@@ -149,6 +137,27 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
 
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 state.moonwalk.set_scale_factor(scale_factor as f32);
+            },
+
+            WindowEvent::CursorMoved { position, .. } => {
+                let scale = state.window.scale_factor();
+                let logical_pos = position.to_logical::<f32>(scale);
+                self.app.on_touch(&mut state.moonwalk, TouchPhase::Moved, Vec2::new(logical_pos.x, logical_pos.y));
+            },
+
+            WindowEvent::Touch(touch) => {
+                let scale = state.window.scale_factor();
+                let logical_pos = touch.location.to_logical::<f32>(scale);
+                
+                use winit::event::TouchPhase as WinitTouchPhase;
+                let phase = match touch.phase {
+                    WinitTouchPhase::Started => TouchPhase::Started,
+                    WinitTouchPhase::Moved => TouchPhase::Moved,
+                    WinitTouchPhase::Ended => TouchPhase::Ended,
+                    WinitTouchPhase::Cancelled => TouchPhase::Cancelled,
+                };
+                
+                self.app.on_touch(&mut state.moonwalk, phase, Vec2::new(logical_pos.x, logical_pos.y));
             },
 
             WindowEvent::RedrawRequested => {
