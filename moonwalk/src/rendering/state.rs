@@ -99,15 +99,14 @@ impl RenderState {
     /// окна через вьюпорт функцию из renderer (А она вызывается из публичного API)
     pub fn update_projection(&mut self, ctx: &Context, width: f32, height: f32) {
         self.matrix_stack.set_ortho(width, height);
-        
+
         let uniform_data = GlobalUniform {
             view_proj: self.matrix_stack.projection.to_cols_array_2d(),
         };
-
+        
         self.uniform_buffer.update_one(ctx, &uniform_data);
         self.shaders.update_projection(ctx, &self.uniform_buffer.raw);
-        
-        // Обновляем proj_bind_group после обновления проекции
+
         self.proj_bind_group = self.shaders.get_proj_bind_group()
             .expect("Projection bind group not initialized")
             .clone();

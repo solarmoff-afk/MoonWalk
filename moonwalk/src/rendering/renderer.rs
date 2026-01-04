@@ -223,8 +223,8 @@ impl MoonRenderer {
                     &self.context,
                     &mut pass,
                     &offscreen_tex,
-                    width, 
-                    height
+                    (width as f32 / self.scale_factor) as u32,
+                    (height as f32 / self.scale_factor) as u32
                 );
             }
         }
