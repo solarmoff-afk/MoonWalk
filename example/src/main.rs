@@ -1,3 +1,6 @@
+// Часть проекта MoonWalk с открытым исходным кодом.
+// Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
+
 use moonwalk::{MoonWalk, ObjectId};
 use moonwalk_bootstrap::{Application, Runner, WindowSettings};
 use glam::{Vec2, Vec4};
