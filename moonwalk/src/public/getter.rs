@@ -77,4 +77,17 @@ impl MoonWalk {
     pub fn is_alive(&self, id: ObjectId) -> bool {
         self.renderer.state.store.is_alive(id)
     }
+
+    /// Возвращает логические размеры окна (ширина и высота)
+    pub fn get_window_size(&self) -> Vec2 {
+        let width = self.renderer.context.config.width as f32;
+        let height = self.renderer.context.config.height as f32;
+        let scale = self.renderer.scale_factor;
+
+        if scale <= 0.0 {
+            return Vec2::new(width, height);
+        }
+
+        Vec2::new(width / scale, height / scale)
+    }
 }
