@@ -29,6 +29,8 @@ struct AppState {
     last_frame_time: Instant,
     clear_color: Vec4,
     last_cursor_pos: Vec2,
+    scale_factor: f32,
+    suspended: bool,
 }
 
 struct AppRunner<A> {
@@ -55,22 +57,27 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
         
         let window = event_loop.create_window(attributes)
             .expect("Failed to create window");
+        
         let static_window: &'static Window = Box::leak(Box::new(window));
 
         let initial_size = static_window.inner_size();
-        let scale_factor = static_window.scale_factor();
-        let logical_size = initial_size.to_logical::<f32>(scale_factor);
+        let scale_factor = static_window.scale_factor() as f32;
+        
+        let logical_width = initial_size.width as f32 / scale_factor;
+        let logical_height = initial_size.height as f32 / scale_factor;
 
         let clear_color = self.settings.clear_color.unwrap_or(Vec4::new(0.02, 0.02, 0.05, 1.0));
 
         if let Some(state) = &mut self.state {
             state.window = static_window;
-            state.clear_color = clear_color;
-            state.moonwalk.recreate_surface(static_window, initial_size.width, initial_size.height);
-            state.moonwalk.set_viewport(initial_size.width, initial_size.height);
-            state.moonwalk.set_scale_factor(scale_factor as f32); 
-            self.app.on_resize(&mut state.moonwalk, Vec2::new(logical_size.width, logical_size.height));
+            state.suspended = false;
             
+            state.moonwalk.recreate_surface(static_window, initial_size.width, initial_size.height);
+            state.moonwalk.set_scale_factor(scale_factor);
+            state.moonwalk.set_viewport(initial_size.width, initial_size.height);
+            state.scale_factor = scale_factor;
+            
+            self.app.on_resize(&mut state.moonwalk, Vec2::new(logical_width, logical_height));
             return;
         }
 
@@ -85,10 +92,7 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
         let mut moonwalk = {
             let am_ptr = self.android_app.asset_manager().ptr();
             let casted_ptr = am_ptr.cast();
-
-            let asset_manager = unsafe {
-                ndk::asset::AssetManager::from_ptr(casted_ptr)
-            };
+            let asset_manager = unsafe { ndk::asset::AssetManager::from_ptr(casted_ptr) };
 
             MoonWalk::new(
                 static_window, 
@@ -98,10 +102,10 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
             ).expect("Failed to init MoonWalk")
         };
         
+        moonwalk.set_scale_factor(scale_factor);
         moonwalk.set_viewport(initial_size.width, initial_size.height);
-        moonwalk.set_scale_factor(scale_factor as f32); 
 
-        self.app.on_start(&mut moonwalk, Vec2::new(logical_size.width, logical_size.height));
+        self.app.on_start(&mut moonwalk, Vec2::new(logical_width, logical_height));
 
         self.state = Some(AppState {
             window: static_window,
@@ -109,11 +113,15 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
             last_frame_time: Instant::now(),
             clear_color,
             last_cursor_pos: Vec2::ZERO,
+            scale_factor,
+            suspended: false,
         });
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
-        self.state = None;
+        if let Some(state) = &mut self.state {
+            state.suspended = true;
+        }
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {
@@ -122,6 +130,10 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
             None => return,
         };
 
+        if state.suspended {
+            return;
+        }
+
         match event {
             WindowEvent::CloseRequested => {
                 self.app.on_exit();
@@ -129,18 +141,33 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
             },
             
             WindowEvent::Resized(physical_size) => {
+                if physical_size.width == 0 || physical_size.height == 0 {
+                    return;
+                }
+
+                let scale = state.window.scale_factor() as f32;
+                
+                state.scale_factor = scale;
+                state.moonwalk.set_scale_factor(scale);
                 state.moonwalk.set_viewport(physical_size.width, physical_size.height);
                 
-                let scale = state.window.scale_factor();
-                let logical = physical_size.to_logical::<f32>(scale);
+                let logical_w = physical_size.width as f32 / scale;
+                let logical_h = physical_size.height as f32 / scale;
                 
-                self.app.on_resize(&mut state.moonwalk, Vec2::new(logical.width, logical.height));
+                self.app.on_resize(&mut state.moonwalk, Vec2::new(logical_w, logical_h));
             },
 
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                state.moonwalk.set_scale_factor(scale_factor as f32);
+                let scale = scale_factor as f32;
+                state.scale_factor = scale;
+                state.moonwalk.set_scale_factor(scale);
+                let size = state.window.inner_size();
+                if size.width > 0 && size.height > 0 {
+                    state.moonwalk.set_viewport(size.width, size.height);
+                }
             },
 
+            #[cfg(not(target_os = "android"))]
             WindowEvent::MouseInput { state: button_state, button, .. } => {
                 if button == MouseButton::Left {
                     let phase = match button_state {
@@ -151,16 +178,19 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
                 }
             },
 
+            #[cfg(not(target_os = "android"))]
             WindowEvent::CursorMoved { position, .. } => {
-                let scale = state.window.scale_factor();
-                let logical_pos = position.to_logical::<f32>(scale);
-                state.last_cursor_pos = Vec2::new(logical_pos.x, logical_pos.y);
+                let scale = state.scale_factor;
+                let x = position.x as f32 / scale;
+                let y = position.y as f32 / scale;
+                state.last_cursor_pos = Vec2::new(x, y);
                 self.app.on_touch(&mut state.moonwalk, TouchPhase::Moved, state.last_cursor_pos);
             },
 
             WindowEvent::Touch(touch) => {
-                let scale = state.window.scale_factor();
-                let logical_pos = touch.location.to_logical::<f32>(scale);
+                let scale = state.scale_factor;
+                let x = touch.location.x as f32 / scale;
+                let y = touch.location.y as f32 / scale;
                 
                 use winit::event::TouchPhase as WinitTouchPhase;
                 let phase = match touch.phase {
@@ -170,10 +200,12 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
                     WinitTouchPhase::Cancelled => TouchPhase::Cancelled,
                 };
                 
-                self.app.on_touch(&mut state.moonwalk, phase, Vec2::new(logical_pos.x, logical_pos.y));
+                self.app.on_touch(&mut state.moonwalk, phase, Vec2::new(x, y));
             },
 
             WindowEvent::RedrawRequested => {
+                if state.suspended { return; }
+
                 state.window.request_redraw();
 
                 let now = Instant::now();
@@ -189,24 +221,18 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
                 
                 match state.moonwalk.render_frame(state.clear_color) {
                     Ok(_) => {},
-                    
                     Err(MoonWalkError::SurfaceError(wgpu::SurfaceError::Lost)) => {
                         let size = state.window.inner_size();
                         if size.width > 0 && size.height > 0 {
-                            state.moonwalk.recreate_surface(
-                                state.window, 
-                                size.width, 
-                                size.height
-                            );
+                            state.moonwalk.recreate_surface(state.window, size.width, size.height);
+                            state.moonwalk.set_viewport(size.width, size.height);
                         }
                     },
-                    
                     Err(MoonWalkError::SurfaceError(wgpu::SurfaceError::OutOfMemory)) => {
-                        eprintln!("Out of memory!");
                         event_loop.exit();
                     },
-                    
-                    Err(e) => eprintln!("Render error: {}", e),
+                    Err(MoonWalkError::SurfaceError(wgpu::SurfaceError::Timeout)) => {},
+                    Err(_) => {},
                 }
             },
 
