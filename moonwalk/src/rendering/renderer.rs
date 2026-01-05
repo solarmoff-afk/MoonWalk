@@ -332,5 +332,5 @@ impl MoonRenderer {
     #[inline]
     pub fn set_rounded(&mut self, id: ObjectId, radii: Vec4) {
         self.state.store.set_rounded(id, radii);
-    }
+    } 
 }

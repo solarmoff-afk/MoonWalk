@@ -426,4 +426,98 @@ impl ObjectStore {
             objects::ObjectId::new(object_type, idx)
         })
     }
+
+    // Геттеры
+    
+    #[inline(always)]
+    pub fn get_position(&self, id: ObjectId) -> Vec2 {
+        self.positions[id.index()]
+    }
+
+    #[inline(always)]
+    pub fn get_size(&self, id: ObjectId) -> Vec2 {
+        self.sizes[id.index()]
+    }
+
+    #[inline(always)]
+    pub fn get_rotation(&self, id: ObjectId) -> f32 {
+        self.rotations[id.index()]
+    }
+
+    #[inline(always)]
+    pub fn get_color(&self, id: ObjectId) -> Vec4 {
+        self.colors[id.index()]
+    }
+
+    #[inline(always)]
+    pub fn get_color2(&self, id: ObjectId) -> Vec4 {
+        self.colors2[id.index()]
+    }
+
+    #[inline(always)]
+    pub fn get_z_index(&self, id: ObjectId) -> f32 {
+        self.z_indices[id.index()]
+    }
+
+    #[inline(always)]
+    pub fn get_hit_group(&self, id: ObjectId) -> u16 {
+        self.hit_groups[id.index()]
+    }
+
+    #[inline(always)]
+    pub fn get_rounded(&self, id: ObjectId) -> Vec4 {
+        // Проверка на всякий случай если вектор еще не вырос
+        if id.index() < self.rect_radii.len() {
+            self.rect_radii[id.index()]
+        } else {
+            Vec4::ZERO
+        }
+    }
+
+    #[inline(always)]
+    pub fn get_text(&self, id: ObjectId) -> &str {
+        if id.index() < self.text_contents.len() {
+            &self.text_contents[id.index()]
+        } else {
+            ""
+        }
+    }
+
+    #[inline(always)]
+    pub fn get_font_size(&self, id: ObjectId) -> f32 {
+        if id.index() < self.font_sizes.len() {
+            self.font_sizes[id.index()]
+        } else {
+            0.0
+        }
+    }
+
+    #[inline(always)]
+    pub fn get_text_bounds(&self, id: ObjectId) -> Vec2 {
+        if id.index() < self.text_bounds.len() {
+            self.text_bounds[id.index()]
+        } else {
+            Vec2::ZERO
+        }
+    }
+
+    #[inline(always)]
+    pub fn get_text_align(&self, id: ObjectId) -> u8 {
+        if id.index() < self.text_aligns.len() {
+            self.text_aligns[id.index()]
+        } else {
+            0
+        }
+    }
+    
+    /// Метод проверяет жив ли сейчас объект по айди
+    #[inline(always)]
+    pub fn is_alive(&self, id: ObjectId) -> bool {
+        let idx = id.index();
+        if idx < self.alive.len() {
+            self.alive[idx]
+        } else {
+            false
+        }
+    }
 }
