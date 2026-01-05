@@ -1,0 +1,9 @@
+[package]
+name = "moonwalk_widget"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+taffy = "0.5"
+glam = "0.24"
+moonwalk = { path = "../moonwalk" }

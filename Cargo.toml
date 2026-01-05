@@ -5,6 +5,7 @@ members = [
     "bootstrap",
     "example",
     "moonwalk",
+    "widget",
 ]
 
 [profile.release]
