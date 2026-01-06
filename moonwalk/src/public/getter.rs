@@ -90,4 +90,9 @@ impl MoonWalk {
 
         Vec2::new(width / scale, height / scale)
     }
+
+    /// Получение скейл фактора
+    pub fn get_scale_factor(&self) -> f32 {
+        self.renderer.scale_factor
+    }
 }

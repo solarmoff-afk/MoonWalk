@@ -270,6 +270,21 @@ impl MoonRenderer {
             self.filters.apply_color_matrix(&self.context, texture, matrix, offset);
         }
     }
+    
+    pub fn apply_chromakey(&mut self, texture_id: u32, key_color: [f32; 3], tolerance: f32) {
+        if let Some(texture) = self.state.textures.get(&texture_id) {
+            self.filters.apply_chromakey(&self.context, texture, key_color, tolerance);
+        }
+    }
+
+    pub fn apply_stencil(&mut self, target_id: u32, mask_id: u32, invert: bool) {
+        if let Some(target) = self.state.textures.get(&target_id) {
+            if let Some(mask) = self.state.textures.get(&mask_id) {
+                println!("apply");
+                self.filters.apply_stencil(&self.context, target, mask, invert);
+            }
+        }
+    }
 
     /// Прокси методы
 

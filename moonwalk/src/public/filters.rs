@@ -1,6 +1,8 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
+use glam::Vec3;
+
 use crate::MoonWalk;
 
 impl MoonWalk {
@@ -39,5 +41,25 @@ impl MoonWalk {
     pub fn hue_shift(&mut self, texture_id: u32, degrees: f32) {
         let (matrix, offset) = crate::filters::color_matrix::matrix_hue(degrees);
         self.renderer.apply_color_matrix(texture_id, matrix, offset);
+    }
+
+    /// Фильтр который применяет к текстуре хромокей, то есть позволяет заменить
+    /// указанный цвет на прозрачный. Принимает айди текстуры у которой будет
+    /// заменён цвет, принимает сам цвет (Vec3 из glam, не Vec4 так как прозрачность
+    /// в этом контексте не учитывается. Если ваш цвет Vec4 то просто передайте
+    /// xyz, а w не передавайте) и силу применения фильтра (f32)
+    pub fn chromakey(&mut self, texture_id: u32, key_color: Vec3, tolerance: f32) {
+        self.renderer.apply_chromakey(texture_id, key_color.to_array(), tolerance);
+    }
+
+    /// Фильтр маски, он позволяет взять две текстуры (одна исходная, вторая маска)
+    /// у которой есть прозрачные пиксели и использовать как маску для основной текстуры.
+    /// Принимает айди исхожной текстуры, айди маски (у которой будет использовать альфа
+    /// канал) и булевый параметр будет ли инвертирована маска. Если не инвертирована
+    /// (false), то прозрачные пиксели маски делают пиксели исходной текстуры видимыми,
+    /// а непрозрачные скрывает. Если true то прозрачные маски скрывают пиксель, а
+    /// непрозрачные делают видимой (классическая маска)
+    pub fn apply_mask(&mut self, target_id: u32, mask_id: u32, invert: bool) {
+        self.renderer.apply_stencil(target_id, mask_id, invert);
     }
 }
