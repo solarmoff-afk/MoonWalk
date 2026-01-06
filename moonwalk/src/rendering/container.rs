@@ -186,6 +186,8 @@ impl RenderContainer {
         let text_engine = &mut renderer.text_engine;
         
         self.batch.prepare(ctx, &self.store, text_engine);
+
+        text_engine.prepare(&ctx.queue);
         let atlas_bg = text_engine.get_bind_group();
         
         let wgpu_clear_color = clear_color.map(|c| wgpu::Color {
