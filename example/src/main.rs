@@ -115,7 +115,9 @@ impl Application for TextureApp {
         let result_obj = mw.new_rect();
         mw.set_position(result_obj, Vec2::new(100.0, 100.0));
         mw.set_size(result_obj, Vec2::new(width as f32, height as f32));
-        mw.set_texture(result_obj, mars_texture_id);    
+        mw.set_texture(result_obj, mars_texture_id);
+
+        mw.save_texture(mars_texture_id, "assets/output.png").unwrap();
     }
 
     fn on_update(&mut self, dt: f32) {

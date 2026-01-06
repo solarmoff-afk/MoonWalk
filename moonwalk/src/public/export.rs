@@ -97,4 +97,29 @@ impl MoonWalk {
     pub fn new_render_container(&self, width: u32, height: u32) -> RenderContainer {
         RenderContainer::new(&self.renderer.context, width, height)
     }
+
+    /// Этот метод берёт айди текстуры (его можно получить через снапшот, билдер пути либо
+    /// загрузив текстуру) и сохраняет её по указанному пути в path. Это медленная
+    /// и блокирующая (ваше приложение замирает до окончания) операция
+    ///
+    /// - [?] Как метод понимает какой кодировщик применить? MoonWalk использует крейт
+    ///  image и они определяет кодировщик по формату который вы указывате в путь.
+    ///  если вы не укажите формат, то будет ошибка.
+    ///
+    /// Пример:
+    /// cute_cat.png -> Кодировщик png
+    /// cute_dog.word.word.word.png -> Всё равно кодировщик png, так как учитывается
+    ///  только последнее слово после точки
+    /// cute_elephant.jpg -> Кодировщик jpeg
+    pub fn save_texture(&mut self, texture_id: u32, path: &str) -> Result<(), crate::MoonWalkError> {
+        let texture = self.renderer.state.textures.get(&texture_id)
+            .ok_or_else(|| crate::MoonWalkError::IOError("Texture not found".to_string()))?;
+
+        let image = texture.download(&self.renderer.context)?;
+
+        image.save(path)
+            .map_err(|e| crate::MoonWalkError::IOError(e.to_string()))?;
+
+        Ok(())
+    }
 }

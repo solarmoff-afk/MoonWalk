@@ -11,6 +11,7 @@ use crate::rendering::state::RenderState;
 use crate::objects::ObjectId;
 use crate::filters::FilterSystem;
 use crate::path::VectorSystem;
+use crate::debug_println;
 
 /// Wgpu работает асинхронно поэтому нам нужно при вызове публичного api для
 /// снапшота вернуть какой-то айди, добавить его в очередь (Как раз этой структуры)
@@ -250,6 +251,8 @@ impl MoonRenderer {
     /// Этот метод позволяет включить или выключить вертикальную
     /// синхронизацию
     pub fn set_vsync(&mut self, enable: bool) {
+        debug_println!("Vsync: {}", enable);
+
         let mode = if enable {
             wgpu::PresentMode::Fifo
         } else {
@@ -261,18 +264,21 @@ impl MoonRenderer {
 
     pub fn apply_blur(&mut self, texture_id: u32, radius: f32, horizontal: bool) {
         if let Some(texture) = self.state.textures.get(&texture_id) {
+            debug_println!("Blur apply, texture found in state");
             self.filters.apply_blur(&self.context, texture, radius, horizontal);
         }
     }
 
     pub fn apply_color_matrix(&mut self, texture_id: u32, matrix: [[f32; 4]; 4], offset: [f32; 4]) {
         if let Some(texture) = self.state.textures.get(&texture_id) {
+            debug_println!("Color matrix apply, texture found in state");
             self.filters.apply_color_matrix(&self.context, texture, matrix, offset);
         }
     }
     
     pub fn apply_chromakey(&mut self, texture_id: u32, key_color: [f32; 3], tolerance: f32) {
         if let Some(texture) = self.state.textures.get(&texture_id) {
+            debug_println!("Chromakey apply, texture found in state");
             self.filters.apply_chromakey(&self.context, texture, key_color, tolerance);
         }
     }
@@ -280,7 +286,7 @@ impl MoonRenderer {
     pub fn apply_stencil(&mut self, target_id: u32, mask_id: u32, invert: bool) {
         if let Some(target) = self.state.textures.get(&target_id) {
             if let Some(mask) = self.state.textures.get(&mask_id) {
-                println!("apply");
+                debug_println!("Stencil apply, textures found in state");
                 self.filters.apply_stencil(&self.context, target, mask, invert);
             }
         }

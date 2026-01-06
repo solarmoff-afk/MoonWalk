@@ -293,4 +293,86 @@ impl Texture {
             bind_group,
         }
     }
+
+    /// Скачивает данные текстуры из видеокарты в озу и возвращает буфер изображения
+    /// Эта операция блокирующая и относительно медленная
+    pub fn download(&self, ctx: &crate::gpu::Context) -> Result<image::RgbaImage, crate::MoonWalkError> {
+        let device = &ctx.device;
+        let queue = &ctx.queue;
+
+        let width = self.texture.width();
+        let height = self.texture.height();
+        
+        // wgpu требует выравнивания байтов в строке по 256
+        let bytes_per_pixel = 4;
+        let unpadded_bytes_per_row = width * bytes_per_pixel;
+        let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+        let padded_bytes_per_row = (unpadded_bytes_per_row + align - 1) / align * align;
+
+        let buffer_size = (padded_bytes_per_row * height) as wgpu::BufferAddress;
+
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Download buffer"),
+            size: buffer_size,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Download encoder"),
+        });
+
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+
+            wgpu::TexelCopyBufferInfo {
+                buffer: &buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(padded_bytes_per_row),
+                    rows_per_image: None,
+                },
+            },
+
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        queue.submit(Some(encoder.finish()));
+
+        let slice = buffer.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        
+        slice.map_async(wgpu::MapMode::Read, move |res| {
+            tx.send(res).unwrap();
+        });
+
+        // Блокировка потока пока wgpu не кончит (:3)
+        device.poll(wgpu::Maintain::Wait);
+        
+        rx.recv()
+            .map_err(|_| crate::MoonWalkError::IOError("Failed to map buffer".to_string()))?
+            .map_err(|e| crate::MoonWalkError::IOError(e.to_string()))?;
+
+        let data = slice.get_mapped_range();
+        let mut pixels: Vec<u8> = Vec::with_capacity((width * height * 4) as usize);
+
+        for chunk in data.chunks(padded_bytes_per_row as usize) {
+            pixels.extend_from_slice(&chunk[..unpadded_bytes_per_row as usize]);
+        }
+
+        drop(data);
+        buffer.unmap();
+
+        image::RgbaImage::from_raw(width, height, pixels)
+            .ok_or_else(|| crate::MoonWalkError::IOError("Failed to create image buffer".to_string()))
+    }
 }
