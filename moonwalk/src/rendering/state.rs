@@ -3,7 +3,7 @@
 
 use bytemuck::{Pod, Zeroable};
 use std::collections::HashMap;
-use glam::{Vec2, Vec4};
+use glam::Vec4;
 
 use crate::gpu::{Context, Buffer, MatrixStack, RenderPass};
 use crate::batching::group::BatchGroup;

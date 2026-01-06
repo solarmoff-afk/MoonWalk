@@ -14,6 +14,40 @@ use crate::gpu::context::Context;
 use crate::rendering::texture::Texture;
 use crate::r#abstract::*;
 
+/// Настройка концов линий
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LineCap {
+    /// Обрубленный конец (стандарт)
+    #[default]
+    Butt,
+    /// Скругленный конец
+    Round,
+    /// Квадратный выступ
+    Square,
+}
+
+/// Настройка соединения линий
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LineJoin {
+    /// Острый угол (стандарт)
+    #[default]
+    Miter,
+    /// Скругленный угол
+    Round,
+    /// Срезанный угол (фаска)
+    Bevel,
+}
+
+/// Правило заливки фигур
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FillRule {
+    /// Заливка определяется направлением линий (стандарт SVG)
+    #[default]
+    NonZero,
+    /// Заливка определяется пересечением (четное/нечетное) что удобно для дырок
+    EvenOdd,
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 struct VectorUniform {
@@ -181,7 +215,8 @@ pub struct PathBuilder {
     builder: lyon::path::Builder,
     color: [f32; 4],
     is_stroke: bool,
-    stroke_width: f32,
+    stroke_options: StrokeOptions,
+    fill_options: FillOptions,
 }
 
 impl PathBuilder {
@@ -190,8 +225,47 @@ impl PathBuilder {
             builder: Path::builder(),
             color: [1.0, 1.0, 1.0, 1.0],
             is_stroke: false,
-            stroke_width: 1.0,
+            stroke_options: StrokeOptions::default()
+                .with_line_cap(lyon::tessellation::LineCap::Round)
+                .with_line_join(lyon::tessellation::LineJoin::Round)
+                .with_tolerance(0.1),
+            fill_options: FillOptions::default()
+                .with_tolerance(0.1),
         }
+    }
+
+    pub fn set_line_cap(&mut self, cap: LineCap) {
+        let lyon_cap = match cap {
+            LineCap::Butt => lyon::tessellation::LineCap::Butt,
+            LineCap::Round => lyon::tessellation::LineCap::Round,
+            LineCap::Square => lyon::tessellation::LineCap::Square,
+        };
+
+        self.stroke_options = self.stroke_options.with_line_cap(lyon_cap);
+    }
+
+    pub fn set_line_join(&mut self, join: LineJoin) {
+        let lyon_join = match join {
+            LineJoin::Miter => lyon::tessellation::LineJoin::Miter,
+            LineJoin::Round => lyon::tessellation::LineJoin::Round,
+            LineJoin::Bevel => lyon::tessellation::LineJoin::Bevel,
+        };
+
+        self.stroke_options = self.stroke_options.with_line_join(lyon_join);
+    }
+
+    pub fn set_fill_rule(&mut self, rule: FillRule) {
+        let lyon_rule = match rule {
+            FillRule::NonZero => lyon::tessellation::FillRule::NonZero,
+            FillRule::EvenOdd => lyon::tessellation::FillRule::EvenOdd,
+        };
+
+        self.fill_options = self.fill_options.with_fill_rule(lyon_rule);
+    }
+
+    pub fn set_tolerance(&mut self, tolerance: f32) {
+        self.stroke_options = self.stroke_options.with_tolerance(tolerance);
+        self.fill_options = self.fill_options.with_tolerance(tolerance);
     }
 
     pub fn set_color(&mut self, color: glam::Vec4) {
@@ -200,7 +274,7 @@ impl PathBuilder {
 
     pub fn set_stroke(&mut self, width: f32) {
         self.is_stroke = true;
-        self.stroke_width = width;
+        self.stroke_options = self.stroke_options.with_line_width(width);
     }
 
     pub fn move_to(&mut self, x: f32, y: f32) {
@@ -232,22 +306,20 @@ impl PathBuilder {
         
         if self.is_stroke {
             let mut tessellator = StrokeTessellator::new();
-            let options = StrokeOptions::default().with_line_width(self.stroke_width);
-            
+
             let _ = tessellator.tessellate_path(
                 &path,
-                &options,
+                &self.stroke_options,
                 &mut BuffersBuilder::new(&mut geometry, |vertex: StrokeVertex| {
                     VectorVertex { position: [vertex.position().x, vertex.position().y] }
                 }),
             );
         } else {
             let mut tessellator = FillTessellator::new();
-            let options = FillOptions::default();
-            
+
             let _ = tessellator.tessellate_path(
                 &path,
-                &options,
+                &self.fill_options,
                 &mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
                     VectorVertex {
                         position: [vertex.position().x, vertex.position().y]
@@ -275,22 +347,20 @@ impl PathBuilder {
         
         if self.is_stroke {
             let mut tessellator = StrokeTessellator::new();
-            let options = StrokeOptions::default().with_line_width(self.stroke_width);
-            
+
             let _ = tessellator.tessellate_path(
                 &path,
-                &options,
+                &self.stroke_options,
                 &mut BuffersBuilder::new(&mut geometry, |vertex: StrokeVertex| {
                     VectorVertex { position: [vertex.position().x, vertex.position().y] }
                 }),
             );
         } else {
             let mut tessellator = FillTessellator::new();
-            let options = FillOptions::default();
-            
+
             let _ = tessellator.tessellate_path(
                 &path,
-                &options,
+                &self.fill_options,
                 &mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
                     VectorVertex { position: [vertex.position().x, vertex.position().y] }
                 }),

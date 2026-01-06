@@ -715,7 +715,7 @@ impl MoonPipeline {
         Ok(())
     }
 
-    fn create_cache_key(&self, ctx: &Context) -> PipelineCacheKey {
+    fn create_cache_key(&self, _ctx: &Context) -> PipelineCacheKey {
         use std::hash::{Hash, Hasher};
         use std::collections::hash_map::DefaultHasher;
 
