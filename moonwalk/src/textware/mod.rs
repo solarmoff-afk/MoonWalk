@@ -183,8 +183,8 @@ impl TextWare {
                     let w = image.placement.width as f32;
                     let h = image.placement.height as f32;
 
-                    let x = physical.x as f32 + left;
-                    let y = run.line_y + physical.y as f32 - top;
+                    let x = (physical.x as f32 + left).round();
+                    let y = (run.line_y + physical.y as f32 - top).round();
 
                     let (u, v, uw, vh) = uv_rect;
                     let c = text.color;
