@@ -9,11 +9,13 @@ mod filters;
 mod objects;
 mod resources;
 mod getter;
+mod brush;
 
 pub use export::*;
 pub use filters::*;
 pub use objects::*;
 pub use resources::*;
 pub use getter::*;
+pub use brush::*;
 
 pub use crate::{MoonWalk, TextAlign, FontAsset};

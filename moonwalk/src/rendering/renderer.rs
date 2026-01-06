@@ -12,6 +12,7 @@ use crate::objects::ObjectId;
 use crate::filters::FilterSystem;
 use crate::path::VectorSystem;
 use crate::debug_println;
+use crate::painting::PaintingSystem;
 
 /// Wgpu работает асинхронно поэтому нам нужно при вызове публичного api для
 /// снапшота вернуть какой-то айди, добавить его в очередь (Как раз этой структуры)
@@ -33,6 +34,7 @@ pub struct MoonRenderer {
     pub filters: FilterSystem,
     pub text_engine: crate::textware::TextWare,
     pub vector_system: VectorSystem,
+    pub painting_system: PaintingSystem,
 
     // [WAIT DOC]
     snapshot_tasks: Vec<SnapshotTask>,
@@ -54,7 +56,12 @@ impl MoonRenderer {
         );
 
         let filters = FilterSystem::new(&context)?;
+        
+        // Система векторного рисования
         let vector_system = VectorSystem::new(&context)?;
+
+        // Система растрового рисования
+        let painting_system = PaintingSystem::new(&context)?;
         
         // Создаём состояние рендерера
         let state = RenderState::new(&context, width, height)?;
@@ -68,6 +75,7 @@ impl MoonRenderer {
             filters,
             text_engine,
             vector_system,
+            painting_system,
 
             // Обычно снапшотов очень мало, цифра 8 взята на всякий случай,
             // но тут хватило бы и 4

@@ -26,6 +26,7 @@ mod batching;
 mod textware;
 mod debug;
 mod filters;
+mod painting;
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use resource_manager::ResourceManager;

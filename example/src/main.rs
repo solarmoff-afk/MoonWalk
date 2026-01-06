@@ -92,32 +92,104 @@ impl Application for TextureApp {
     //     } 
     // }
 
-    fn on_start(&mut self, mw: &mut MoonWalk, viewport: Vec2) {
-        let mars_texture_id = mw.load_texture("assets/mars.jpg").unwrap(); 
-        let font = mw.load_font("assets/Hundo.ttf", "Hundo").unwrap();
+    // fn on_start(&mut self, mw: &mut MoonWalk, viewport: Vec2) {
+    //     let mars_texture_id = mw.load_texture("assets/mars.jpg").unwrap(); 
+    //     let font = mw.load_font("assets/Hundo.ttf", "Hundo").unwrap();
 
-        let width = 600;
-        let height = 300;
-        let mut container = mw.new_render_container(width, height);
+    //     let width = 600;
+    //     let height = 300;
+    //     let mut container = mw.new_render_container(width, height);
         
-        let text_id = container.new_text("MARS", font, 86.0); 
-        container.config_position(text_id, Vec2::new(10.0, 10.0)); 
-        container.config_color(text_id, Vec4::new(1.0, 1.0, 1.0, 1.0));
-        container.draw(mw, Some(Vec4::ZERO));
+    //     let text_id = container.new_text("MARS", font, 86.0); 
+    //     container.config_position(text_id, Vec2::new(10.0, 10.0)); 
+    //     container.config_color(text_id, Vec4::new(1.0, 1.0, 1.0, 1.0));
+    //     container.draw(mw, Some(Vec4::ZERO));
     
-        let mask_id = container.snapshot(mw, 0, 0, width, height);
-        mw.apply_mask(mars_texture_id, mask_id, true);
+    //     let mask_id = container.snapshot(mw, 0, 0, width, height);
+    //     mw.apply_mask(mars_texture_id, mask_id, true);
          
-        let bg = mw.new_rect();
-        mw.set_size(bg, viewport);
-        mw.set_color(bg, Vec4::new(0.0, 0.0, 0.0, 1.0));
+    //     let bg = mw.new_rect();
+    //     mw.set_size(bg, viewport);
+    //     mw.set_color(bg, Vec4::new(0.0, 0.0, 0.0, 1.0));
         
-        let result_obj = mw.new_rect();
-        mw.set_position(result_obj, Vec2::new(100.0, 100.0));
-        mw.set_size(result_obj, Vec2::new(width as f32, height as f32));
-        mw.set_texture(result_obj, mars_texture_id);
+    //     let result_obj = mw.new_rect();
+    //     mw.set_position(result_obj, Vec2::new(100.0, 100.0));
+    //     mw.set_size(result_obj, Vec2::new(width as f32, height as f32));
+    //     mw.set_texture(result_obj, mars_texture_id);
 
-        mw.save_texture(mars_texture_id, "assets/output.png").unwrap();
+    //     mw.save_texture(mars_texture_id, "assets/output.png").unwrap();
+    // }
+
+    fn on_start(&mut self, mw: &mut MoonWalk, viewport: Vec2) {
+        let scale = mw.get_scale_factor();
+
+        let width = (800.0 * scale) as u32;
+        let height = (600.0 * scale) as u32;
+        
+        let mut canvas = mw.new_render_container(width, height);
+        canvas.draw(mw, Some(Vec4::ONE));
+
+        let canvas_id = canvas.snapshot(mw, 0, 0, width, height);
+        let mut basic_brush = mw.new_brush();
+        basic_brush.color = Vec4::new(0.0, 0.0, 0.0, 1.0);
+        basic_brush.size = 20.0 * scale;
+        basic_brush.spacing = 2.0 * scale;
+        basic_brush.hardness = 0.9;
+
+        mw.draw_stroke(
+            canvas_id, 
+            &basic_brush, 
+            Vec2::new(50.0 * scale, 100.0 * scale), 
+            Vec2::new(750.0 * scale, 100.0 * scale)
+        );
+
+        let mut callig_brush = mw.new_brush();
+        callig_brush.color = Vec4::new(0.8, 0.0, 0.0, 1.0);
+        callig_brush.size = 40.0 * scale;
+        callig_brush.spacing = 1.0 * scale;
+        callig_brush.roundness = 0.2;
+        callig_brush.angle = 45.0f32.to_radians();
+        callig_brush.hardness = 1.0;
+
+        for i in 0..10 {
+            let x1 = 50.0 + (i as f32 * 70.0);
+            let y1 = 250.0 + (if i % 2 == 0 { -50.0 } else { 50.0 });
+            let x2 = 50.0 + ((i + 1) as f32 * 70.0);
+            let y2 = 250.0 + (if (i + 1) % 2 == 0 { -50.0 } else { 50.0 });
+            
+            mw.draw_stroke(
+                canvas_id, 
+                &callig_brush, 
+                Vec2::new(x1 * scale, y1 * scale), 
+                Vec2::new(x2 * scale, y2 * scale)
+            );
+        }
+
+        let mut grass_brush = mw.new_brush();
+        grass_brush.color = Vec4::new(0.0, 0.6, 0.0, 0.5);
+        grass_brush.size = 30.0 * scale;
+        grass_brush.spacing = 15.0 * scale;
+        grass_brush.roundness = 0.5;
+        grass_brush.hardness = 0.5;
+        grass_brush.follow_direction = true;
+        
+        grass_brush.jitter_position = 0.5;
+        grass_brush.jitter_angle = 0.5;
+        grass_brush.jitter_size = 0.5;
+        grass_brush.jitter_opacity = 0.3;
+
+        mw.draw_stroke(
+            canvas_id, 
+            &grass_brush, 
+            Vec2::new(50.0 * scale, 450.0 * scale), 
+            Vec2::new(750.0 * scale, 450.0 * scale)
+        );
+
+        let display = mw.new_rect();
+        mw.set_texture(display, canvas_id);
+
+        mw.set_size(display, Vec2::new(800.0, 600.0));
+        mw.set_position(display, Vec2::ZERO);
     }
 
     fn on_update(&mut self, dt: f32) {
