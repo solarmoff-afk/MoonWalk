@@ -54,6 +54,9 @@ pub struct Brush {
 
     /// Разброс прозрачности
     pub jitter_opacity: f32,
+
+    // Ластик ли это? (ластик стирает следы от кистей)
+    pub is_eraser: bool,
 }
 
 impl Default for Brush {
@@ -72,6 +75,7 @@ impl Default for Brush {
             jitter_size: 0.0,
             jitter_angle: 0.0,
             jitter_opacity: 0.0,
+            is_eraser: false,
         }
     }
 }
@@ -161,6 +165,7 @@ impl MoonWalk {
                 &instances,
                 brush.color,
                 brush.hardness,
+                brush.is_eraser,
             );
         }
     }

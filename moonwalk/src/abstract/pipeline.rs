@@ -116,6 +116,8 @@ pub enum BlendMode {
     Additive,
     /// Мультипликативное смешивание
     Multiply,
+
+    Eraser,
 }
 
 /// Режим отсечения граней для 3d графики. Это позволяет оптимизировать 3d сцены,
@@ -1105,7 +1107,19 @@ impl MoonPipeline {
                     },
                     alpha: wgpu::BlendComponent::OVER,
                 }
-            }
+            },
+            BlendMode::Eraser => wgpu::BlendState {
+                color: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::Zero,
+                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                    operation: wgpu::BlendOperation::Add,
+                },
+                alpha: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::Zero,
+                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                    operation: wgpu::BlendOperation::Add,
+                },
+            },
         };
 
         let mut builder = builder.blend_state(blend_state);

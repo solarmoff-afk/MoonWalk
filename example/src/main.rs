@@ -130,6 +130,7 @@ impl Application for TextureApp {
         canvas.draw(mw, Some(Vec4::ONE));
 
         let canvas_id = canvas.snapshot(mw, 0, 0, width, height);
+
         let mut basic_brush = mw.new_brush();
         basic_brush.color = Vec4::new(0.0, 0.0, 0.0, 1.0);
         basic_brush.size = 20.0 * scale;
@@ -185,6 +186,19 @@ impl Application for TextureApp {
             Vec2::new(750.0 * scale, 450.0 * scale)
         );
 
+        let mut eraser = mw.new_brush();
+        eraser.is_eraser = true;
+        eraser.size = 60.0 * scale;
+        eraser.hardness = 0.5;
+        eraser.spacing = 5.0 * scale;
+
+        mw.draw_stroke(
+            canvas_id,
+            &eraser,
+            Vec2::new(400.0 * scale, 50.0 * scale),
+            Vec2::new(400.0 * scale, 550.0 * scale)
+        );
+        
         let display = mw.new_rect();
         mw.set_texture(display, canvas_id);
 

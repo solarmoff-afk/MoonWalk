@@ -3,10 +3,10 @@
 
 use wgpu::util::DeviceExt;
 use bytemuck::{Pod, Zeroable};
-use glam::{Vec2, Vec4};
+use glam::Vec4;
 
 use crate::gpu::context::Context;
-use crate::gpu::{Buffer, MatrixStack};
+use crate::gpu::MatrixStack;
 use crate::rendering::texture::Texture;
 use crate::r#abstract::*;
 use crate::error::MoonWalkError;
@@ -30,6 +30,7 @@ pub struct BrushVertex {
 
 pub struct PaintingSystem {
     pipeline: wgpu::RenderPipeline,
+    eraser_pipeline: wgpu::RenderPipeline,
     uniform_layout: wgpu::BindGroupLayout,
     texture_layout: wgpu::BindGroupLayout,
     default_brush_texture: Texture,
@@ -64,11 +65,29 @@ impl PaintingSystem {
             .label("brush_pipeline")
             .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[&uniform_layout, &texture_layout])?;
 
+        // Отедльный пайплайн с другим блендмод для ластика
+        let eraser_pipeline = MoonPipeline::new(shader_source)
+            .vertex_shader("vs_main")
+            .fragment_shader("fs_main")
+            .add_vertex_layout(
+                VertexLayout::new()
+                    .stride(24)
+                    .step_mode(StepMode::Instance)
+                    .add_attr(VertexAttr::new().format(Format::Float32x2).location(0).offset(0))
+                    .add_attr(VertexAttr::new().format(Format::Float32x2).location(1).offset(8))
+                    .add_attr(VertexAttr::new().format(Format::Float32).location(2).offset(16))
+                    .add_attr(VertexAttr::new().format(Format::Float32).location(3).offset(20))
+            )
+            .blend(BlendMode::Eraser)
+            .label("eraser_pipeline")
+            .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[&uniform_layout, &texture_layout])?;
+
         let white_pixels = vec![255; 4 * 16 * 16];
         let default_brush = Texture::from_raw(ctx, &white_pixels, 16, 16, "Default Brush Tip")?;
 
         Ok(Self {
             pipeline: pipeline.pipeline.raw,
+            eraser_pipeline: eraser_pipeline.pipeline.raw,
             uniform_layout,
             texture_layout,
             default_brush_texture: default_brush,
@@ -83,6 +102,7 @@ impl PaintingSystem {
         instances: &[BrushVertex],
         color: Vec4,
         hardness: f32,
+        is_eraser: bool,
     ) {
         if instances.is_empty() {
             return;
@@ -148,7 +168,13 @@ impl PaintingSystem {
                 occlusion_query_set: None,
             });
 
-            pass.set_pipeline(&self.pipeline);
+            // Просто кисть или ластик? Загадка века
+            if is_eraser {
+                pass.set_pipeline(&self.eraser_pipeline);
+            } else {
+                pass.set_pipeline(&self.pipeline);
+            }
+
             pass.set_bind_group(0, &uniform_bg, &[]);
             pass.set_bind_group(1, &texture_bg, &[]);
             pass.set_vertex_buffer(0, instance_buffer.slice(..));
