@@ -1,7 +1,7 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
-use glam::Vec3;
+use glam::{Vec3, Vec4, Mat4};
 
 use crate::MoonWalk;
 
@@ -61,5 +61,19 @@ impl MoonWalk {
     /// непрозрачные делают видимой (классическая маска)
     pub fn apply_mask(&mut self, target_id: u32, mask_id: u32, invert: bool) {
         self.renderer.apply_stencil(target_id, mask_id, invert);
+    }
+
+    /// Применяет произвольную цветовую матрицу к текстуре. Это позволяет делать сложные
+    /// эффекты типа сепии, инверсии, замены каналов (rgb на bgr) и так далее
+    /// Формула: пиксель = матрицы * пиксель + offset. Принимает texture_id что явлется
+    /// id текстуры для трансформации, matrix (матрица 4 на 4 из glam) где:
+    ///  - Столбцы матрицы отвечают за входные каналы (R, G, B, A)
+    ///  - Строки отвечают за выходные каналы.
+    /// и offset (4д вектор Vec4 из glam, который прибавляется к результату (смещение цвета)
+    pub fn color_matrix(&mut self, texture_id: u32, matrix: Mat4, offset: Vec4) {
+        let mat_arr = matrix.to_cols_array_2d();
+        let off_arr = offset.to_array();
+
+        self.renderer.apply_color_matrix(texture_id, mat_arr, off_arr);
     }
 }
