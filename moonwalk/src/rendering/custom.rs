@@ -1,9 +1,10 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
+#![allow(dead_code)]
+
 use std::ops::Range;
 use glam::Vec4;
-use wgpu::util::DeviceExt;
 
 use crate::gpu::Context;
 use crate::rendering::texture::Texture;
@@ -80,7 +81,7 @@ pub struct CustomPaint {
 
 impl CustomPaint {
     pub fn new(ctx: &Context, width: u32, height: u32, label: &str) -> Self {
-        let target_label = format!("{} (Target)", label);
+        let _target_label = format!("{} (Target)", label);
         let depth_label = format!("{} (Depth)", label);
 
         let target = Texture::create_render_target(

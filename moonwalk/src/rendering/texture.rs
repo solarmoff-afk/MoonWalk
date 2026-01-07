@@ -369,30 +369,6 @@ impl Texture {
         }
     }
 
-    fn create_layout(ctx: &Context) -> wgpu::BindGroupLayout {
-        ctx.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: Some("Texture Bind Group Layout"),
-        })
-    }
-
     /// Скачивает данные текстуры из видеокарты в озу и возвращает буфер изображения
     /// Эта операция блокирующая и относительно медленная
     pub fn download(&self, ctx: &crate::gpu::Context) -> Result<image::RgbaImage, crate::MoonWalkError> {
@@ -473,5 +449,79 @@ impl Texture {
 
         image::RgbaImage::from_raw(width, height, pixels)
             .ok_or_else(|| crate::MoonWalkError::IOError("Failed to create image buffer".to_string()))
+    }
+
+    pub fn read_pixel(&self, ctx: &crate::gpu::Context, x: u32, y: u32) -> Result<[u8; 4], crate::MoonWalkError> {
+        let device = &ctx.device;
+        let queue = &ctx.queue;
+
+        // Проверка границ для безопасности
+        if x >= self.texture.width() || y >= self.texture.height() {
+            return Err(crate::MoonWalkError::IOError("Pixel coordinates out of bounds".to_string()));
+        }
+
+        // Wgpu требует чтобы bytes_per_row был кратен 256 даже если нужно всего 4 байта
+        // нужно выделить и настроить копирование под 256
+        let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as u64;
+        let buffer_size = align; 
+
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Single Pixel Read Buffer"),
+            size: buffer_size,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Pixel Read Encoder"),
+        });
+
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d { x, y, z: 0 },
+                aspect: wgpu::TextureAspect::All,
+            },
+
+            wgpu::TexelCopyBufferInfo {
+                buffer: &buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(256),
+                    rows_per_image: None,
+                },
+            },
+
+            wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        queue.submit(Some(encoder.finish()));
+
+        // Как обычно ожидание пока wgpu кончит
+        let slice = buffer.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        
+        slice.map_async(wgpu::MapMode::Read, move |res| {
+            tx.send(res).unwrap();
+        });
+
+        device.poll(wgpu::Maintain::Wait);
+        
+        rx.recv()
+            .map_err(|_| crate::MoonWalkError::IOError("Failed to map pixel buffer".to_string()))?
+            .map_err(|e| crate::MoonWalkError::IOError(e.to_string()))?;
+
+        let data = slice.get_mapped_range();
+        let pixel = [data[0], data[1], data[2], data[3]];
+        
+        drop(data);
+        buffer.unmap();
+
+        Ok(pixel)
     }
 }

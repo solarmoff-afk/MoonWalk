@@ -46,4 +46,41 @@ impl MoonWalk {
         let id = self.renderer.text_engine.load_font_bytes(bytes, name)?;
         Ok(FontAsset(id.0))
     }
+
+    /// Возвращает размер текстуры в физических пикселях (ширина и высота) а если текстура
+    /// не найдена то возвращает нули Vec2 [0.0, 0.0]
+    pub fn get_texture_size(&self, texture_id: u32) -> glam::Vec2 {
+        if let Some(tex) = self.renderer.state.textures.get(&texture_id) {
+            glam::Vec2::new(tex.texture.width() as f32, tex.texture.height() as f32)
+        } else {
+            glam::Vec2::ZERO
+        }
+    }
+
+    /// Этот метод нужен чтобы получить цвет конкретного пикселя текстуры
+    /// по координатам. Принимает x и y. Не Vec2 так как не является настройкой
+    /// какого либо объекта. Возвращает option для цвета пикселя текстуры
+    /// по физическим координатам в Vec4 из glam и в диапазоне от 0.0 до 1.0
+    /// (для единобразия апи). Если координаты выходят за размер текстуры то
+    /// возвращает None. Паники в таком случае не будет
+    /// - [!] Эта операция медленная, не рекомендуется использовать каждый кадр
+    pub fn get_texture_pixel(&self, texture_id: u32, x: u32, y: u32) -> Option<glam::Vec4> {
+        let texture = self.renderer.state.textures.get(&texture_id)?;
+        
+        match texture.read_pixel(&self.renderer.context, x, y) {
+            Ok(bytes) => {
+                Some(glam::Vec4::new(
+                    bytes[0] as f32 / 255.0,
+                    bytes[1] as f32 / 255.0,
+                    bytes[2] as f32 / 255.0,
+                    bytes[3] as f32 / 255.0,
+                ))
+            },
+
+            Err(e) => {
+                eprintln!("MoonWalk Error reading pixel: {}", e);
+                None
+            }
+        }
+    }
 }
