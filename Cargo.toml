@@ -4,6 +4,7 @@ members = [
     "benchmark",
     "bootstrap",
     "example",
+    "example3d",
     "moonwalk",
     "widget",
 ]

@@ -34,6 +34,14 @@ use path::PathBuilder;
 
 pub use crate::objects::ObjectId;
 pub use crate::public::brush::BlendMode;
+pub use crate::rendering::custom::{
+    CustomPaint, MoonRenderPass, MoonBuffer, MoonBindGroup, MoonBindGroupLayout, CustomPipeline
+};
+pub use crate::r#abstract::{
+    MoonPipeline, VertexLayout, VertexAttr, Format, StepMode, 
+    BindGroup, ShaderStage, TextureType, SamplerType, CullMode, Topology, FallbackStrategy
+};
+pub use crate::public::custom::BindResource;
 use crate::rendering::container::RenderContainer;
 use crate::rendering::renderer::MoonRenderer;
 use crate::error::MoonWalkError;

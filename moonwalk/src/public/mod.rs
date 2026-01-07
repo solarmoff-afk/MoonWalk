@@ -5,6 +5,7 @@
 #![allow(unused_imports)]
 
 pub mod brush;
+pub mod custom;
 mod export;
 mod filters;
 mod objects;
@@ -17,5 +18,6 @@ pub use objects::*;
 pub use resources::*;
 pub use getter::*;
 pub use brush::*;
+pub use custom::*;
 
 pub use crate::{MoonWalk, TextAlign, FontAsset};
