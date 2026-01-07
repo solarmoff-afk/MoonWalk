@@ -33,6 +33,7 @@ use resource_manager::ResourceManager;
 use path::PathBuilder;
 
 pub use crate::objects::ObjectId;
+pub use crate::public::brush::BlendMode;
 use crate::rendering::container::RenderContainer;
 use crate::rendering::renderer::MoonRenderer;
 use crate::error::MoonWalkError;

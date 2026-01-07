@@ -5,6 +5,7 @@ use glam::{Vec2, Vec4};
 
 use crate::MoonWalk;
 use crate::painting::BrushVertex;
+use crate::r#abstract::BlendMode as InternalBlendMode;
 
 /// Простой генератор псевдослучайных чисел для джиттера
 struct Lcg {
@@ -22,6 +23,34 @@ impl Lcg {
         let val = (self.state >> 9) | 0x3f800000;
         let f = f32::from_bits(val) - 1.0;
         f * 2.0 - 1.0
+    }
+}
+
+/// Режимы наложения для кисти.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BlendMode {
+    #[default]
+    Normal,
+    Add,      // Сложение (свечение)
+    Multiply, // Умножение (тени)
+    Screen,   // Мягкое осветление
+    Subtract, // Вычитание
+    
+    // Eraser здесь необязателен так как он управляется флагом, но я его оставил
+    // для полноты апи
+    Eraser,
+}
+
+impl BlendMode {
+    fn to_internal(&self) -> InternalBlendMode {
+        match self {
+            BlendMode::Normal => InternalBlendMode::Alpha,
+            BlendMode::Add => InternalBlendMode::Additive,
+            BlendMode::Multiply => InternalBlendMode::Multiply,
+            BlendMode::Screen => InternalBlendMode::Screen,
+            BlendMode::Subtract => InternalBlendMode::Subtract,
+            BlendMode::Eraser => InternalBlendMode::Eraser,
+        }
     }
 }
 
@@ -55,8 +84,11 @@ pub struct Brush {
     /// Разброс прозрачности
     pub jitter_opacity: f32,
 
-    // Ластик ли это? (ластик стирает следы от кистей)
+    /// Ластик ли это? (ластик стирает следы от кистей)
     pub is_eraser: bool,
+
+    /// Режим смешиивания
+    pub blend_mode: BlendMode,
 }
 
 impl Default for Brush {
@@ -76,6 +108,7 @@ impl Default for Brush {
             jitter_angle: 0.0,
             jitter_opacity: 0.0,
             is_eraser: false,
+            blend_mode: BlendMode::Normal,
         }
     }
 }
@@ -157,6 +190,12 @@ impl MoonWalk {
             });
         }
 
+        let internal_mode = if brush.is_eraser {
+            InternalBlendMode::Eraser
+        } else {
+            brush.blend_mode.to_internal()
+        };
+
         if let Some(target) = self.renderer.state.textures.get(&target_id) {
             self.renderer.painting_system.draw_strokes(
                 &self.renderer.context,
@@ -165,7 +204,7 @@ impl MoonWalk {
                 &instances,
                 brush.color,
                 brush.hardness,
-                brush.is_eraser,
+                internal_mode,
             );
         }
     }

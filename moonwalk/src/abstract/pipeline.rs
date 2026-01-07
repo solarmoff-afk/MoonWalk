@@ -106,7 +106,7 @@ pub enum SamplerType {
 }
 
 /// Режим смешивания цветов
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BlendMode {
     /// Без смешивания, заменяет содержимое
     None,
@@ -117,6 +117,8 @@ pub enum BlendMode {
     /// Мультипликативное смешивание
     Multiply,
 
+    Screen,
+    Subtract,
     Eraser,
 }
 
@@ -1107,6 +1109,22 @@ impl MoonPipeline {
                     },
                     alpha: wgpu::BlendComponent::OVER,
                 }
+            },
+            BlendMode::Screen => wgpu::BlendState {
+                color: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::One,
+                    dst_factor: wgpu::BlendFactor::OneMinusSrc,
+                    operation: wgpu::BlendOperation::Add,
+                },
+                alpha: wgpu::BlendComponent::OVER,
+            },
+            BlendMode::Subtract => wgpu::BlendState {
+                color: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::One,
+                    dst_factor: wgpu::BlendFactor::One,
+                    operation: wgpu::BlendOperation::ReverseSubtract,
+                },
+                alpha: wgpu::BlendComponent::OVER,
             },
             BlendMode::Eraser => wgpu::BlendState {
                 color: wgpu::BlendComponent {

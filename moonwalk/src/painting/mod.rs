@@ -4,6 +4,7 @@
 use wgpu::util::DeviceExt;
 use bytemuck::{Pod, Zeroable};
 use glam::Vec4;
+use std::collections::HashMap;
 
 use crate::gpu::context::Context;
 use crate::gpu::MatrixStack;
@@ -29,8 +30,7 @@ pub struct BrushVertex {
 }
 
 pub struct PaintingSystem {
-    pipeline: wgpu::RenderPipeline,
-    eraser_pipeline: wgpu::RenderPipeline,
+    pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
     uniform_layout: wgpu::BindGroupLayout,
     texture_layout: wgpu::BindGroupLayout,
     default_brush_texture: Texture,
@@ -49,45 +49,38 @@ impl PaintingSystem {
             .add_sampler(1, SamplerType::Linear)
             .build(ctx)?;
 
-        let pipeline = MoonPipeline::new(shader_source)
-            .vertex_shader("vs_main")
-            .fragment_shader("fs_main")
-            .add_vertex_layout(
-                VertexLayout::new()
-                    .stride(24) // 2xFloat + 2xFloat + Float + Float = 24 байта
-                    .step_mode(StepMode::Instance)
-                    .add_attr(VertexAttr::new().format(Format::Float32x2).location(0).offset(0))
-                    .add_attr(VertexAttr::new().format(Format::Float32x2).location(1).offset(8))
-                    .add_attr(VertexAttr::new().format(Format::Float32).location(2).offset(16))
-                    .add_attr(VertexAttr::new().format(Format::Float32).location(3).offset(20))
-            )
-            .blend(BlendMode::Alpha)
-            .label("brush_pipeline")
-            .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[&uniform_layout, &texture_layout])?;
+        let mut pipelines = HashMap::new();
 
-        // Отедльный пайплайн с другим блендмод для ластика
-        let eraser_pipeline = MoonPipeline::new(shader_source)
-            .vertex_shader("vs_main")
-            .fragment_shader("fs_main")
-            .add_vertex_layout(
-                VertexLayout::new()
-                    .stride(24)
-                    .step_mode(StepMode::Instance)
-                    .add_attr(VertexAttr::new().format(Format::Float32x2).location(0).offset(0))
-                    .add_attr(VertexAttr::new().format(Format::Float32x2).location(1).offset(8))
-                    .add_attr(VertexAttr::new().format(Format::Float32).location(2).offset(16))
-                    .add_attr(VertexAttr::new().format(Format::Float32).location(3).offset(20))
-            )
-            .blend(BlendMode::Eraser)
-            .label("eraser_pipeline")
-            .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[&uniform_layout, &texture_layout])?;
+        let create_pipe = |mode: BlendMode| -> Result<wgpu::RenderPipeline, MoonWalkError> {
+            let p = MoonPipeline::new(shader_source)
+                .vertex_shader("vs_main")
+                .fragment_shader("fs_main")
+                .add_vertex_layout(
+                    VertexLayout::new()
+                        .stride(24)
+                        .step_mode(StepMode::Instance)
+                        .add_attr(VertexAttr::new().format(Format::Float32x2).location(0).offset(0))
+                        .add_attr(VertexAttr::new().format(Format::Float32x2).location(1).offset(8))
+                        .add_attr(VertexAttr::new().format(Format::Float32).location(2).offset(16))
+                        .add_attr(VertexAttr::new().format(Format::Float32).location(3).offset(20))
+                )
+                .blend(mode)
+                .label(&format!("brush_pipeline_{:?}", mode))
+                .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[&uniform_layout, &texture_layout])?;
+            Ok(p.pipeline.raw)
+        };
+
+        pipelines.insert(BlendMode::Alpha, create_pipe(BlendMode::Alpha)?);
+        pipelines.insert(BlendMode::Eraser, create_pipe(BlendMode::Eraser)?);
+        pipelines.insert(BlendMode::Additive, create_pipe(BlendMode::Additive)?);
+        pipelines.insert(BlendMode::Multiply, create_pipe(BlendMode::Multiply)?);
+        pipelines.insert(BlendMode::Screen, create_pipe(BlendMode::Screen)?);
 
         let white_pixels = vec![255; 4 * 16 * 16];
-        let default_brush = Texture::from_raw(ctx, &white_pixels, 16, 16, "Default Brush Tip")?;
+        let default_brush = Texture::from_raw(ctx, &white_pixels, 16, 16, "Default brush tip")?;
 
         Ok(Self {
-            pipeline: pipeline.pipeline.raw,
-            eraser_pipeline: eraser_pipeline.pipeline.raw,
+            pipelines,
             uniform_layout,
             texture_layout,
             default_brush_texture: default_brush,
@@ -102,7 +95,7 @@ impl PaintingSystem {
         instances: &[BrushVertex],
         color: Vec4,
         hardness: f32,
-        is_eraser: bool,
+        blend_mode: BlendMode,
     ) {
         if instances.is_empty() {
             return;
@@ -168,12 +161,11 @@ impl PaintingSystem {
                 occlusion_query_set: None,
             });
 
-            // Просто кисть или ластик? Загадка века
-            if is_eraser {
-                pass.set_pipeline(&self.eraser_pipeline);
-            } else {
-                pass.set_pipeline(&self.pipeline);
-            }
+            let pipeline = self.pipelines.get(&blend_mode)
+                .or_else(|| self.pipelines.get(&BlendMode::Alpha))
+                .unwrap();
+
+            pass.set_pipeline(pipeline);
 
             pass.set_bind_group(0, &uniform_bg, &[]);
             pass.set_bind_group(1, &texture_bg, &[]);

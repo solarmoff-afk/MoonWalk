@@ -119,7 +119,7 @@ impl Application for TextureApp {
 
     //     mw.save_texture(mars_texture_id, "assets/output.png").unwrap();
     // }
-
+ 
     fn on_start(&mut self, mw: &mut MoonWalk, viewport: Vec2) {
         let scale = mw.get_scale_factor();
 
@@ -198,7 +198,47 @@ impl Application for TextureApp {
             Vec2::new(400.0 * scale, 50.0 * scale),
             Vec2::new(400.0 * scale, 550.0 * scale)
         );
+
+        let mut dark_bg_brush = mw.new_brush();
+        dark_bg_brush.color = Vec4::new(0.1, 0.1, 0.3, 1.0);
+        dark_bg_brush.size = 150.0 * scale;
+        dark_bg_brush.hardness = 1.0;
+        mw.draw_stroke(canvas_id, &dark_bg_brush, Vec2::new(600.0 * scale, 300.0 * scale), Vec2::new(750.0 * scale, 300.0 * scale));
+
+        let mut fire_brush = mw.new_brush();
+        fire_brush.blend_mode = moonwalk::BlendMode::Add;
+        fire_brush.color = Vec4::new(1.0, 0.5, 0.0, 0.1);
+        fire_brush.size = 50.0 * scale;
+        fire_brush.hardness = 0.0;
+        fire_brush.spacing = 5.0 * scale;
         
+        mw.draw_stroke(canvas_id, &fire_brush, Vec2::new(620.0 * scale, 300.0 * scale), Vec2::new(620.0 * scale, 250.0 * scale));
+        mw.draw_stroke(canvas_id, &fire_brush, Vec2::new(620.0 * scale, 300.0 * scale), Vec2::new(640.0 * scale, 260.0 * scale));
+
+        let mut light_brush = mw.new_brush();
+        light_brush.blend_mode = moonwalk::BlendMode::Screen;
+        light_brush.color = Vec4::new(0.0, 1.0, 1.0, 0.2);
+        light_brush.size = 60.0 * scale;
+        light_brush.hardness = 0.2;
+        mw.draw_stamp(canvas_id, &light_brush, Vec2::new(700.0 * scale, 300.0 * scale));
+
+        let mut marker_brush = mw.new_brush();
+        marker_brush.blend_mode = moonwalk::BlendMode::Multiply;
+        marker_brush.size = 60.0 * scale;
+        marker_brush.hardness = 0.8;
+        
+        marker_brush.color = Vec4::new(0.0, 1.0, 1.0, 0.5); 
+        mw.draw_stamp(canvas_id, &marker_brush, Vec2::new(100.0 * scale, 50.0 * scale));
+        
+        marker_brush.color = Vec4::new(1.0, 0.0, 1.0, 0.5); 
+        mw.draw_stamp(canvas_id, &marker_brush, Vec2::new(140.0 * scale, 50.0 * scale));
+
+        let mut sub_brush = mw.new_brush();
+        sub_brush.blend_mode = moonwalk::BlendMode::Subtract;
+        sub_brush.color = Vec4::new(0.0, 0.0, 1.0, 1.0);
+        sub_brush.size = 40.0 * scale;
+        mw.draw_stroke(canvas_id, &sub_brush, Vec2::new(200.0 * scale, 50.0 * scale), Vec2::new(300.0 * scale, 50.0 * scale));
+
         let display = mw.new_rect();
         mw.set_texture(display, canvas_id);
 

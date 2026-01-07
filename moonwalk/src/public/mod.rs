@@ -4,12 +4,12 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+pub mod brush;
 mod export;
 mod filters;
 mod objects;
 mod resources;
 mod getter;
-mod brush;
 
 pub use export::*;
 pub use filters::*;
