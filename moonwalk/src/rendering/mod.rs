@@ -8,3 +8,4 @@ pub mod pipeline;
 pub mod texture;
 pub mod container;
 pub mod custom;
+pub mod video;

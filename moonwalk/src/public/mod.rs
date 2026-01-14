@@ -6,6 +6,7 @@
 
 pub mod brush;
 pub mod custom;
+pub mod video;
 mod export;
 mod filters;
 mod objects;
@@ -19,5 +20,6 @@ pub use resources::*;
 pub use getter::*;
 pub use brush::*;
 pub use custom::*;
+pub use video::*;
 
 pub use crate::{MoonWalk, TextAlign, FontAsset};

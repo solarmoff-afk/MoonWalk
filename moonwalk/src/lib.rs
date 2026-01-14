@@ -42,6 +42,13 @@ pub use crate::r#abstract::{
     BindGroup, ShaderStage, TextureType, SamplerType, CullMode, Topology, FallbackStrategy
 };
 pub use crate::public::custom::BindResource;
+
+#[cfg(feature = "video")]
+pub use crate::rendering::video::MoonVideo;
+
+#[cfg(feature = "video")]
+pub use crate::public::{VideoFormat, VideoPreset};
+
 use crate::rendering::container::RenderContainer;
 use crate::rendering::renderer::MoonRenderer;
 use crate::error::MoonWalkError;

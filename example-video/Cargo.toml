@@ -1,0 +1,9 @@
+[package]
+name = "example-video"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+moonwalk = { path = "../moonwalk", features = ["video"] } 
+moonwalk_bootstrap = { path = "../bootstrap" }
+glam = "0.24"
