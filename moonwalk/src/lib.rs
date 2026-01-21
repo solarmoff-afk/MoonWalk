@@ -18,6 +18,7 @@ pub mod rendering;
 pub mod objects;
 pub mod resource_manager;
 pub mod path;
+pub mod scene;
 
 // abstract зарезервирован в расте поэтому нужно экранирование
 pub mod r#abstract;
@@ -42,6 +43,7 @@ pub use crate::r#abstract::{
     BindGroup, ShaderStage, TextureType, SamplerType, CullMode, Topology, FallbackStrategy
 };
 pub use crate::public::custom::BindResource;
+pub use crate::scene::{Scene3D, Light, Material, MeshId, InstanceId, LightId, ShadowQuality, LightingModel};
 
 #[cfg(feature = "video")]
 pub use crate::rendering::video::MoonVideo;

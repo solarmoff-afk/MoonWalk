@@ -6,6 +6,7 @@ members = [
     "example",
     "example-video",
     "example3d",
+    "example-custom-paint",
     "moonwalk",
     "widget",
 ]

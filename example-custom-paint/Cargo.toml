@@ -1,0 +1,10 @@
+[package]
+name = "example-custom-paint"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+glam = { version = "0.24", features = ["scalar-math", "bytemuck"] }
+moonwalk_bootstrap = { path = "../bootstrap" }
+moonwalk = { workspace = true }
+bytemuck = { version = "1.14", features = ["derive"] }

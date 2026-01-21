@@ -1,216 +1,172 @@
-// Часть проекта MoonWalk с открытым исходным кодом.
-// Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
-
-use moonwalk::*; 
-use moonwalk_bootstrap::{Application, Runner, WindowSettings, TouchPhase};
-use bytemuck::{Pod, Zeroable};
-use glam::{Mat4, Vec2, Vec3, Vec4};
-
-const SHADER_SOURCE: &str = r#"
-struct Uniforms {
-    mvp: mat4x4<f32>,
+use moonwalk::{MoonWalk, ObjectId};
+use moonwalk::scene::{
+    Scene3D, LightId, InstanceId, LightingModel, ShadowQuality
 };
+use moonwalk_bootstrap::{Application, Runner, WindowSettings};
+use glam::{Vec2, Vec3, Vec4};
 
-@group(0) @binding(0) var<uniform> uniforms: Uniforms;
-
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) color: vec3<f32>,
-};
-
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-    @location(0) color: vec3<f32>,
-};
-
-@vertex
-fn vs_main(in: VertexInput) -> VertexOutput {
-    var out: VertexOutput;
-    out.clip_position = uniforms.mvp * vec4<f32>(in.position, 1.0);
-    out.color = in.color;
-    return out;
-}
-
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(in.color, 1.0);
-}
+const CUBE_OBJ: &str = r#"
+v -0.5 -0.5  0.5
+v  0.5 -0.5  0.5
+v  0.5  0.5  0.5
+v -0.5  0.5  0.5
+v -0.5 -0.5 -0.5
+v  0.5 -0.5 -0.5
+v  0.5  0.5 -0.5
+v -0.5  0.5 -0.5
+vt 0.0 0.0
+vt 1.0 0.0
+vt 1.0 1.0
+vt 0.0 1.0
+vn  0.0  0.0  1.0
+vn  0.0  0.0 -1.0
+vn -1.0  0.0  0.0
+vn  1.0  0.0  0.0
+vn  0.0  1.0  0.0
+vn  0.0 -1.0  0.0
+f 1/1/1 2/2/1 3/3/1
+f 3/3/1 4/4/1 1/1/1
+f 6/1/2 5/2/2 8/3/2
+f 8/3/2 7/4/2 6/1/2
+f 5/1/3 1/2/3 4/3/3
+f 4/3/3 8/4/3 5/1/3
+f 2/1/4 6/2/4 7/3/4
+f 7/3/4 3/4/4 2/1/4
+f 4/1/5 3/2/5 7/3/5
+f 7/3/5 8/4/5 4/1/5
+f 5/1/6 6/2/6 2/3/6
+f 2/3/6 1/4/6 5/1/6
 "#;
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    color: [f32; 3],
+const CUBE_COUNT: usize = 150;
+
+struct App3D {
+    scene: Option<Scene3D>,
+    display_id: Option<ObjectId>,
+    cubes: Vec<InstanceId>,
+    light_id: Option<LightId>,
+    time: f32,
+    frame_timer: f32,
+    frames: u32,
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
-struct Uniforms {
-    mvp: [[f32; 4]; 4],
-}
-
-struct CubeApp {
-    custom_paint: Option<CustomPaint>,
-    pipeline: Option<CustomPipeline>,
-    
-    vertex_buffer: Option<MoonBuffer>,
-    index_buffer: Option<MoonBuffer>,
-    uniform_buffer: Option<MoonBuffer>,
-    bind_group: Option<MoonBindGroup>,
-    
-    render_target_id: u32,
-    
-    rotation_x: f32,
-    rotation_y: f32,
-}
-
-impl CubeApp {
+impl App3D {
     fn new() -> Self {
         Self {
-            custom_paint: None,
-            pipeline: None,
-            vertex_buffer: None,
-            index_buffer: None,
-            uniform_buffer: None,
-            bind_group: None,
-            render_target_id: 0,
-            rotation_x: 0.0,
-            rotation_y: 0.0,
+            scene: None,
+            display_id: None,
+            cubes: Vec::with_capacity(CUBE_COUNT),
+            light_id: None,
+            time: 0.0,
+            frame_timer: 0.0,
+            frames: 0,
         }
     }
 }
 
-impl Application for CubeApp {
+impl Application for App3D {
     fn on_start(&mut self, mw: &mut MoonWalk, viewport: Vec2) {
-        let scale = mw.get_scale_factor(); 
-        let tex_size = (600.0 * scale) as u32;
-        let mut cp = mw.new_custom_paint(tex_size, tex_size, "Cube 3D");
+        mw.set_vsync(false);
 
-        // Куб
-        let vertices = [
-            Vertex { position: [-0.5, -0.5,  0.5], color: [1.0, 0.0, 0.0] },
-            Vertex { position: [ 0.5, -0.5,  0.5], color: [0.0, 1.0, 0.0] },
-            Vertex { position: [ 0.5,  0.5,  0.5], color: [0.0, 0.0, 1.0] },
-            Vertex { position: [-0.5,  0.5,  0.5], color: [1.0, 1.0, 0.0] },
-            Vertex { position: [-0.5, -0.5, -0.5], color: [0.0, 1.0, 1.0] },
-            Vertex { position: [ 0.5, -0.5, -0.5], color: [1.0, 0.0, 1.0] },
-            Vertex { position: [ 0.5,  0.5, -0.5], color: [1.0, 1.0, 1.0] },
-            Vertex { position: [-0.5,  0.5, -0.5], color: [0.0, 0.0, 0.0] },
-        ];
-
-        let indices: [u16; 36] = [
-            0, 1, 2, 2, 3, 0, 1, 5, 6, 6, 2, 1, 5, 4, 7, 7, 6, 5,
-            4, 0, 3, 3, 7, 4, 3, 2, 6, 6, 7, 3, 4, 5, 1, 1, 0, 4,
-        ];
-
-        self.vertex_buffer = Some(mw.create_vertex_buffer(bytemuck::cast_slice(&vertices)));
-        self.index_buffer = Some(mw.create_index_buffer_u16(bytemuck::cast_slice(&indices)));
-
-        let bind_group_desc = BindGroup::new().add_uniform(0, ShaderStage::Vertex);
-        let layout = mw.create_bind_group_layout(bind_group_desc).unwrap();
-
-        let pipeline_desc = MoonPipeline::new(SHADER_SOURCE)
-            .vertex_shader("vs_main")
-            .fragment_shader("fs_main")
-            .add_vertex_layout(
-                VertexLayout::new()
-                    .stride(std::mem::size_of::<Vertex>() as u32)
-                    .step_mode(StepMode::Vertex)
-                    .add_attr(VertexAttr::new().format(Format::Float32x3).location(0).offset(0))
-                    .add_attr(VertexAttr::new().format(Format::Float32x3).location(1).offset(12))
-            )
-            .cull(CullMode::Back)
-            .topology(Topology::TriangleList)
-            .depth_test(true)
-            .depth_write(true)
-            .label("Cube pipeline");
-
-        self.pipeline = Some(mw.compile_pipeline(pipeline_desc, &[&layout]).unwrap());
-
-        let uniforms = Uniforms {
-            mvp: Mat4::IDENTITY.to_cols_array_2d()
-        };
-
-        let u_buffer = mw.create_uniform_buffer(bytemuck::bytes_of(&uniforms));
-
-        let bg = mw.create_bind_group(&layout, &[BindResource::Uniform(&u_buffer)]).unwrap();
-        self.uniform_buffer = Some(u_buffer);
-        self.bind_group = Some(bg);
+        let scale = mw.get_scale_factor();
+        let width = (viewport.x * scale) as u32;
+        let height = (viewport.y * scale) as u32;
         
-        cp.set_render_pass(MoonRenderPass::new().set_clear_color(Some(Vec4::ZERO)));
+        let mut scene = Scene3D::new(mw, width, height);
+        
+        scene.set_lighting_model(LightingModel::Phong); // Phong быстрее PBК
+        scene.set_shadow_quality(mw, ShadowQuality::Off); // Тени выключены
+        
+        let mesh_ids = scene.load_obj(mw, CUBE_OBJ.as_bytes());
+        let cube_mesh = mesh_ids[0];
 
-        self.render_target_id = cp.snapshot(mw);
-        self.custom_paint = Some(cp);
+        let cols = 15;
+        let rows = 10;
+        
+        for i in 0..CUBE_COUNT {
+            let instance = scene.new_instance(cube_mesh);
+            
+            let x = (i % cols) as f32 * 1.5 - (cols as f32 * 1.5 / 2.0);
+            let z = (i / cols) as f32 * 1.5 - (rows as f32 * 1.5 / 2.0);
+            
+            scene.set_position(instance, Vec3::new(x, 0.0, z));
+            
+            let r = (i as f32 * 0.1).sin().abs();
+            let g = (i as f32 * 0.2).cos().abs();
+            let b = (i as f32 * 0.3).sin().abs();
+            scene.set_color(instance, Vec4::new(r, g, b, 1.0));
+            
+            scene.set_roughness(instance, 0.1); 
+
+            self.cubes.push(instance);
+        }
+
+        let sun = scene.new_light();
+        scene.set_light_position(sun, Vec3::new(10.0, 20.0, 10.0));
+        scene.set_light_color(sun, Vec3::new(1.0, 1.0, 1.0));
+        scene.set_light_intensity(sun, 100.0);
+        self.light_id = Some(sun);
+
+        scene.camera_pos = Vec3::new(0.0, 10.0, 15.0);
+        scene.camera_target = Vec3::new(0.0, 0.0, 0.0);
+
+        self.scene = Some(scene);
 
         let id = mw.new_rect();
-        mw.set_size(id, Vec2::new(600.0, 600.0));
-        mw.set_position(id, (viewport - 600.0) / 2.0);
-        mw.set_texture(id, self.render_target_id);
+        mw.set_size(id, viewport);
+        mw.set_position(id, Vec2::ZERO);
+        mw.set_color(id, Vec4::ONE);
+        
+        self.display_id = Some(id);
     }
 
     fn on_update(&mut self, dt: f32) {
-        self.rotation_x += dt * 1.0;
-        self.rotation_y += dt * 0.7;
+        self.time += dt;
+        
+        self.frame_timer += dt;
+        self.frames += 1;
+        if self.frame_timer >= 1.0 {
+            println!("FPS: {}", self.frames);
+            self.frames = 0;
+            self.frame_timer = 0.0;
+        }
+
+        if let Some(scene) = &mut self.scene {
+            for (i, id) in self.cubes.iter().enumerate() {
+                let speed = 1.0 + (i as f32 * 0.01);
+                let rot = Vec3::new(
+                    self.time * speed,
+                    self.time * speed * 0.5,
+                    0.0
+                );
+                scene.set_rotation(*id, rot);
+                
+                let mut pos = scene.get_position(*id);
+                pos.y = (self.time * 2.0 + (i as f32 * 0.1)).sin() * 0.5;
+                scene.set_position(*id, pos);
+            }
+        }
     }
 
     fn on_draw(&mut self, mw: &mut MoonWalk) {
-        let cp = match &mut self.custom_paint { Some(c) => c, None => return };
-        let pipe = match &self.pipeline { Some(p) => p, None => return };
-        let vb = match &self.vertex_buffer { Some(v) => v, None => return };
-        let ib = match &self.index_buffer { Some(i) => i, None => return };
-        let ub = match &self.uniform_buffer { Some(u) => u, None => return };
-        let bg = match &self.bind_group { Some(b) => b, None => return };
-
-        let aspect = cp.width as f32 / cp.height as f32;
-        let projection = Mat4::perspective_rh(45.0f32.to_radians(), aspect, 0.1, 100.0);
-        let view = Mat4::look_at_rh(
-            Vec3::new(0.0, 0.0, 3.0),
-            Vec3::ZERO,
-            Vec3::Y
-        );
-
-        let model = Mat4::from_rotation_x(self.rotation_x) * Mat4::from_rotation_y(self.rotation_y);
-        let mvp = projection * view * model;
-        let uniform_data = Uniforms { 
-            mvp: mvp.to_cols_array_2d()
-        };
-
-        mw.update_buffer(ub, bytemuck::bytes_of(&uniform_data));
-        cp.set_render_pass(
-            MoonRenderPass::new()
-                .set_clear_color(Some(Vec4::new(0.1, 0.1, 0.1, 1.0)))
-                .set_clear_depth(true)
-        );
-
-        cp.set_pipeline(pipe);
-        cp.set_bind_group(0, bg);
-        cp.set_vertex_buffer(0, vb);
-        cp.set_index_buffer(ib);
-        cp.draw_indexed(mw, 0..36, 0, 0..1);
-        cp.update_snapshot(mw, self.render_target_id);
+        if let Some(scene) = &mut self.scene {
+            let tex_id = scene.render(mw);
+            
+            if let Some(id) = self.display_id {
+                mw.set_texture(id, tex_id);
+            }
+        }
     }
 
-    fn on_resize(&mut self, _mw: &mut MoonWalk, _viewport: Vec2) {
-
-    }
-
-    fn on_touch(&mut self, _mw: &mut MoonWalk, _phase: TouchPhase, _pos: Vec2) {
-
+    fn on_resize(&mut self, mw: &mut MoonWalk, viewport: Vec2) {
+        if let Some(id) = self.display_id {
+            mw.set_size(id, viewport);
+        }
     }
 }
 
-#[cfg(not(target_os = "android"))]
 fn main() {
-    let app = CubeApp::new();
-    let settings = WindowSettings::new("MoonWalk 3D", 800.0, 600.0);
+    let app = App3D::new();
+    let settings = WindowSettings::new("MoonWalk 3D", 1280.0, 720.0);
     Runner::run(app, settings).unwrap();
-}
-
-#[cfg(target_os = "android")]
-#[unsafe(no_mangle)]
-fn android_main(app: android_activity::AndroidApp) {
-    let app_logic = CubeApp::new();
-    let settings = WindowSettings::new("MoonWalk 3D", 0.0, 0.0);
-    Runner::run(app_logic, settings, app).unwrap();
 }
