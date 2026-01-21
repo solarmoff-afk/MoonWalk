@@ -28,7 +28,7 @@ batching, render, shader, android, gpu, textware, resources, errors, objects
 
 ```rust
 // Часть проекта MoonWalk с открытым исходным кодом.
-// Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
+// Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 ```
 
 ## Публичный API
