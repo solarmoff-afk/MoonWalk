@@ -30,7 +30,7 @@ impl MatrixStack {
     }
 
     pub fn set_ortho(&mut self, width: f32, height: f32) {
-        self.projection = Mat4::orthographic_lh(0.0, width, height, 0.0, -1.0, 1.0);
+        self.projection = Mat4::orthographic_lh(0.0, width, height, 0.0, -1000.0, 1000.0);
     }
 
     pub fn set_identity(&mut self) {
