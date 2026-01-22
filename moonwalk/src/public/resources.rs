@@ -83,4 +83,25 @@ impl MoonWalk {
             }
         }
     }
+
+    /// Асинхронная загрузка текстуру. Полезен для подгрузки контента в рантайме
+    /// Сначала асинхронно читает файл, потом регистрирует текстуру в рендерере
+    #[cfg(feature = "async")]
+    pub async fn load_texture_async(&mut self, path: &str) -> Result<u32, error::MoonWalkError> {
+        let texture = self.resources.load_texture_async(&self.renderer.context, path).await?;
+
+        let id = self.renderer.register_texture(texture);
+        
+        Ok(id)
+    }
+
+    /// Асинхронная загрузка шрифта. Читает файл без блокировки потока, парсит байты синхронно
+    #[cfg(feature = "async")]
+    pub async fn load_font_async(&mut self, path: &str, name: &str) -> Result<FontAsset, crate::error::MoonWalkError> {
+        let bytes = self.resources.read_bytes_async(path).await?;
+        
+        let internal_id = self.renderer.text_engine.load_font_bytes(&bytes, name)?;
+
+        Ok(FontAsset(internal_id.0))
+    }
 }

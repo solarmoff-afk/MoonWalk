@@ -70,4 +70,38 @@ impl ResourceManager {
             
         Texture::from_bytes(ctx, &bytes, label)
     }
+
+    /// Асинхронная версия читалки байтов. Требует включенной фичи async. На десктопе
+    /// (для обычных файлов) использует tokio для неблокирующего чтения
+    #[cfg(feature = "async")]
+    pub async fn read_bytes_async(&self, path: &str) -> Result<Vec<u8>, MoonWalkError> {
+        #[cfg(target_os = "android")]
+        {
+            // Если путь начинается с / то это файловая система, чтение асинхронно, но
+            // если нет это ассэт внутри апк, там нет асинх апи так что чтение как обычно
+            if path.starts_with('/') {
+                tokio::fs::read(path).await.map_err(|e| MoonWalkError::IOError(e.to_string()))
+            } else {
+                self.read_bytes(path)
+            }
+        }
+
+        #[cfg(not(target_os = "android"))]
+        {
+            tokio::fs::read(path).await.map_err(|e| MoonWalkError::IOError(e.to_string()))
+        }
+    }
+
+    /// Асинхронно грузит байты и создает текстуру. Сама распаковка png/jpg всё ещё нагружает
+    /// поток, но чтение с диска не блокирует всё
+    #[cfg(feature = "async")]
+    pub async fn load_texture_async(&self, ctx: &Context, path: &str) -> Result<Texture, MoonWalkError> {
+        let bytes = self.read_bytes_async(path).await?;
+        
+        let label = Path::new(path).file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Unknown Texture");
+            
+        Texture::from_bytes(ctx, &bytes, label)
+    }
 }

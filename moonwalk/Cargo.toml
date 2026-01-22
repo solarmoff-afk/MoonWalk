@@ -1,6 +1,6 @@
 [package]
 name = "moonwalk"
-version = "0.27.0"
+version = "0.28.0"
 edition = "2021"
 
 [lib]
@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = []
 video = ["dep:video-rs", "dep:ndarray"]
+async = ["dep:tokio"]
 
 [dependencies]
 pollster = "0.3"
@@ -29,6 +30,7 @@ parking_lot = "0.12"
 lazy_static = "1.4"
 gltf = "1.4"
 tobj = "4.0"
+tokio = { version = "1", features = ["fs", "io-util"], optional = true }
 
 [dependencies.video-rs]
 version = "0.10"
