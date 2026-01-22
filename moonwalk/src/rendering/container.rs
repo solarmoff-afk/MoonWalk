@@ -81,37 +81,109 @@ impl RenderContainer {
     }
 
     #[inline]
+    #[deprecated(note = "Use set_position instead")]
     pub fn config_position(&mut self, id: ObjectId, pos: Vec2) {
         self.store.config_position(id, pos);
     }
 
     #[inline]
+    pub fn set_position(&mut self, id: ObjectId, pos: Vec2) {
+        self.store.config_position(id, pos);
+    }
+
+    #[inline]
+    pub fn get_position(&self, id: ObjectId) -> Vec2 {
+        self.store.get_position(id)
+    }
+
+    #[inline]
+    #[deprecated(note = "Use set_size instead")]
     pub fn config_size(&mut self, id: ObjectId, size: Vec2) {
         self.store.config_size(id, size);
     }
 
     #[inline]
+    pub fn set_size(&mut self, id: ObjectId, size: Vec2) {
+        self.store.config_size(id, size);
+    }
+
+    #[inline]
+    pub fn get_size(&self, id: ObjectId) -> Vec2 {
+        self.store.get_size(id)
+    }
+
+    #[inline]
+    #[deprecated(note = "Use set_color instead")]
     pub fn config_color(&mut self, id: ObjectId, color: Vec4) {
         self.store.config_color(id, color);
     }
 
     #[inline]
+    pub fn set_color(&mut self, id: ObjectId, color: Vec4) {
+        self.store.config_color(id, color);
+    }
+
+    #[inline]
+    pub fn get_color(&self, id: ObjectId) -> Vec4 {
+        self.store.get_color(id)
+    }
+
+    #[inline]
+    #[deprecated(note = "Use set_color2 instead")]
     pub fn config_color2(&mut self, id: ObjectId, color: Vec4) {
         self.store.config_color2(id, color);
     }
+
+    #[inline]
+    pub fn set_color2(&mut self, id: ObjectId, color: Vec4) {
+        self.store.config_color2(id, color);
+    }
+
+    #[inline]
+    pub fn get_color2(&self, id: ObjectId) -> Vec4 {
+        self.store.get_color2(id)
+    }
     
     #[inline]
+    #[deprecated(note = "Use set_rotation instead")]
     pub fn config_rotation(&mut self, id: ObjectId, rad: f32) {
         self.store.config_rotation(id, rad);
     }
 
     #[inline]
+    pub fn set_rotation(&mut self, id: ObjectId, rad: f32) {
+        self.store.config_rotation(id, rad);
+    }
+
+    #[inline]
+    pub fn get_rotation(&self, id: ObjectId) -> f32 {
+        self.store.get_rotation(id)
+    }
+
+    #[inline]
+    #[deprecated(note = "Use set_z_index instead")]
     pub fn config_z_index(&mut self, id: ObjectId, z: f32) {
         self.store.config_z_index(id, z);
     }
 
     #[inline]
+    pub fn set_z_index(&mut self, id: ObjectId, z: f32) {
+        self.store.config_z_index(id, z);
+    }
+
+    #[inline]
+    pub fn get_z_index(&self, id: ObjectId) -> f32 {
+        self.store.get_z_index(id)
+    }
+
+    #[inline]
+    #[deprecated(note = "Use set_uv instead")]
     pub fn config_uv(&mut self, id: ObjectId, uv: [f32; 4]) {
+        self.store.config_uv(id, uv);
+    }
+
+    #[inline]
+    pub fn set_uv(&mut self, id: ObjectId, uv: [f32; 4]) {
         self.store.config_uv(id, uv);
     }
 
@@ -121,12 +193,29 @@ impl RenderContainer {
     }
 
     #[inline]
+    pub fn get_rounded(&self, id: ObjectId) -> Vec4 {
+        self.store.get_rounded(id)
+    }
+
+    #[inline]
+    #[deprecated(note = "Use set_texture instead")]
     pub fn config_texture(&mut self, id: ObjectId, texture_id: u32) {
         self.store.config_texture(id, texture_id);
     }
 
     #[inline]
+    pub fn set_texture(&mut self, id: ObjectId, texture_id: u32) {
+        self.store.config_texture(id, texture_id);
+    }
+
+    #[inline]
+    #[deprecated(note = "Use set_gradient_data instead")]
     pub fn config_gradient_data(&mut self, id: ObjectId, gradient_data: [f32; 4]) {
+        self.store.config_gradient_data(id, gradient_data);
+    }
+
+    #[inline]
+    pub fn set_gradient_data(&mut self, id: ObjectId, gradient_data: [f32; 4]) {
         self.store.config_gradient_data(id, gradient_data);
     }
 
@@ -140,14 +229,29 @@ impl RenderContainer {
         self.store.set_text(id, content.to_string());
     }
 
+    #[inline]
+    pub fn get_text(&self, id: crate::objects::ObjectId) -> String {
+        self.store.get_text(id).to_string()
+    }
+
      #[inline]
     pub fn set_font_size(&mut self, id: crate::objects::ObjectId, size: f32) {
         self.store.set_font_size(id, size);
     }
 
     #[inline]
+    pub fn get_font_size(&self, id: crate::objects::ObjectId) -> f32 {
+        self.store.get_font_size(id)
+    }
+
+    #[inline]
     pub fn set_text_size(&mut self, id: crate::objects::ObjectId, w: f32, h: f32) {
         self.store.set_text_bounds(id, w, h);
+    }
+
+    #[inline]
+    pub fn get_text_size(&self, id: crate::objects::ObjectId) -> Vec2 {
+        self.store.get_text_bounds(id)
     }
 
     #[inline]
@@ -159,6 +263,17 @@ impl RenderContainer {
             TextAlign::Justified => 3,
         };
         self.store.set_text_align(id, val);
+    }
+
+    #[inline]
+    pub fn get_text_align(&self, id: crate::objects::ObjectId) -> TextAlign {
+        match self.store.get_text_align(id) {
+            0 => TextAlign::Left,
+            1 => TextAlign::Center,
+            2 => TextAlign::Right,
+            3 => TextAlign::Justified,
+            _ => TextAlign::Left,
+        }
     }
 
     pub fn measure_text(&mut self, mw: &mut MoonWalk, text: &str, font: FontAsset, size: f32, max_width: f32) -> Vec2 {
