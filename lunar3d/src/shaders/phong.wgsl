@@ -1,8 +1,6 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
-const PI: f32 = 3.14159265359;
-
 struct Light {
     position: vec3<f32>,
     _pad1: f32,
@@ -14,10 +12,10 @@ struct Global {
     view_proj: mat4x4<f32>,
     camera_pos: vec3<f32>,
     num_lights: u32,
-    lights: array<Light, 4>, 
+    lights: array<Light, 32>, 
     ambient_color: vec3<f32>,
     shadows_enabled: f32,
-    light_view_proj: mat4x4<f32>, 
+    light_view_projs: array<mat4x4<f32>, 4>,
 };
 
 struct MaterialFlags {
@@ -34,7 +32,7 @@ struct MaterialFlags {
 @group(1) @binding(0) var t_albedo: texture_2d<f32>;
 @group(1) @binding(1) var s_sampler: sampler;
 @group(1) @binding(2) var t_normal: texture_2d<f32>;
-@group(1) @binding(3) var t_mr: texture_2d<f32>;
+@group(1) @binding(3) var t_mr: texture_2d<f32>; 
 @group(1) @binding(4) var<uniform> flags: MaterialFlags;
 
 struct VertexInput {
@@ -53,8 +51,8 @@ struct InstanceInput {
     @location(9) norm_1: vec4<f32>,
     @location(10) norm_2: vec4<f32>,
     @location(11) color: vec4<f32>,
-    @location(12) metallic: f32,
-    @location(13) roughness: f32,
+    @location(12) specular_strength: f32,
+    @location(13) shininess: f32,
 };
 
 struct VertexOutput {
@@ -65,20 +63,14 @@ struct VertexOutput {
     @location(3) tbn_1: vec3<f32>,
     @location(4) tbn_2: vec3<f32>,
     @location(5) color: vec4<f32>,
-    @location(6) metallic: f32,
-    @location(7) roughness: f32,
-    @location(8) shadow_pos: vec4<f32>,
+    @location(6) spec: f32,
+    @location(7) shine: f32,
 };
 
 @vertex
 fn vs_main(in: VertexInput, instance: InstanceInput) -> VertexOutput {
-    let model_matrix = mat4x4<f32>(
-        instance.model_0, instance.model_1, instance.model_2, instance.model_3
-    );
-    
-    let normal_matrix = mat3x3<f32>(
-        instance.norm_0.xyz, instance.norm_1.xyz, instance.norm_2.xyz
-    );
+    let model_matrix = mat4x4<f32>(instance.model_0, instance.model_1, instance.model_2, instance.model_3);
+    let normal_matrix = mat3x3<f32>(instance.norm_0.xyz, instance.norm_1.xyz, instance.norm_2.xyz);
 
     var out: VertexOutput;
     let world_pos_4 = model_matrix * vec4<f32>(in.position, 1.0);
@@ -91,51 +83,33 @@ fn vs_main(in: VertexInput, instance: InstanceInput) -> VertexOutput {
     let B = cross(N, T); 
 
     out.tbn_0 = T; out.tbn_1 = B; out.tbn_2 = N;
-    
     out.color = instance.color;
-    out.metallic = instance.metallic;
-    out.roughness = instance.roughness;
-    out.shadow_pos = global.light_view_proj * world_pos_4;
+    out.spec = instance.specular_strength;
+    out.shine = instance.shininess;
 
     return out;
 }
 
-fn distribution_ggx(N: vec3<f32>, H: vec3<f32>, roughness: f32) -> f32 {
-    let a = roughness * roughness;
-    let a2 = a * a;
-    let NdotH = max(dot(N, H), 0.0);
-    let NdotH2 = NdotH * NdotH;
-    let num = a2;
-    let denom = (NdotH2 * (a2 - 1.0) + 1.0);
-    return num / (PI * denom * denom);
-}
-
-fn geometry_schlick_ggx(NdotV: f32, roughness: f32) -> f32 {
-    let r = (roughness + 1.0);
-    let k = (r * r) / 8.0;
-    let num = NdotV;
-    let denom = NdotV * (1.0 - k) + k;
-    return num / denom;
-}
-
-fn geometry_smith(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, roughness: f32) -> f32 {
-    let NdotV = max(dot(N, V), 0.0);
-    let NdotL = max(dot(N, L), 0.0);
-    let ggx2 = geometry_schlick_ggx(NdotV, roughness);
-    let ggx1 = geometry_schlick_ggx(NdotL, roughness);
-    return ggx1 * ggx2;
-}
-
-fn fresnel_schlick(cosTheta: f32, F0: vec3<f32>) -> vec3<f32> {
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-fn calculate_shadow(shadow_pos: vec4<f32>, N: vec3<f32>, L: vec3<f32>) -> f32 {
+fn calculate_shadow(light_index: u32, world_pos: vec3<f32>, N: vec3<f32>, L: vec3<f32>) -> f32 {
+    let shadow_pos = global.light_view_projs[light_index] * vec4<f32>(world_pos, 1.0);
     let proj_coords = shadow_pos.xyz / shadow_pos.w;
-    let uv = vec2<f32>(proj_coords.x * 0.5 + 0.5, 0.5 - proj_coords.y * 0.5);
+    var uv = vec2<f32>(proj_coords.x * 0.5 + 0.5, 0.5 - proj_coords.y * 0.5);
+    
+    // Atlas logic
+    var offset = vec2<f32>(0.0, 0.0);
+    if (light_index == 1u) { 
+        offset = vec2<f32>(0.5, 0.0); 
+    } else if (light_index == 2u) { 
+        offset = vec2<f32>(0.0, 0.5); 
+    } else if (light_index == 3u) { 
+        offset = vec2<f32>(0.5, 0.5); 
+    }
+    
+    uv = uv * 0.5 + offset;
+    
     let current_depth = proj_coords.z;
 
-    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || current_depth > 1.0 || current_depth < 0.0) {
+    if (current_depth > 1.0 || current_depth < 0.0) {
         return 1.0;
     }
 
@@ -149,20 +123,22 @@ fn calculate_shadow(shadow_pos: vec4<f32>, N: vec3<f32>, L: vec3<f32>) -> f32 {
             shadow += textureSampleCompare(t_shadow, s_shadow, uv + vec2<f32>(f32(x), f32(y)) * texel_size, current_depth - bias);
         }
     }
-    
+
     return shadow / 9.0;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var base_color = in.color;
+    
     if (flags.use_albedo_map == 1u) {
         let tex = textureSample(t_albedo, s_sampler, in.uv);
-        base_color = vec4(pow(tex.rgb, vec3(2.2)), tex.a) * base_color;
+        base_color = tex * base_color;
     }
-    
-    if (base_color.a < 0.1) { discard; }
-    let albedo = base_color.rgb;
+
+    if (base_color.a < 0.1) {
+        discard;
+    }
 
     var N = normalize(in.tbn_2);
     if (flags.use_normal_map == 1u) {
@@ -172,58 +148,33 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         N = normalize(tbn * tangent_normal);
     }
 
-    var roughness = in.roughness;
-    var metallic = in.metallic;
-
-    if (flags.use_mr_map == 1u) {
-        let mr_sample = textureSample(t_mr, s_sampler, in.uv);
-        roughness = mr_sample.g * roughness;
-        metallic = mr_sample.b * metallic;
-    }
-
     let V = normalize(global.camera_pos - in.world_pos);
-    var F0 = vec3(0.04); 
-    F0 = mix(F0, albedo, metallic);
-
-    var Lo = vec3(0.0);
+    var final_color = global.ambient_color * base_color.rgb;
 
     for (var i = 0u; i < global.num_lights; i = i + 1u) {
         let light = global.lights[i];
         let L = normalize(light.position - in.world_pos);
-        let H = normalize(V + L);
+        let R = reflect(-L, N);
+        
+        let diff = max(dot(N, L), 0.0);
+        
+        let shininess = (1.0 - in.shine) * 128.0;
+        let spec = pow(max(dot(V, R), 0.0), max(shininess, 1.0));
         
         let dist = distance(light.position, in.world_pos);
         let attenuation = 1.0 / (1.0 + 0.09 * dist + 0.032 * dist * dist);
-        let radiance = light.color * light.intensity * attenuation;
-
-        let NDF = distribution_ggx(N, H, roughness);
-        let G = geometry_smith(N, V, L, roughness);
-        let F = fresnel_schlick(max(dot(H, V), 0.0), F0);
-
-        let numerator = NDF * G * F;
-        let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
-        let specular = numerator / denominator;
-
-        let kS = F;
-        var kD = vec3(1.0) - kS;
-        kD *= 1.0 - metallic;
-
-        let NdotL = max(dot(N, L), 0.0);
         
+        let diffuse = diff * light.color * light.intensity;
+        let specular = spec * in.spec * light.color * light.intensity;
+
         var shadow = 1.0;
-        if (i == 0u) {
-            shadow = calculate_shadow(in.shadow_pos, N, L);
+        if (i < 4u) { 
+            shadow = calculate_shadow(i, in.world_pos, N, L); 
             shadow = mix(1.0, shadow, global.shadows_enabled);
         }
 
-        Lo += (kD * albedo / PI + specular) * radiance * NdotL * shadow;
+        final_color += (diffuse * base_color.rgb + specular) * attenuation * shadow;
     }
 
-    let ambient = global.ambient_color * albedo; 
-    var color = ambient + Lo;
-
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2));
-
-    return vec4<f32>(color, base_color.a);
+    return vec4<f32>(final_color, base_color.a);
 }

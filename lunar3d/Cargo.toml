@@ -1,0 +1,11 @@
+[package]
+name = "lunar3d"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glam = { version = "0.24", features = ["bytemuck"] }
+bytemuck = { version = "1.16", features = ["derive"] }
+tobj = "4.0"
+gltf = "1.0"
+moonwalk = { path = "../moonwalk" }

@@ -5,5 +5,6 @@ edition = "2021"
 
 [dependencies]
 moonwalk = { path = "../moonwalk" }
+lunar3d = { path = "../lunar3d" }
 moonwalk_bootstrap = { path = "../bootstrap" }
 glam = "0.24"

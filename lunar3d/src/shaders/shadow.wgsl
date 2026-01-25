@@ -3,6 +3,9 @@
 
 struct ShadowGlobal {
     light_view_proj: mat4x4<f32>,
+    atlas_offset: vec2<f32>,
+    atlas_scale: f32,
+    _pad: f32,
 };
 
 @group(0) @binding(0) var<uniform> global: ShadowGlobal;
@@ -25,11 +28,19 @@ fn vs_main(in: VertexInput, instance: InstanceInput) -> @builtin(position) vec4<
     );
     
     let world_pos = model_matrix * vec4<f32>(in.position, 1.0);
+    var clip_pos = global.light_view_proj * world_pos;
     
-    return global.light_view_proj * world_pos;
+    let scale = global.atlas_scale;
+    let offset_x = global.atlas_offset.x;
+    let offset_y = global.atlas_offset.y;
+    
+    clip_pos.x = clip_pos.x * scale + (offset_x - 0.5 + scale * 0.5) * 2.0 * clip_pos.w;
+    clip_pos.y = clip_pos.y * scale - (offset_y - 0.5 + scale * 0.5) * 2.0 * clip_pos.w;
+    
+    return clip_pos;
 }
 
 @fragment
 fn fs_main() -> @location(0) vec4<f32> {
-    return vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    return vec4<f32>(1.0, 1.0, 1.0, 1.0);
 }
