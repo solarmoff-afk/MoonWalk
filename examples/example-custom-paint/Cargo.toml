@@ -5,6 +5,6 @@ edition = "2024"
 
 [dependencies]
 glam = { version = "0.24", features = ["scalar-math", "bytemuck"] }
-moonwalk_bootstrap = { path = "../bootstrap" }
+moonwalk_bootstrap = { workspace = true }
 moonwalk = { workspace = true }
 bytemuck = { version = "1.14", features = ["derive"] }

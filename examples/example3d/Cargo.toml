@@ -1,0 +1,10 @@
+[package]
+name = "example3d"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+moonwalk = { workspace = true }
+lunar3d = { workspace = true }
+moonwalk_bootstrap = { workspace = true }
+glam = "0.24"

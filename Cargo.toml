@@ -3,10 +3,10 @@ resolver = "2"
 members = [
     "benchmark",
     "bootstrap",
-    "example",
-    "example-video",
-    "example3d",
-    "example-custom-paint",
+    "examples/example",
+    "examples/example-video",
+    "examples/example3d",
+    "examples/example-custom-paint",
     "moonwalk",
     "widget",
     "lunar3d",
@@ -24,3 +24,4 @@ strip = true
 [workspace.dependencies]
 moonwalk = { path = "./moonwalk" }
 lunar3d = { path = "./lunar3d" }
+moonwalk_bootstrap = { path = "./bootstrap" }
