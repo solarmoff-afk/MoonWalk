@@ -41,11 +41,6 @@ impl ClippedSnapshot {
             self.size = source_size;
         }
 
-        // Проверка на отрицательное число
-        if self.position.x < 0.0 || self.position.y < 0.0 {
-            self.position = Vec2::ZERO;
-        }
-
         if self.size.x < 0.0 || self.size.y < 0.0 {
             self.size = source_size;
         }
@@ -68,6 +63,11 @@ impl ClippedSnapshot {
         // снапшота и минус один чтобы не было 0, 0
         self.position.x = Self::clip(self.position.x, self.size.x - 1.0);
         self.position.y = Self::clip(self.position.y, self.size.y - 1.0);
+
+        // Проверка на отрицательное число
+        if self.position.x < 0.0 || self.position.y < 0.0 {
+            self.position = Vec2::ZERO;
+        }
     }
 
     fn clip(value: f32, source: f32) -> f32 {
