@@ -3,6 +3,10 @@
 
 use glam::Vec2;
 
+/// Я не могу возвращать Result у снапшотов так как api уже сформирован и снапшоты
+/// обычно считаются безопасной операцией. Вместо этого лучше написать клиппер
+/// который обрежет снапшот, а если что-то не так то сделает позицию 0, 0, а размер
+/// равный всей поверхности
 pub struct ClippedSnapshot {
     pub position: Vec2,
     pub size: Vec2,
@@ -50,6 +54,8 @@ impl ClippedSnapshot {
         self.size.x = Self::clip(self.size.x, source_size.x);
         self.size.y = Self::clip(self.size.y, source_size.y);
 
+        // Для позиций ставим ноль если за пределами экрана. Клипить это нормально
+        // невозможно, поэтому лучше просто захватить с левого верхнего угла
         if self.position.x > source_size.x {
             self.position.x = 0.0;
         }
@@ -57,6 +63,11 @@ impl ClippedSnapshot {
         if self.position.y > source_size.y {
             self.position.y = 0.0;
         }
+
+        // Если позиция находится за размерами снапшота то нужно обрезать по размеру
+        // снапшота и минус один чтобы не было 0, 0
+        self.position.x = Self::clip(self.position.x, self.size.x - 1.0);
+        self.position.y = Self::clip(self.position.y, self.size.y - 1.0);
     }
 
     fn clip(value: f32, source: f32) -> f32 {
@@ -64,8 +75,7 @@ impl ClippedSnapshot {
         // x/y, отнимаем от них source_size, сохраняем в delta и записываем
         // в position.x/y оригинал - delta
         if value > source {
-            let delta = value - source;
-            return value - delta;
+            return source;
         }
 
         return value;
@@ -109,6 +119,20 @@ fn snapshot_clip_test() {
     
     assert_eq!(snapshot_region.position.x, 0.0);
     assert_eq!(snapshot_region.position.y, 0.0);
+    assert_eq!(snapshot_region.size.x, 100.0);
+    assert_eq!(snapshot_region.size.y, 100.0);
+
+    snapshot_region = ClippedSnapshot::new(
+        Vec2::new(200.0, 200.0),
+        Vec2::new(100.0, 100.0),
+    );
+    snapshot_region.clip_snapshot(Vec2::new(500.0, 500.0));
+
+    println!("x: {}, y: {}, w: {}, h: {}", snapshot_region.position.x, snapshot_region.position.y,
+        snapshot_region.size.x, snapshot_region.size.y);
+    
+    assert_eq!(snapshot_region.position.x, 99.0);
+    assert_eq!(snapshot_region.position.y, 99.0);
     assert_eq!(snapshot_region.size.x, 100.0);
     assert_eq!(snapshot_region.size.y, 100.0);
 }
