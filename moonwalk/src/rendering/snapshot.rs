@@ -47,10 +47,16 @@ impl ClippedSnapshot {
         }
 
         // Обрезание
-        self.position.x = Self::clip(self.position.x, source_size.x);
-        self.position.y = Self::clip(self.position.y, source_size.y);
         self.size.x = Self::clip(self.size.x, source_size.x);
         self.size.y = Self::clip(self.size.y, source_size.y);
+
+        if self.position.x > source_size.x {
+            self.position.x = 0.0;
+        }
+
+        if self.position.y > source_size.y {
+            self.position.y = 0.0;
+        }
     }
 
     fn clip(value: f32, source: f32) -> f32 {
@@ -91,4 +97,18 @@ fn snapshot_clip_test() {
     assert_eq!(snapshot_region.position.y, 0.0);
     assert_eq!(snapshot_region.size.x, 50.0);
     assert_eq!(snapshot_region.size.y, 50.0);
+
+    snapshot_region = ClippedSnapshot::new(
+        Vec2::new(160.0, 160.0),
+        Vec2::new(100.0, 100.0),
+    );
+    snapshot_region.clip_snapshot(Vec2::new(100.0, 100.0));
+
+    println!("x: {}, y: {}, w: {}, h: {}", snapshot_region.position.x, snapshot_region.position.y,
+        snapshot_region.size.x, snapshot_region.size.y);
+    
+    assert_eq!(snapshot_region.position.x, 0.0);
+    assert_eq!(snapshot_region.position.y, 0.0);
+    assert_eq!(snapshot_region.size.x, 100.0);
+    assert_eq!(snapshot_region.size.y, 100.0);
 }
