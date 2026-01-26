@@ -37,12 +37,13 @@ impl ClippedSnapshot {
         }
 
         // Проверка размера на ноль
-        if self.size.x == 0.0 || self.size.y == 0.0 {
+        if self.size.x <= 0.0 || self.size.y <= 0.0 {
             self.size = source_size;
         }
 
-        if self.size.x < 0.0 || self.size.y < 0.0 {
-            self.size = source_size;
+        // Проверка на отрицательное число
+        if self.position.x < 0.0 || self.position.y < 0.0 {
+            self.position = Vec2::ZERO;
         }
 
         // Обрезание
@@ -59,14 +60,15 @@ impl ClippedSnapshot {
             self.position.y = 0.0;
         }
 
-        // Если позиция находится за размерами снапшота то нужно обрезать по размеру
-        // снапшота и минус один чтобы не было 0, 0
-        self.position.x = Self::clip(self.position.x, self.size.x - 1.0);
-        self.position.y = Self::clip(self.position.y, self.size.y - 1.0);
+        let snapshot_surface = self.position + self.size;
+        let delta = snapshot_surface - source_size;
 
-        // Проверка на отрицательное число
-        if self.position.x < 0.0 || self.position.y < 0.0 {
-            self.position = Vec2::ZERO;
+        if snapshot_surface.x >= source_size.x && delta.x > 0.0 {
+            self.size.x -= delta.x;
+        }
+
+        if snapshot_surface.y >= source_size.y && delta.x > 0.0 {
+            self.size.y -= delta.y;
         }
     }
 
@@ -90,7 +92,7 @@ fn snapshot_clip_test() {
     );
     snapshot_region.clip_snapshot(Vec2::new(200.0, 200.0));
 
-    println!("x: {}, y: {}, w: {}, h: {}", snapshot_region.position.x, snapshot_region.position.y,
+    println!("1: x: {}, y: {}, w: {}, h: {}", snapshot_region.position.x, snapshot_region.position.y,
         snapshot_region.size.x, snapshot_region.size.y);
     
     assert_eq!(snapshot_region.position.x, 0.0);
@@ -100,7 +102,7 @@ fn snapshot_clip_test() {
 
     snapshot_region.clip_snapshot(Vec2::new(50.0, 50.0));
     
-    println!("x: {}, y: {}, w: {}, h: {}", snapshot_region.position.x, snapshot_region.position.y,
+    println!("2: x: {}, y: {}, w: {}, h: {}", snapshot_region.position.x, snapshot_region.position.y,
         snapshot_region.size.x, snapshot_region.size.y);
     
     assert_eq!(snapshot_region.position.x, 0.0);
@@ -114,7 +116,7 @@ fn snapshot_clip_test() {
     );
     snapshot_region.clip_snapshot(Vec2::new(100.0, 100.0));
 
-    println!("x: {}, y: {}, w: {}, h: {}", snapshot_region.position.x, snapshot_region.position.y,
+    println!("3: x: {}, y: {}, w: {}, h: {}", snapshot_region.position.x, snapshot_region.position.y,
         snapshot_region.size.x, snapshot_region.size.y);
     
     assert_eq!(snapshot_region.position.x, 0.0);
@@ -123,16 +125,16 @@ fn snapshot_clip_test() {
     assert_eq!(snapshot_region.size.y, 100.0);
 
     snapshot_region = ClippedSnapshot::new(
+        Vec2::new(400.0, 150.0),
         Vec2::new(200.0, 200.0),
-        Vec2::new(100.0, 100.0),
     );
-    snapshot_region.clip_snapshot(Vec2::new(500.0, 500.0));
+    snapshot_region.clip_snapshot(Vec2::new(500.0, 200.0));
 
-    println!("x: {}, y: {}, w: {}, h: {}", snapshot_region.position.x, snapshot_region.position.y,
+    println!("4: x: {}, y: {}, w: {}, h: {}", snapshot_region.position.x, snapshot_region.position.y,
         snapshot_region.size.x, snapshot_region.size.y);
     
-    assert_eq!(snapshot_region.position.x, 99.0);
-    assert_eq!(snapshot_region.position.y, 99.0);
+    assert_eq!(snapshot_region.position.x, 400.0);
+    assert_eq!(snapshot_region.position.y, 150.0);
     assert_eq!(snapshot_region.size.x, 100.0);
-    assert_eq!(snapshot_region.size.y, 100.0);
+    assert_eq!(snapshot_region.size.y, 50.0);
 }
