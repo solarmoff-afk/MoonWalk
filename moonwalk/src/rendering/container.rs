@@ -8,6 +8,7 @@ use crate::gpu::{Buffer, MatrixStack};
 use crate::objects::store::ObjectStore;
 use crate::objects::ObjectId;
 use crate::batching::shapes::uber::UberBatch;
+use crate::rendering::snapshot::ClippedSnapshot;
 use crate::rendering::state::GlobalUniform;
 use crate::rendering::texture::Texture;
 use crate::textware::FontId;
@@ -339,11 +340,21 @@ impl RenderContainer {
     
     pub fn snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32) -> u32 {
         let renderer = &mut mw.renderer;
+
+        let mut snapshot_region = ClippedSnapshot::new(
+            Vec2::new(x as f32, y as f32),
+            Vec2::new(w as f32, h as f32),
+        );
+
+        snapshot_region.clip_snapshot(Vec2::new(
+            self.width as f32,
+            self.height as f32
+        ));
         
-       let result = Texture::create_render_target(
-            &renderer.context, 
-            w, 
-            h, 
+        let result = Texture::create_render_target(
+            &renderer.context,
+            snapshot_region.size.x as u32,
+            snapshot_region.size.y as u32,
             self.target.texture.format()
         );
         
@@ -355,7 +366,11 @@ impl RenderContainer {
             wgpu::TexelCopyTextureInfo {
                 texture: &self.target.texture,
                 mip_level: 0,
-                origin: wgpu::Origin3d { x, y, z: 0 },
+                origin: wgpu::Origin3d {
+                    x: snapshot_region.position.x as u32,
+                    y: snapshot_region.position.y as u32,
+                    z: 0
+                },
                 aspect: wgpu::TextureAspect::All,
             },
 
@@ -367,8 +382,8 @@ impl RenderContainer {
             },
 
             wgpu::Extent3d {
-                width: w,
-                height: h,
+                width: snapshot_region.size.x as u32,
+                height: snapshot_region.size.y as u32,
                 depth_or_array_layers: 1
             }
         );
@@ -380,6 +395,17 @@ impl RenderContainer {
 
     pub fn update_snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32, id: u32) {
         let renderer = &mut mw.renderer;
+        
+        let mut snapshot_region = ClippedSnapshot::new(
+            Vec2::new(x as f32, y as f32),
+            Vec2::new(w as f32, h as f32),
+        );
+
+        snapshot_region.clip_snapshot(Vec2::new(
+            self.width as f32,
+            self.height as f32
+        ));
+
         let target_tex = renderer.state.textures.get(&id).unwrap();
         
         let mut encoder = renderer.context.create_encoder();
@@ -387,7 +413,11 @@ impl RenderContainer {
             wgpu::TexelCopyTextureInfo {
                 texture: &self.target.texture,
                 mip_level: 0,
-                origin: wgpu::Origin3d { x, y, z: 0 },
+                origin: wgpu::Origin3d {
+                    x: snapshot_region.position.x as u32,
+                    y: snapshot_region.position.y as u32,
+                    z: 0
+                },
                 aspect: wgpu::TextureAspect::All,
             },
 
@@ -399,8 +429,8 @@ impl RenderContainer {
             },
 
             wgpu::Extent3d {
-                width: w,
-                height: h,
+                width: snapshot_region.size.x as u32,
+                height: snapshot_region.size.y as u32,
                 depth_or_array_layers: 1
             }
         );

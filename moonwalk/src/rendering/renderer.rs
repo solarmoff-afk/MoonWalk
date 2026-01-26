@@ -7,6 +7,7 @@ use glam::{Vec2, Vec4};
 use crate::gpu::Context;
 use crate::error::MoonWalkError;
 use crate::rendering::texture::Texture;
+use crate::rendering::snapshot::ClippedSnapshot;
 use crate::rendering::state::RenderState;
 use crate::objects::ObjectId;
 use crate::filters::FilterSystem;
@@ -120,14 +121,27 @@ impl MoonRenderer {
         );
 
         // Регистрируем текстуру в состоянии чтобы добавить в очередь на снапшот
-        // и потом вернуть 
+        // и потом вернуть
         let id = self.state.add_texture(texture);
 
         // Запекание будет в конце кадра в функции render
+        let mut snapshot_region = ClippedSnapshot::new(
+            Vec2::new(x as f32, y as f32),
+            Vec2::new(w as f32, h as f32)
+        );
+
+        snapshot_region.clip_snapshot(Vec2::new(
+            self.context.config.width as f32,
+            self.context.config.height as f32,
+        ));
+
         self.snapshot_tasks.push(
             SnapshotTask {
                 target_id: id,
-                x, y, w, h
+                x: snapshot_region.position.x as u32,
+                y: snapshot_region.position.y as u32,
+                w: snapshot_region.size.x as u32,
+                h: snapshot_region.size.y as u32,
             }
         );
 
