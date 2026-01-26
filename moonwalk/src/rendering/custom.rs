@@ -39,7 +39,10 @@ pub struct MoonRenderPass {
 
 impl MoonRenderPass {
     pub fn new() -> Self {
-        Self { clear_color: None, clear_depth: false }
+        Self {
+            clear_color: None,
+            clear_depth: false
+        }
     }
 
     pub fn set_clear_color(mut self, color: Option<Vec4>) -> Self {
@@ -111,6 +114,11 @@ pub struct CustomPaint {
     pub width: u32,
     pub height: u32,
     active_encoder: Option<wgpu::CommandEncoder>,
+    current_render_pass: Option<MoonRenderPass>,
+    current_pipeline: Option<CustomPipeline>,
+    current_bind_group_0: Option<MoonBindGroup>,
+    current_vertex_buffer: Option<MoonBuffer>,
+    current_index_buffer: Option<MoonBuffer>,
 }
 
 impl CustomPaint {
@@ -125,6 +133,11 @@ impl CustomPaint {
             width,
             height,
             active_encoder: None,
+            current_render_pass: None,
+            current_pipeline: None,
+            current_bind_group_0: None,
+            current_vertex_buffer: None,
+            current_index_buffer: None,
         }
     }
 
@@ -189,6 +202,66 @@ impl CustomPaint {
         })
     }
 
+    pub fn set_render_pass(&mut self, config: MoonRenderPass) {
+        self.current_render_pass = Some(config);
+    }
+
+    pub fn set_pipeline(&mut self, pipeline: &CustomPipeline) {
+        self.current_pipeline = Some(pipeline.clone());
+    }
+
+    pub fn set_bind_group(&mut self, index: u32, bg: &MoonBindGroup) {
+        if index == 0 {
+            self.current_bind_group_0 = Some(bg.clone());
+        }
+    }
+
+    pub fn set_vertex_buffer(&mut self, slot: u32, buffer: &MoonBuffer) {
+        if slot == 0 {
+            self.current_vertex_buffer = Some(buffer.clone());
+        }
+    }
+
+    pub fn set_index_buffer(&mut self, buffer: &MoonBuffer) {
+        self.current_index_buffer = Some(buffer.clone());
+    }
+    
+    pub fn draw_indexed(&mut self, mw: &mut MoonWalk, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
+        let ctx = &mw.renderer.context;
+        
+        if self.active_encoder.is_none() {
+            self.start_frame(ctx);
+        }
+        
+        let config = self.current_render_pass.clone().unwrap_or_else(MoonRenderPass::new);
+        let pipeline = self.current_pipeline.clone();
+        let bind_group = self.current_bind_group_0.clone();
+        let vertex_buffer = self.current_vertex_buffer.clone();
+        let index_buffer = self.current_index_buffer.clone();
+        
+        if let Some(mut active_pass) = self.render_pass(config) {
+            if let Some(pipeline) = &pipeline {
+                active_pass.set_pipeline(pipeline);
+            }
+            
+            if let Some(bg) = &bind_group {
+                active_pass.set_bind_group(0, bg);
+            }
+            
+            if let Some(vb) = &vertex_buffer {
+                active_pass.set_vertex_buffer(0, vb, 0, None);
+            }
+            
+            if let Some(ib) = &index_buffer {
+                active_pass.set_index_buffer(ib, 0, None);
+            }
+            
+            active_pass.draw_indexed(indices, base_vertex, instances);
+        }
+        
+        self.submit_frame(ctx);
+    }
+
     pub fn snapshot(&mut self, mw: &mut MoonWalk) -> u32 {
         let renderer = &mut mw.renderer;
         let result = Texture::create_render_target(
@@ -202,6 +275,10 @@ impl CustomPaint {
     }
 
     pub fn update_snapshot(&mut self, mw: &mut MoonWalk, texture_id: u32) {
+        if self.active_encoder.is_some() {
+            self.submit_frame(&mw.renderer.context);
+        }
+        
         self.copy_to_texture(mw, texture_id);
     }
 
