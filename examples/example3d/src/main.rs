@@ -1,6 +1,3 @@
-// Часть проекта MoonWalk с открытым исходным кодом.
-// Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
-
 use moonwalk::{MoonWalk, ObjectId};
 use lunar3d::{LunarFactory, LunarScene, LightId, ShadowQuality, ObjectId as LunarObjectId};
 use moonwalk_bootstrap::{Application, Runner, WindowSettings};

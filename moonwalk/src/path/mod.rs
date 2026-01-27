@@ -70,6 +70,7 @@ pub struct VectorSystem {
 impl VectorSystem {
     pub fn new(ctx: &Context) -> Result<Self, MoonWalkError> {
         let shader_source = include_str!("path.wgsl");
+        let actual_format = ctx.config.format;
         
         let pipeline = MoonPipeline::new(shader_source)
             .vertex_shader("vs_main")
@@ -95,7 +96,7 @@ impl VectorSystem {
             .depth_test(false)
             .depth_write(false)
             .label("vector_path")
-            .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[])?;
+            .build(ctx, actual_format, &[])?;
         
         Ok(Self {
             pipeline: pipeline.pipeline.raw,

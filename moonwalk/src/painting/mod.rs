@@ -52,6 +52,7 @@ impl PaintingSystem {
         let mut pipelines = HashMap::new();
 
         let create_pipe = |mode: BlendMode| -> Result<wgpu::RenderPipeline, MoonWalkError> {
+            let actual_format = ctx.config.format;
             let p = MoonPipeline::new(shader_source)
                 .vertex_shader("vs_main")
                 .fragment_shader("fs_main")
@@ -66,7 +67,7 @@ impl PaintingSystem {
                 )
                 .blend(mode)
                 .label(&format!("brush_pipeline_{:?}", mode))
-                .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[&uniform_layout, &texture_layout])?;
+                .build(ctx, actual_format, &[&uniform_layout, &texture_layout])?;
             Ok(p.pipeline.raw)
         };
 

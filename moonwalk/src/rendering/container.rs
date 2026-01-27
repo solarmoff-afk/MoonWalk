@@ -31,7 +31,7 @@ impl RenderContainer {
             ctx, 
             width, 
             height, 
-            wgpu::TextureFormat::Rgba8UnormSrgb,
+            ctx.config.format,
             "Container Target"
         );
 

@@ -57,11 +57,14 @@ impl Context {
             .expect("Failed to create device");
 
         let caps = surface.get_capabilities(&adapter);
+        
+        // [FIX]
+        // Bag report #1: Fix context for windows
         let format = caps
-            .formats
-            .iter()
-            .find(|f| f.is_srgb())
+            .formats.iter()
             .copied()
+            .find(|f| *f == wgpu::TextureFormat::Bgra8UnormSrgb) // Ищем BGRA явно
+            .or_else(|| caps.formats.iter().copied().find(|f| f.is_srgb())) // Если нет, берем любой sRGB
             .unwrap_or(caps.formats[0]);
 
         let config = wgpu::SurfaceConfiguration {
@@ -115,11 +118,14 @@ impl Context {
         };
 
         let caps = new_surface.get_capabilities(&self.adapter);
+        
+        // [FIX]
+        // Bag report #1: Fix context for windows
         let format = caps
-            .formats
-            .iter()
-            .find(|f| f.is_srgb())
+            .formats.iter()
             .copied()
+            .find(|f| *f == wgpu::TextureFormat::Bgra8UnormSrgb)
+            .or_else(|| caps.formats.iter().copied().find(|f| f.is_srgb()))
             .unwrap_or(caps.formats[0]);
 
         self.config.width = width;

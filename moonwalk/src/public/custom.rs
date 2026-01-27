@@ -96,11 +96,13 @@ impl MoonWalk {
         pipeline_desc: crate::r#abstract::MoonPipeline, 
         layouts: &[&MoonBindGroupLayout]
     ) -> Result<CustomPipeline, MoonWalkError> {
+        let actual_format = self.renderer.context.config.format;
+        
         let raw_layouts: Vec<&wgpu::BindGroupLayout> = layouts.iter().map(|l| &l.raw).collect();
         
         let result = pipeline_desc.build(
             &self.renderer.context, 
-            wgpu::TextureFormat::Rgba8UnormSrgb,
+            actual_format,
             &raw_layouts
         )?;
         

@@ -72,8 +72,10 @@ impl ShaderStore {
         &mut self, 
         ctx: &Context, 
         src: &str, 
-        format: wgpu::TextureFormat
+        _format: wgpu::TextureFormat
     ) -> Result<ShaderId, MoonWalkError> {
+        let actual_format = ctx.config.format;
+
         let pipeline = MoonPipeline::new(src)
             .add_vertex_layout(
                 VertexLayout::new()
@@ -121,7 +123,7 @@ impl ShaderStore {
             .depth_write(true)
             .fallback_strategy(FallbackStrategy::None)
             .label("custom_shader")
-            .build(ctx, format, &[&self.proj_layout])?;
+            .build(ctx, actual_format, &[&self.proj_layout])?;
         
         let id = ShaderId(self.pipelines.len() as u32 + 100);
         self.pipelines.insert(id, pipeline.pipeline);
