@@ -124,7 +124,12 @@ pub struct CustomPaint {
 impl CustomPaint {
     pub fn new(ctx: &Context, width: u32, height: u32, label: &str) -> Self {
         let depth_label = format!("{} (Depth)", label);
-        let target = Texture::create_render_target(ctx, width, height, wgpu::TextureFormat::Rgba8UnormSrgb);
+        let target = Texture::create_render_target(
+            ctx,
+            width,
+            height,
+            ctx.config.format,
+        );
         let depth = Texture::create_depth_texture(ctx, width, height, &depth_label);
 
         Self {
