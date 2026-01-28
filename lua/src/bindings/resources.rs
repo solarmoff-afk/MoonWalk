@@ -11,6 +11,11 @@ pub fn register<'lua, M: UserDataMethods<'lua, MoonWalkLuaWrapper>>(methods: &mu
             .map_err(|e| Error::RuntimeError(e.to_string()))
     });
 
+    methods.add_method_mut("remove_texture", |_, this, tex_id: u32| {
+        this.get_mut().remove_texture(tex_id);
+        Ok(())
+    });
+
     methods.add_method_mut("load_font", |_, this, (path, name): (String, String)| {
         let font_asset = this.get_mut().load_font(&path, &name)
             .map_err(|e| Error::RuntimeError(e.to_string()))?;
