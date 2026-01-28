@@ -81,12 +81,9 @@ impl UberBatch {
                     store.sizes[idx].x,
                     store.sizes[idx].y,
                 ],
-
                 radii: store.rect_radii_cache[idx],
-
                 uv: store.uvs_cache[idx],
-
-                type_id: tex_id, 
+                type_id: tex_id,
 
                 // Упаковываем z индекс и вращение
                 extra: [
@@ -95,11 +92,8 @@ impl UberBatch {
                 ],
 
                 color: store.colors_cache[idx],
-
                 color2: store.colors2_cache[idx],
-
                 gradient_data: store.gradient_data_cache[idx],
-
                 effect_data: store.effect_data_cache[idx],
             });
         }
@@ -109,6 +103,11 @@ impl UberBatch {
         if let Some(atlas_id) = text_engine.atlas_id {
             for &global_id in store.text_ids.iter() {
                 let idx = global_id.index();
+                
+                // Опять таки, SoA архитектура не позволяет нормально удалять объекты,
+                // поэтому для оптимизации (время на аллокации) и всего такого просто
+                // помечаем объекты как живой/не живой и другой объект занимает его
+                // место
                 if !store.alive[idx] {
                     continue;
                 }
@@ -147,7 +146,11 @@ impl UberBatch {
                         let (u, v, uw, vh) = uv_rect;
                         let uv_arr = [u, v, uw, vh];
 
-                        // [MAYBE]
+                        // Текст работает по принципу использования прямоугольников
+                        // для глифов. В рендеринге нет ни одного объекта кроме
+                        // прямоугольника, это некая фича которая позволяет оптимизировать
+                        // это всё. Просто используем uv координаты и атлас в качестве
+                        // текстуры
                         self.batch.push(ObjectInstance {
                             pos_size: [x, y, w, h],
                             uv: ObjectInstance::pack_uv(uv_arr),
@@ -164,6 +167,7 @@ impl UberBatch {
             }
         }
         
+        // Это сортировка по z идексу если что
         self.batch.sort();
 
         if !self.batch.cpu_buffer.is_empty() {
@@ -224,10 +228,29 @@ impl UberBatch {
         pass.set_vertex_buffer(1, self.instance_vbo.as_ref().unwrap());
         pass.set_index_buffer(&self.static_ibo);
 
+        // [SHITCODE]
+        // [REFACTORME]
+        // Этот код действительно полное дерьмо, но его страшно рефакторить
+        // код содержит ключевую логику 2д отрисовки, поэтому лучше
+        // применить принцип работает - не трогай, но лучше в будущем провести
+        // рефакторинг. Пока что я просто добавлю большое количество комментариев
+        // чтобы кто-то понял что здесь вообще происходит
+
+        // HACK: White_texture это текстура размером 1 на 1 пиксель которая создаётся
+        // в state.rs и этот 1 пиксель полностью белого цвета. Это нужно для того
+        // что сэкономить время рендеринга из-за чего приходится жертвовать чистотой
+        // кода
+
         for cmd in &self.commands {
+            // Хардкод нуля как отсуствия текстуры у объекта
             if cmd.texture_id == 0 {
                 pass.set_bind_group(1, &white_texture.bind_group);
             } else if cmd.texture_id == crate::textware::ATLAS_ID {
+                // Хардкод crate::textware::ATLAS_ID для текста. Дело в том
+                // что текстовый движок/обёртка над cosmic-text/swash создаёт
+                // ATLAS_ID как константу куда размещает текстуру атласа шрифтов,
+                // на момент написания комментария это f32::max
+                
                 if let Some(bg) = atlas_bind_group {
                     pass.set_bind_group(1, bg);
                 } else {
@@ -281,6 +304,7 @@ impl UberBatch {
         pass.set_vertex_buffer(1, &self.blit_vbo);
         pass.set_index_buffer(&self.static_ibo);
         pass.set_bind_group(1, &texture.bind_group);
+        
         pass.draw_indexed_instanced_extended(
             6,
             1,
