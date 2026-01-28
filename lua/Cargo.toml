@@ -1,0 +1,12 @@
+[package]
+name = "moonwalk_lua"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mlua = { version = "0.9", features = ["luajit", "vendored", "macros"] }
+glam = "0.24"
+bytemuck = "1.16"
+moonwalk = { path = "../moonwalk" }
+moonwalk_bootstrap = { path = "../bootstrap" }
+lunar3d = { path = "../lunar3d" }

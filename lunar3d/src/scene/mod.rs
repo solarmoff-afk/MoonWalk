@@ -224,4 +224,10 @@ impl LunarScene {
             self.lights[id.0].intensity = intensity; 
         } 
     }
+
+    pub fn resize(&mut self, mw: &mut MoonWalk, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+        self.renderer.resize(mw, width, height); 
+    }
 }

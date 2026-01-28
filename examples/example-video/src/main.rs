@@ -38,7 +38,7 @@ impl VideoApp {
 impl Application for VideoApp {
     fn on_start(&mut self, mw: &mut MoonWalk, _viewport: Vec2) { 
         match mw.new_video_recorder(
-            VIDEO_WIDTH, VIDEO_HEIGHT, FPS, "example-video/output.mp4", VideoFormat::Mp4,
+            VIDEO_WIDTH, VIDEO_HEIGHT, FPS, "examples/example-video/output.mp4", VideoFormat::Mp4,
             VideoPreset::Balanced,
         ) {
             Ok(rec) => self.recorder = Some(rec),

@@ -261,4 +261,16 @@ impl SceneRenderer {
         self.paint.update_snapshot(mw, self.snapshot_id);
         self.snapshot_id
     }
+
+    pub fn resize(&mut self, mw: &mut MoonWalk, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            return;
+        }
+
+        self.width = width;
+        self.height = height;
+
+        self.paint = mw.new_custom_paint(width, height, "LunarScene");
+        self.snapshot_id = self.paint.snapshot(mw);
+    }
 }
