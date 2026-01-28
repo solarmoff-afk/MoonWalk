@@ -160,7 +160,7 @@ impl RenderState {
         Ok(id)
     }
 
-    /// [WAIT DOC]
+    /// Этот метод добавляет текстуру в HashMap в состоянии
     pub fn add_texture(&mut self, texture: Texture) -> u32 {
         let id = self.next_texture_id;
         
@@ -168,6 +168,14 @@ impl RenderState {
         self.next_texture_id += 1;
         
         id
+    }
+
+    /// Удаляет текстуру из HashMap. При удалении ключа текстура автоматически
+    /// выходит из области видимости и wgpu очищает VRAM
+    pub fn remove_texture(&mut self, texture_id: u32) {
+        if self.textures.get(&texture_id).is_some() {
+            self.textures.remove(&texture_id);
+        }
     }
 
     /// [WAIT DOC]

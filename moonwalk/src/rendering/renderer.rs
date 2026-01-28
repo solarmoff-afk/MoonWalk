@@ -367,6 +367,11 @@ impl MoonRenderer {
     }
 
     #[inline]
+    pub fn remove_texture(&mut self, texture_id: u32) {
+        self.state.remove_texture(texture_id)
+    }
+
+    #[inline]
     pub fn config_gradient_data(&mut self, id: ObjectId, gradient_data: [f32; 4]) {
         self.state.store.config_gradient_data(id, gradient_data);
     }
