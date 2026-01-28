@@ -270,7 +270,13 @@ impl SceneRenderer {
         self.width = width;
         self.height = height;
 
+        // Для того чтобы обновить размер поверхности нужно удалить старую
+        // текстуру снапшота и создать новый custom paint, сделать снапшот
+        // и перенастроить рендер сцены на новую текстуру
+
         self.paint = mw.new_custom_paint(width, height, "LunarScene");
+        
+        mw.remove_texture(self.snapshot_id);
         self.snapshot_id = self.paint.snapshot(mw);
     }
 }
