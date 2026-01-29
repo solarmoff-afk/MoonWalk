@@ -354,6 +354,107 @@ impl BackendTexture {
         }
     }
 
+    /// Метод похожий на download, но для получения конкретного пикселя, а не
+    /// всей текстуры
+    pub fn read_pixel(
+        &self,
+        context: &mut BackendContext,
+        x: u32,
+        y: u32
+    ) -> Result<[u8; 4], MoonBackendError> {
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                // Проверка границ для безопасности
+                if x >= self.width || y >= self.height {
+                    return Err(MoonBackendError::IOError("Pixel coordinates out of bounds".to_string()));
+                }
+
+                // [HACK]
+                // Wgpu требует чтобы bytes_per_row был кратен 256 даже если нужно всего 4 байта
+                // нужно выделить и настроить копирование под 256
+                let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as u64;
+                let buffer_size = align; 
+
+                let buffer = raw_context.device.create_buffer(
+                    &wgpu::BufferDescriptor {
+                        label: Some("Pixel read buffer"),
+                        size: buffer_size,
+                        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                        mapped_at_creation: false,
+                    }
+                );
+
+                let mut encoder = raw_context.device.create_command_encoder(
+                    &wgpu::CommandEncoderDescriptor {
+                        label: Some("Pixel read encoder"),
+                    }
+                );
+
+                match &self.raw {
+                    Some(raw_texture) => {
+                        encoder.copy_texture_to_buffer(
+                            wgpu::TexelCopyTextureInfo {
+                                texture: &raw_texture.texture,
+                                mip_level: 0,
+                                origin: wgpu::Origin3d {
+                                    x,
+                                    y,
+                                    z: 0
+                                },
+                                aspect: wgpu::TextureAspect::All,
+                            },
+
+                            wgpu::TexelCopyBufferInfo {
+                                buffer: &buffer,
+                                layout: wgpu::TexelCopyBufferLayout {
+                                    offset: 0,
+                                    bytes_per_row: Some(256),
+                                    rows_per_image: None,
+                                },
+                            },
+
+                            self.pack_size(self.width, self.height),
+                        );
+                    },
+
+                    None => {
+                        return Err(MoonBackendError::IOError("Texture not created".to_string()));
+                    }
+                };
+
+                raw_context.queue.submit(Some(encoder.finish()));
+
+                // Как обычно ожидание пока все данные перейдут в cpu
+                // из gpu по pcie шине
+                let slice = buffer.slice(..);
+                let (tx, rx) = std::sync::mpsc::channel();
+                
+                slice.map_async(wgpu::MapMode::Read, move |res| {
+                    tx.send(res).unwrap();
+                });
+
+                // [SHIT]
+                // Дубляж кода
+
+                raw_context.device.poll(wgpu::Maintain::Wait);
+                
+                rx.recv()
+                    .map_err(|_| MoonBackendError::IOError("Failed to map pixel buffer".to_string()))?
+                    .map_err(|e| MoonBackendError::IOError(e.to_string()))?;
+
+                let data = slice.get_mapped_range();
+                let pixel = [data[0], data[1], data[2], data[3]];
+                
+                drop(data);
+                buffer.unmap();
+
+                Ok(pixel)
+            },
+
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+
     /// Хард код usage в метод, так как в константу нельзя :(
     fn get_usage(&self) -> wgpu::TextureUsages {
         wgpu::TextureUsages::TEXTURE_BINDING 
