@@ -114,16 +114,10 @@ impl BackendTexture {
         match &mut context.get_raw() {
             Some(raw_context) => {
                 // Размер текстуры
-                let size = wgpu::Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                };
+                let size = self.pack_size(width, height);
 
-                let texture_format = match self.config.get_format() {
-                    BackendTextureFormat::Rgba8UnormSrgb => wgpu::TextureFormat::Rgba8UnormSrgb,
-                    BackendTextureFormat::Bgra8UnormSrgb => wgpu::TextureFormat::Bgra8UnormSrgb,
-                };
+                let format = self.config.get_format();
+                let texture_format = self.map_format_to_wgpu(format);
 
                 let texture = raw_context.device.create_texture(&wgpu::TextureDescriptor {
                     // То самое название из конфига
@@ -192,6 +186,55 @@ impl BackendTexture {
         }
     }
 
+    /// Метод для создания рендер таргета
+    pub fn create_render_target(
+        &mut self,
+        context: &mut BackendContext,
+        width: u32,
+        height: u32,
+    ) -> Result<(), MoonBackendError> {
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                let size = self.pack_size(width, height);
+
+                let format = self.config.get_format();
+                let texture_format = self.map_format_to_wgpu(format);
+                
+                let texture = raw_context.device.create_texture(
+                    &wgpu::TextureDescriptor {
+                        label: Some(&self.config.get_label()),
+                        size,
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: texture_format,
+                        usage: self.get_usage(),
+                        view_formats: &[],
+                    }
+                );
+
+                let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+                
+                let sampler_descriptor = self.get_sampler_descriptor();
+                let sampler = raw_context.device.create_sampler(&sampler_descriptor);
+                
+                let bind_group_layout = self.create_bind_group_layout(&raw_context);
+                let bind_group = self.create_bind_group(
+                    &raw_context, &view, &bind_group_layout, &sampler,
+                );
+
+                self.width = width;
+                self.height = height;
+                self.raw = Some(RawTexture::new(texture, view, sampler, bind_group));
+
+                Ok(())
+            }
+
+            None => Err(MoonBackendError::ContextNotFoundError)
+        }
+    }
+
+    /// Хард код usage в метод, так как в константу нельзя :(
     fn get_usage(&self) -> wgpu::TextureUsages {
         wgpu::TextureUsages::TEXTURE_BINDING 
             | wgpu::TextureUsages::RENDER_ATTACHMENT 
@@ -199,6 +242,7 @@ impl BackendTexture {
             | wgpu::TextureUsages::COPY_DST
     }
 
+    /// Хардкод сэмлер дескриптора через метод
     fn get_sampler_descriptor(&self) -> wgpu::SamplerDescriptor<'_> {
         // [MAYBE]
         // [HARDCODE]
@@ -215,6 +259,8 @@ impl BackendTexture {
         }
     }
 
+    /// Этот метод нужен для создания лайаута бинд группы для сырой текстуры wgpu
+    /// Он создан для решения проблемы дубляжа кода между частями модуля
     fn create_bind_group_layout(&self, raw_context: &RawContext) -> wgpu::BindGroupLayout {
         raw_context.device.create_bind_group_layout(
             &wgpu::BindGroupLayoutDescriptor {
@@ -249,6 +295,7 @@ impl BackendTexture {
         )
     }
 
+    /// Этот метод нужен для создания бинд группы для сырой текстуры wgpu
     fn create_bind_group(
         &self,
         raw_context: &RawContext,
@@ -276,5 +323,23 @@ impl BackendTexture {
                 label: Some("texture_bind_group"),
             }
         )
+    }
+
+    /// Этот метод нужен чтобы конвертировать абстрактное перечисление BackendTextureFormat
+    /// в формат wgpu
+    fn map_format_to_wgpu(&self, format: BackendTextureFormat) -> wgpu::TextureFormat {
+        match format {
+            BackendTextureFormat::Rgba8UnormSrgb => wgpu::TextureFormat::Rgba8UnormSrgb,
+            BackendTextureFormat::Bgra8UnormSrgb => wgpu::TextureFormat::Bgra8UnormSrgb,
+        }
+    }
+
+    // Упаковка разрешения текстуры в wgpu::Extent3d
+    fn pack_size(&self, width: u32, height: u32) -> wgpu::Extent3d {
+        wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        }
     }
 }
