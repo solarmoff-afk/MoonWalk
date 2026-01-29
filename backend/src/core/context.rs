@@ -8,6 +8,20 @@ use crate::error::MoonBackendError;
 
 const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
+// Это перечисление нужно для абстрации над голым wgpu
+pub enum BackendPresentMode {
+    // First-In, First-Out, вертикальная синхронизация (vsync). Gpu ждёт
+    // следующего обновления дисплея прежде чем показать новый кадр
+    // обычное ограничение это 60 fps (60 гц монитора), если на мониторе
+    // 120 гц то будет ограничение в 120 fps и так далее, зависит от герцовки
+    // монитора
+    Fifo = 1,
+
+    // Автоматический без вертикальной синхронизации. Gpu показывает
+    // кадры как можно быстрее без ожидания обновления
+    AutoNoVsync = 2,
+}
+
 // Структура публичная на будущее, например, если потребуется get_raw метод
 pub struct RawContext {
     // Видеокарта
@@ -179,7 +193,7 @@ impl BackendContext {
         width: u32,
         height: u32,
     ) -> Result<(), MoonBackendError> {
-        match &mut self.context {
+        match &mut self.context.as_mut() {
             Some(context) => {
                 let target = unsafe {
                     SurfaceTargetUnsafe::from_window(window).unwrap()
@@ -228,7 +242,7 @@ impl BackendContext {
         // другие публичнве методы с проверкой на то, что context не None
         // поэтому match тут нужен просто чтобы компилятор не ругался
         
-        match &mut self.context {
+        match &mut self.context.as_mut() {
             Some(context) => {
                 if let Some(surface) = &context.surface {
                     surface.configure(&context.device, &context.config);
@@ -238,18 +252,20 @@ impl BackendContext {
         }
     }
 
-    // pub fn create_encoder(&self) -> wgpu::CommandEncoder {
-    //     self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-    //         label: Some("Render Encoder"),
-    //     })
-    // }
+    pub fn set_present_mode(&mut self, mode: BackendPresentMode) -> Result<(), MoonBackendError> {
+        match &mut self.context.as_mut() {
+            Some(context) => {
+                let mode = match mode {
+                    BackendPresentMode::Fifo => wgpu::PresentMode::Fifo,
+                    BackendPresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+                };
 
-    // pub fn submit(&self, encoder: wgpu::CommandEncoder) {
-    //     self.queue.submit(std::iter::once(encoder.finish()));
-    // }
+                context.config.present_mode = mode;
+                self.configure_surface();
 
-    // pub fn set_present_mode(&mut self, mode: wgpu::PresentMode) {
-    //     self.config.present_mode = mode;
-    //     self.configure_surface();
-    // }
+                Ok(())
+            },
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
 }
