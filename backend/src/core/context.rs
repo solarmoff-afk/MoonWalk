@@ -219,7 +219,7 @@ impl BackendContext {
         }
     }
 
-    pub unsafe fn get_raw(&mut self) -> Option<&RawContext> {
+    pub fn get_raw(&mut self) -> Option<&RawContext> {
         self.context.as_ref()
     }
 
