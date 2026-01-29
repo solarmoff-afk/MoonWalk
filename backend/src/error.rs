@@ -10,4 +10,7 @@ pub enum MoonBackendError {
 
     #[error("Command encoder submit failed")]
     EncoderSubmitError,
+
+    #[error("Format is not supported for auto-upload")]
+    TextureFormatNotSupportedError,
 }
