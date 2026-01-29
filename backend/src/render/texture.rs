@@ -1,7 +1,7 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
-use crate::core::context::BackendContext;
+use crate::core::context::{BackendContext, RawContext};
 use crate::error::MoonBackendError;
 
 // Абстрация над wgpu, добавить другие типы по необходимости, но этих двух должно
@@ -171,58 +171,10 @@ impl BackendTexture {
                 
                 let sampler_descriptor = self.get_sampler_descriptor();
                 let sampler = raw_context.device.create_sampler(&sampler_descriptor);
-
-                let bind_group_layout = raw_context.device.create_bind_group_layout(
-                    &wgpu::BindGroupLayoutDescriptor {
-                        entries: &[
-                            wgpu::BindGroupLayoutEntry {
-                                binding: 0,
-                                visibility: wgpu::ShaderStages::FRAGMENT,
-                                
-                                ty: wgpu::BindingType::Texture {
-                                    multisampled: false,
-                                    view_dimension: wgpu::TextureViewDimension::D2,
-                                    sample_type: wgpu::TextureSampleType::Float {
-                                        filterable: true
-                                    },
-                                },
-
-                                count: None,
-                            },
-
-                            wgpu::BindGroupLayoutEntry {
-                                binding: 1,
-                                visibility: wgpu::ShaderStages::FRAGMENT,
-                                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                                count: None,
-                            },
-                        ],
-
-                        // [HARDCODE]
-                        // не очень круто для отладки
-                        label: Some("texture_bind_group_layout"),
-                    }
-                );
-
-                let bind_group = raw_context.device.create_bind_group(
-                    &wgpu::BindGroupDescriptor {
-                        layout: &bind_group_layout,
-                        entries: &[
-                            wgpu::BindGroupEntry {
-                                binding: 0,
-                                resource: wgpu::BindingResource::TextureView(&view),
-                            },
-
-                            wgpu::BindGroupEntry {
-                                binding: 1,
-                                resource: wgpu::BindingResource::Sampler(&sampler),
-                            },
-                        ],
-
-                        // [HARDCODE]
-                        // не очень круто для отладки
-                        label: Some("texture_bind_group"),
-                    }
+                
+                let bind_group_layout = self.create_bind_group_layout(&raw_context);
+                let bind_group = self.create_bind_group(
+                    &raw_context, &view, &bind_group_layout, &sampler,
                 );
 
                 // Заполнение параметров, Result здесь возвращается просто чтобы
@@ -261,5 +213,68 @@ impl BackendTexture {
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
         }
-    } 
+    }
+
+    fn create_bind_group_layout(&self, raw_context: &RawContext) -> wgpu::BindGroupLayout {
+        raw_context.device.create_bind_group_layout(
+            &wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float {
+                                filterable: true
+                            },
+                        },
+
+                        count: None,
+                    },
+
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+
+                // [HARDCODE]
+                // не очень круто для отладки
+                label: Some("texture_bind_group_layout"),
+            }
+        )
+    }
+
+    fn create_bind_group(
+        &self,
+        raw_context: &RawContext,
+        view: &wgpu::TextureView,
+        layout: &wgpu::BindGroupLayout,
+        sampler: &wgpu::Sampler,
+    ) -> wgpu::BindGroup {
+        raw_context.device.create_bind_group(
+            &wgpu::BindGroupDescriptor {
+                layout: layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(view),
+                    },
+
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(sampler),
+                    },
+                ],
+
+                // [HARDCODE]
+                // не очень круто для отладки
+                label: Some("texture_bind_group"),
+            }
+        )
+    }
 }
