@@ -113,12 +113,6 @@ impl BackendTexture {
     ) -> Result<(), MoonBackendError> {
         match &mut context.get_raw() {
             Some(raw_context) => {
-                // Стандартно, а также константы для копирования
-                let usages: wgpu::TextureUsages = wgpu::TextureUsages::TEXTURE_BINDING 
-                    | wgpu::TextureUsages::RENDER_ATTACHMENT 
-                    | wgpu::TextureUsages::COPY_SRC
-                    | wgpu::TextureUsages::COPY_DST;
-
                 // Размер текстуры
                 let size = wgpu::Extent3d {
                     width,
@@ -147,9 +141,7 @@ impl BackendTexture {
                     // Формат
                     format: texture_format,
                     
-                    // Те самые константы
-                    usage: usages,
-                    
+                    usage: self.get_usage(),
                     view_formats: &[],
                 });
 
@@ -177,19 +169,8 @@ impl BackendTexture {
                     &wgpu::TextureViewDescriptor::default()
                 );
                 
-                // [MAYBE]
-                // [HARDCODE]
-                // Настройки сэмплера тоже можно добавить в конфиг, потом
-                // этим займусь, пока сделаю пометку
-                let sampler = raw_context.device.create_sampler(&wgpu::SamplerDescriptor {
-                    address_mode_u: wgpu::AddressMode::ClampToEdge,
-                    address_mode_v: wgpu::AddressMode::ClampToEdge,
-                    address_mode_w: wgpu::AddressMode::ClampToEdge,
-                    mag_filter: wgpu::FilterMode::Linear,
-                    min_filter: wgpu::FilterMode::Linear,
-                    mipmap_filter: wgpu::FilterMode::Nearest,
-                    ..Default::default()
-                });
+                let sampler_descriptor = self.get_sampler_descriptor();
+                let sampler = raw_context.device.create_sampler(&sampler_descriptor);
 
                 let bind_group_layout = raw_context.device.create_bind_group_layout(
                     &wgpu::BindGroupLayoutDescriptor {
@@ -258,4 +239,27 @@ impl BackendTexture {
             }
         }
     }
+
+    fn get_usage(&self) -> wgpu::TextureUsages {
+        wgpu::TextureUsages::TEXTURE_BINDING 
+            | wgpu::TextureUsages::RENDER_ATTACHMENT 
+            | wgpu::TextureUsages::COPY_SRC
+            | wgpu::TextureUsages::COPY_DST
+    }
+
+    fn get_sampler_descriptor(&self) -> wgpu::SamplerDescriptor<'_> {
+        // [MAYBE]
+        // [HARDCODE]
+        // Настройки сэмплера тоже можно добавить в конфиг, потом
+        // этим займусь, пока сделаю пометку
+        wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        }
+    } 
 }
