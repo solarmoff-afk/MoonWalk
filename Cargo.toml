@@ -12,6 +12,7 @@ members = [
     "widget",
     "lunar3d",
     "lua",
+    "backend",
 ]
 
 [profile.release]
@@ -28,3 +29,4 @@ moonwalk = { path = "./moonwalk" }
 lunar3d = { path = "./lunar3d" }
 moonwalk_bootstrap = { path = "./bootstrap" }
 moonwalk_lua = { path = "./lua" }
+moonwalk_backend = { path = "./backend" }
