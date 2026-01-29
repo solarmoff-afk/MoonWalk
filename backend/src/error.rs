@@ -7,4 +7,7 @@ use thiserror::Error;
 pub enum MoonBackendError {
     #[error("Context not found, please create context")]
     ContextNotFoundError,
+
+    #[error("Command encoder submit failed")]
+    EncoderSubmitError,
 }

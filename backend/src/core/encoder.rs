@@ -20,10 +20,22 @@ impl RawEncoder {
             label: Some(label),
         }));
     }
+
+    pub fn finish(&mut self) -> Result<wgpu::CommandBuffer, MoonBackendError> {
+        match self.encoder.take() {
+            Some(raw_encoder) => {
+                Ok(raw_encoder.finish())
+            },
+
+            None => {
+                Err(MoonBackendError::EncoderSubmitError)
+            }
+        }
+    }
 }
 
 pub struct BackendEncoder {
-    encoder: Option<RawEncoder>,
+    encoder: RawEncoder,
 }
 
 impl BackendEncoder {
@@ -36,14 +48,34 @@ impl BackendEncoder {
             // в наш Backend encoder и тут возвращается Ok, а еслп сырой контекст в
             // BackendContext это None то значит контекста нет и нужно вернуть
             // ContextNotFoundError
-            
+
             Some(raw_context) => {
                 let mut encoder = RawEncoder::new();
                 encoder.create_encoder(&raw_context.device, label);
 
                 Ok(Self {
-                    encoder: Some(encoder),
+                    encoder,
                 })
+            },
+            None => {
+                Err(MoonBackendError::ContextNotFoundError)
+            }
+        }
+    }
+
+    /// Этот метод нужен для отправки кадра рендера перед презентацией на экране.
+    /// Принимает контекст (BackendContext, а не RawContext) чтобы извлечь из
+    /// RawContext очередь, взять RawEncoder и провести отправку. Напрямую
+    /// передавать queue из RawContext не нужно для простоты использования api
+    /// бэкенда
+    pub fn submit_frame(&mut self, context: &mut BackendContext) -> Result<(), MoonBackendError> {
+        match &mut context.get_raw().as_mut() {
+            Some(raw_context) => {
+                raw_context.queue.submit(
+                    std::iter::once(self.encoder.finish().unwrap())
+                );
+
+                Ok(())
             },
             None => Err(MoonBackendError::ContextNotFoundError),
         }
