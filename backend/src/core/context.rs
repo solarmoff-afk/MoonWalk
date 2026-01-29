@@ -8,6 +8,7 @@ use crate::error::MoonBackendError;
 
 const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
+// Структура публичная на будущее, например, если потребуется get_raw метод
 pub struct RawContext {
     // Видеокарта
     pub device: wgpu::Device,
@@ -188,13 +189,13 @@ impl BackendContext {
                     context.instance.create_surface_unsafe(target)
                 }.expect("Failed to recreate surface");
 
+                // HACK: Это может вызвать UB, нужен рефакторинг
                 let new_surface = unsafe {
                     std::mem::transmute::<wgpu::Surface<'_>, wgpu::Surface<'static>>(new_surface)
                 };
 
                 let caps = new_surface.get_capabilities(&context.adapter);
                 
-                // [FIX]
                 // Bag report #1: Fix context for windows
                 let format = caps
                     .formats.iter()
@@ -216,6 +217,10 @@ impl BackendContext {
             
             None => Err(MoonBackendError::ContextNotFoundError),
         }
+    }
+
+    pub unsafe fn get_raw(&mut self) -> Option<&RawContext> {
+        self.context.as_ref()
     }
 
     fn configure_surface(&mut self) {
