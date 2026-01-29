@@ -250,6 +250,110 @@ impl BackendTexture {
         }
     }
 
+    /// Этот метод скачивает текстуру из gpu на cpu и возвращает image::RgbaImage
+    /// крейт image был перенесён в moonwalk_backend из основного moonwalk чтобы
+    /// разгрузить центральный крейт. Эта операция очень медленная, так как
+    /// заставляет cpu и gpu ждать друг друга пока данные идут по pci шине,
+    /// тут можно было бы сделать асинх, но обычно эта функция используется
+    /// для сохранения файла на диск поэтому тут это избыточно, но я оставляю
+    /// не оставляю maybe потому-что меня тут всё устраивает
+    pub fn download(
+        &self,
+        context: &mut BackendContext,
+    ) -> Result<image::RgbaImage, MoonBackendError> {
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                // [HACK]
+                // wgpu требует выравнивания байтов в строке по 256, этого
+                // никак не избежать. Остаётся только плакать
+                
+                let bytes_per_pixel = 4;
+                let unpadded_bytes_per_row = self.width * bytes_per_pixel;
+                let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+                let padded_bytes_per_row = (unpadded_bytes_per_row + align - 1) / align * align;
+
+                let buffer_size = (padded_bytes_per_row * self.height) as wgpu::BufferAddress;
+
+                let buffer = raw_context.device.create_buffer(
+                    &wgpu::BufferDescriptor {
+                        label: Some("Download buffer"),
+                        size: buffer_size,
+                        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                        mapped_at_creation: false,
+                    }
+                );
+
+                // Можно использовать BackendEncoder, но в этом контексте проще
+                // создать из wgpu
+                let mut encoder = raw_context.device.create_command_encoder(
+                    &wgpu::CommandEncoderDescriptor {
+                        label: Some("Download encoder"),
+                    }
+                );
+
+                match &self.raw {
+                    Some(raw_texture) => {
+                        encoder.copy_texture_to_buffer(
+                            wgpu::TexelCopyTextureInfo {
+                                texture: &raw_texture.texture,
+                                mip_level: 0,
+                                origin: wgpu::Origin3d::ZERO,
+                                aspect: wgpu::TextureAspect::All,
+                            },
+
+                            wgpu::TexelCopyBufferInfo {
+                                buffer: &buffer,
+                                layout: wgpu::TexelCopyBufferLayout {
+                                    offset: 0,
+                                    bytes_per_row: Some(padded_bytes_per_row),
+                                    rows_per_image: None,
+                                },
+                            },
+
+                            self.pack_size(self.width, self.height),
+                        );
+                    },
+
+                    None => {
+                        return Err(MoonBackendError::IOError("Texture not created".to_string()));
+                    }
+                };
+
+                raw_context.queue.submit(Some(encoder.finish()));
+
+                let slice = buffer.slice(..);
+                let (tx, rx) = std::sync::mpsc::channel();
+                
+                slice.map_async(wgpu::MapMode::Read, move |res| {
+                    tx.send(res).unwrap();
+                });
+
+                // Блокировка потока пока все данные не закончат свой путь по
+                // шине из gpu в cpu
+                raw_context.device.poll(wgpu::Maintain::Wait);
+                
+                rx.recv()
+                    .map_err(|_| MoonBackendError::IOError("Failed to map buffer".to_string()))?
+                    .map_err(|e| MoonBackendError::IOError(e.to_string()))?;
+
+                let data = slice.get_mapped_range();
+                let mut pixels: Vec<u8> = Vec::with_capacity((self.width * self.height * 4) as usize);
+
+                for chunk in data.chunks(padded_bytes_per_row as usize) {
+                    pixels.extend_from_slice(&chunk[..unpadded_bytes_per_row as usize]);
+                }
+
+                drop(data);
+                buffer.unmap();
+
+                image::RgbaImage::from_raw(self.width, self.height, pixels)
+                    .ok_or_else(|| MoonBackendError::IOError("Failed to create image buffer".to_string()))
+            }
+
+            None => Err(MoonBackendError::ContextNotFoundError)
+        }
+    }
+
     /// Хард код usage в метод, так как в константу нельзя :(
     fn get_usage(&self) -> wgpu::TextureUsages {
         wgpu::TextureUsages::TEXTURE_BINDING 

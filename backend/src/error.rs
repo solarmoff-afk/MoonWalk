@@ -13,4 +13,7 @@ pub enum MoonBackendError {
 
     #[error("Format is not supported for auto-upload")]
     TextureFormatNotSupportedError,
+
+    #[error("IO error: {0}")]
+    IOError(String),
 }
