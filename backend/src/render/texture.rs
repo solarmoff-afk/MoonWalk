@@ -4,9 +4,13 @@
 use crate::core::context::BackendContext;
 use crate::error::MoonBackendError;
 
+// Абстрация над wgpu, добавить другие типы по необходимости, но этих двух должно
+// хватить для кейсов использования MoonWalk
 #[derive(Clone, Copy)]
 pub enum BackendTextureFormat {
+    // Стандарт
     Rgba8UnormSrgb = 1,
+    
     Bgra8UnormSrgb = 2,
 }
 
@@ -25,23 +29,31 @@ impl BackendTextureConfig {
         }
     }
 
+    /// Этот метод устанавливает формат. Если не указать то будет
+    /// BackendTextureFormat::Rgba8UnormSrgb
     pub fn set_format(&mut self, format: BackendTextureFormat) {
         self.format = format;
     }
 
+    /// Установить название, оно используется только для отладки. Если не указать
+    /// то будет использоваться стандартное "Default texture" которое устанавливается
+    /// в методе new
     pub fn set_label(&mut self, label: String) {
         self.label = label;
     }
 
+    /// Получить формат текстуры
     pub fn get_format(&mut self) -> BackendTextureFormat {
         self.format.clone()
     }
 
+    /// Получить название текстуры
     pub fn get_label(&mut self) -> String {
         self.label.clone()
     }
 }
 
+/// Сырая текстура. Нужна чтобы передать без подключения wgpu
 pub struct RawTexture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
@@ -66,9 +78,16 @@ impl RawTexture {
 }
 
 pub struct BackendTexture {
+    // Ширина
     pub width: u32,
+    
+    // Высота
     pub height: u32,
+    
+    // Конфигурация
     pub config: BackendTextureConfig,
+    
+    // Сырая wgpu текстура
     raw: Option<RawTexture>,
 }
 
@@ -77,7 +96,10 @@ impl BackendTexture {
         Self {
             width,
             height,
+
+            // По умолчанию
             config: BackendTextureConfig::new(),
+            
             raw: None,
         }
     }
@@ -91,6 +113,7 @@ impl BackendTexture {
     ) -> Result<(), MoonBackendError> {
         match &mut context.get_raw() {
             Some(raw_context) => {
+                // Стандартно, а также константы для копирования
                 let usages: wgpu::TextureUsages = wgpu::TextureUsages::TEXTURE_BINDING 
                     | wgpu::TextureUsages::RENDER_ATTACHMENT 
                     | wgpu::TextureUsages::COPY_SRC
@@ -109,16 +132,28 @@ impl BackendTexture {
                 };
 
                 let texture = raw_context.device.create_texture(&wgpu::TextureDescriptor {
+                    // То самое название из конфига
                     label: Some(&self.config.get_label()),
+                    
+                    // Тот самый размер
                     size,
+
+                    // Дефолт, потом можно добавить настройки для них в конфигурации,
+                    // но кейсы MoonWalk не требуют
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
+
+                    // Формат
                     format: texture_format,
+                    
+                    // Те самые константы
                     usage: usages,
+                    
                     view_formats: &[],
                 });
 
+                // Запись в текстуру через очередь в сыром контексте
                 raw_context.queue.write_texture(
                     wgpu::TexelCopyTextureInfo {
                         texture: &texture,
@@ -138,8 +173,14 @@ impl BackendTexture {
                     size,
                 );
 
-                let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+                let view = texture.create_view(
+                    &wgpu::TextureViewDescriptor::default()
+                );
                 
+                // [MAYBE]
+                // [HARDCODE]
+                // Настройки сэмплера тоже можно добавить в конфиг, потом
+                // этим займусь, пока сделаю пометку
                 let sampler = raw_context.device.create_sampler(&wgpu::SamplerDescriptor {
                     address_mode_u: wgpu::AddressMode::ClampToEdge,
                     address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -176,6 +217,8 @@ impl BackendTexture {
                             },
                         ],
 
+                        // [HARDCODE]
+                        // не очень круто для отладки
                         label: Some("texture_bind_group_layout"),
                     }
                 );
@@ -194,10 +237,15 @@ impl BackendTexture {
                                 resource: wgpu::BindingResource::Sampler(&sampler),
                             },
                         ],
+
+                        // [HARDCODE]
+                        // не очень круто для отладки
                         label: Some("texture_bind_group"),
                     }
                 );
 
+                // Заполнение параметров, Result здесь возвращается просто чтобы
+                // вернуть ContextNotFoundError если что
                 self.width = width;
                 self.height = height;
                 self.raw = Some(RawTexture::new(texture, view, sampler, bind_group));
