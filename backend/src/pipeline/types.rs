@@ -1,0 +1,139 @@
+// Часть проекта MoonWalk с открытым исходным кодом.
+// Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
+
+/// Формат данных для вершинных атрибутов
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Format {
+    /// 32-битное число с плавающей точкой (4 байта)
+    Float32,
+    /// 2 компонента по 32 бита с плавающей точкой (8 байт)
+    Float32x2,
+    /// 3 компонента по 32 бита с плавающей точкой (12 байт)
+    Float32x3,
+    /// 4 компонента по 32 бита с плавающей точкой (16 байт)
+    Float32x4,
+    /// 32-битное беззнаковое целое (4 байта)
+    Uint32,
+    /// 2 компонента по 16 бит беззнаковых целых (4 байта)
+    Uint16x2,
+    /// 4 компонента по 16-бит беззнаковых целых (8 байт)
+    Uint16x4,
+    /// 4 компонента по 16 бит нормализованных беззнаковых целых (8 байт)
+    Unorm16x4,
+    /// 4 компонента по 16 бит нормализованных знаковых целых (8 байт)
+    Snorm16x4, 
+}
+
+/// Режим шага для вершинных буферов
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StepMode {
+    /// Данные читаются для каждой вершины
+    Vertex,
+    /// Данные читаются для каждого инстанса
+    Instance,
+}
+
+/// Режим смешивания цветов
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BlendMode {
+    /// Без смешивания, заменяет содержимое
+    None,
+    /// Альфа-смешивание с учетом прозрачности
+    Alpha,
+    /// Аддитивное смешивание
+    Additive,
+    /// Мультипликативное смешивание
+    Multiply,
+
+    Screen,
+    Subtract,
+    Eraser,
+}
+
+/// Режим отсечения граней для 3d графики. Это позволяет оптимизировать 3d сцены,
+/// так как грани внутри объектов можно не рисовать (если выбран Back)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CullMode {
+    /// Без отсечения
+    None,
+    /// Отсекать лицевые грани
+    Front,
+    /// Отсекать задние грани
+    Back,
+}
+
+/// Топология примитивов
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Topology {
+    /// Список точек
+    PointList,
+    /// Список линий
+    LineList,
+    /// Полоса линий
+    LineStrip,
+    /// Список треугольников
+    TriangleList,
+    /// Полоса треугольников
+    TriangleStrip,
+}
+
+/// Стратегия обработки ограничений видеокарты по данным на вершину
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FallbackStrategy {
+    /// Разделить большие буферы на несколько маленьких
+    Split,
+    /// Уменьшить страйд до допустимого значения
+    Reduce,
+    /// Адаптивная стратегия где сначала сплит, потом reduce
+    Adaptive,
+    /// Без фаллбека то есть вернуть ошибку если не укладывается в лимиты
+    None,
+}
+
+/// Тип ресурса в bind group
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BindEntryType {
+    /// Uniform буфер
+    Uniform,
+    /// Текстура
+    Texture,
+    /// Сэмплер
+    Sampler,
+    /// Storage буфер только для чтения
+    StorageRead,
+    /// Storage буфер для записи
+    StorageWrite,
+}
+
+/// Этапы шейдера в которых доступен ресурс
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ShaderStage {
+    /// Только вершинный шейдер
+    Vertex,
+    /// Только фрагментный шейдер
+    Fragment,
+    /// Оба шейдера
+    Both,
+}
+
+/// Тип семплинга текстуры
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TextureType {
+    /// Текстура с числами с плавающей точкой
+    Float,
+    /// Текстура глубины
+    Depth,
+    /// Текстура с беззнаковыми целыми
+    Uint,
+}
+
+/// Тип фильтрации сэмплера
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SamplerType {
+    /// Линейная фильтрация
+    Linear,
+    /// Ближайший сосед
+    Nearest,
+    /// Сравнительный сэмплер для теней
+    Comparison,
+}

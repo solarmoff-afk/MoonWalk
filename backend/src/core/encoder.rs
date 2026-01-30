@@ -1,0 +1,87 @@
+// Часть проекта MoonWalk с открытым исходным кодом.
+// Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
+
+use crate::core::context::BackendContext;
+use crate::error::MoonBackendError;
+
+struct RawEncoder {
+    encoder: Option<wgpu::CommandEncoder>,
+}
+
+impl RawEncoder {
+    pub fn new() -> Self {
+        Self {
+            encoder: None
+        }
+    }
+
+    pub fn create_encoder(&mut self, device: &wgpu::Device, label: &str) {
+        self.encoder = Some(device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some(label),
+        }));
+    }
+
+    pub fn finish(&mut self) -> Result<wgpu::CommandBuffer, MoonBackendError> {
+        match self.encoder.take() {
+            Some(raw_encoder) => {
+                Ok(raw_encoder.finish())
+            },
+
+            None => {
+                Err(MoonBackendError::EncoderSubmitError)
+            }
+        }
+    }
+}
+
+pub struct BackendEncoder {
+    encoder: RawEncoder,
+}
+
+impl BackendEncoder {
+    pub fn new(&self, context: &mut BackendContext, label: &str) -> Result<Self, MoonBackendError> {
+        match &mut context.get_raw().as_mut() {
+            // Берём сырой контекст через метод get_raw, проверяет что Option не None
+            // (Требование компилятора раста), создаём новый RawEncoder (Сырая обёртка над wgpu
+            // которая нужна для возможной смены абстрации), передаём туда ссылку наdevice
+            // из сырого контекста и название для енкодера, после чего кладём сырой энкодер
+            // в наш Backend encoder и тут возвращается Ok, а еслп сырой контекст в
+            // BackendContext это None то значит контекста нет и нужно вернуть
+            // ContextNotFoundError
+
+            Some(raw_context) => {
+                let mut encoder = RawEncoder::new();
+                encoder.create_encoder(&raw_context.device, label);
+
+                Ok(Self {
+                    encoder,
+                })
+            },
+            None => {
+                Err(MoonBackendError::ContextNotFoundError)
+            }
+        }
+    }
+
+    /// Этот метод нужен для отправки кадра рендера перед презентацией на экране.
+    /// Принимает контекст (BackendContext, а не RawContext) чтобы извлечь из
+    /// RawContext очередь, взять RawEncoder и провести отправку. Напрямую
+    /// передавать queue из RawContext не нужно для простоты использования api
+    /// бэкенда
+    pub fn submit_frame(&mut self, context: &mut BackendContext) -> Result<(), MoonBackendError> {
+        match &mut context.get_raw().as_mut() {
+            Some(raw_context) => {
+                raw_context.queue.submit(
+                    std::iter::once(self.encoder.finish().unwrap())
+                );
+
+                Ok(())
+            },
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+
+    // TODO
+    // pub fn copy_texture_to_texture(&mut self) {
+    // }
+}
