@@ -10,3 +10,5 @@ pollster = "0.3"
 thiserror = "1.0"
 bytemuck = { version = "1.14", features = ["derive"] }
 image = "0.25.9"
+parking_lot = "0.12"
+lazy_static = "1.4"

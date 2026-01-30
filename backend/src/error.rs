@@ -16,4 +16,7 @@ pub enum MoonBackendError {
 
     #[error("IO error: {0}")]
     IOError(String),
+
+    #[error("Pipeline validation error: {0}")]
+    PipelineError(String),
 }

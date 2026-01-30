@@ -9,6 +9,29 @@ use types::*;
 use vertex::VertexLayout;
 use bind::BindGroup;
 
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::Arc;
+use parking_lot::Mutex;
+
+use crate::error::MoonBackendError;
+
+/// Структура для кэширования пайплайна
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+struct PipelineCacheKey {
+    shader_hash: u64,
+    vertex_layouts_hash: u64,
+    bind_groups_hash: u64,
+    format_hash: u64,
+}
+
+// Глобальный кэш пайплайнов который необходим чтобы предотвратить перекомпиляцию
+// уже существующего пайплайна
+lazy_static::lazy_static! {
+    static ref PIPELINE_CACHE: Mutex<HashMap<PipelineCacheKey, Arc<wgpu::RenderPipeline>>> = 
+        Mutex::new(HashMap::new());
+}
+
 /// Стратегия обработки ограничений видеокарты по данным на вершину
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FallbackStrategy {
@@ -179,7 +202,9 @@ impl BackendPipeline {
         self
     }
     
+    // [MAYBE]
     // Собрать все параметры и RenderConfig в raw gpu пайплайн
+    // Это легаси с утечкой абстрации, использовать только метод collect
     // pub fn build(
     //     &self,
     //     ctx: &Context,
@@ -216,4 +241,52 @@ impl BackendPipeline {
 
     //     Ok(result)
     // }
+
+    fn validate(&self) -> Result<(), MoonBackendError> {
+        if self.vertex_entry.is_empty() {
+            return Err(MoonBackendError::PipelineError("Vertex shader entry point not set".into()));
+        }
+
+        if self.fragment_entry.is_empty() {
+            return Err(MoonBackendError::PipelineError("Fragment shader entry point not set".into()));
+        }
+
+        if self.vertex_layouts.is_empty() {
+            return Err(MoonBackendError::PipelineError("No vertex layouts specified".into()));
+        }
+
+        // Проверка уникальности shader locations
+        let mut locations = HashSet::new();
+
+        for layout in &self.vertex_layouts {
+            if let Err(e) = layout.validate() {
+                return Err(MoonBackendError::PipelineError(format!("Invalid vertex layout: {}", e)));
+            }
+
+            for attr in &layout.attributes {
+                if !locations.insert(attr.location) {
+                    return Err(MoonBackendError::PipelineError(
+                        format!("Duplicate shader location: {}", attr.location)
+                    ));
+                }
+            }
+        }
+
+        // Проверка уникальность bindings
+        let mut bindings = HashSet::new();
+
+        for bind_group in &self.bind_groups {
+            for entry in &bind_group.entries {
+                let key = (entry.binding, entry.entry_type);
+                
+                if !bindings.insert(key) {
+                    return Err(MoonBackendError::PipelineError(
+                        format!("Duplicate binding: {}", entry.binding)
+                    ));
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
