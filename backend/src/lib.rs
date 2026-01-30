@@ -3,6 +3,7 @@
 
 pub mod core;
 pub mod render;
+pub mod pipeline;
 pub mod error;
 
 // pub struct MoonWalkBackend {
