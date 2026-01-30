@@ -14,35 +14,31 @@ impl RawPipeline {
 }
 
 pub struct BackendPipeline {
-    shader_source: Option<String>,
-    vertex_entry: Option<String>,
-    fragment_entry: Option<String>,
+    shader_source: String,
+    vertex_entry: String,
+    fragment_entry: String,
     raw: Option<RawPipeline>,
 }
 
 impl BackendPipeline {
-    pub fn new() -> Self {
+    pub fn new(shader_source: &str) -> Self {
         Self {
-            shader_source: None,
-            vertex_entry: None,
-            fragment_entry: None,
+            shader_source: shader_source.to_string(),
+            vertex_entry: "vs_main".to_string(),
+            fragment_entry: "fs_main".to_string(),
             raw: None,
         }
     }
 
-    // Конфигурация пайплайна
-    // Установить исходный код шейдера
-    pub fn set_shader_source(&mut self, source: String) {
-        self.shader_source = Some(source);
+    /// Метод чтобы установить точку входа вершинного шейдера
+    pub fn vertex_shader(mut self, entry: &str) -> Self {
+        self.vertex_entry = entry.to_string();
+        self
     }
 
-    // Установить точку входа для вершинного шейдера
-    pub fn set_vertex_entry(&mut self, vertex_entry: String) {
-        self.vertex_entry = Some(vertex_entry);
-    }
-
-    // Установить точку входа для фрагментного шейдера
-    pub fn set_fragment_entry(&mut self, fragment_entry: String) {
-        self.fragment_entry = Some(fragment_entry);
+    /// Метол чтобы установить точку входа фрагментного шейдера
+    pub fn fragment_shader(mut self, entry: &str) -> Self {
+        self.fragment_entry = entry.to_string();
+        self
     }
 }
