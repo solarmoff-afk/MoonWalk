@@ -2,8 +2,10 @@
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
 pub mod types;
+pub mod vertex;
 
 use types::*;
+use vertex::VertexLayout;
 
 /// Стратегия обработки ограничений видеокарты по данным на вершину
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,6 +79,9 @@ pub struct BackendPipeline {
     /// помещаются в видеокарту
     fallback_strategy: FallbackStrategy,
 
+    /// Список (вектор) вершинных лайаутов
+    vertex_layouts: Vec<VertexLayout>,
+
     raw: Option<RawPipeline>,
 }
 
@@ -91,6 +96,8 @@ impl BackendPipeline {
 
             // Стандартно adaptive
             fallback_strategy: FallbackStrategy::Adaptive,
+
+            vertex_layouts: Vec::new(),
 
             raw: None,
         }
@@ -155,4 +162,48 @@ impl BackendPipeline {
         self.fallback_strategy = strategy;
         self
     }
+
+    /// Этот метод устанавливает добавляет вертексный лайаут
+    pub fn add_vertex_layout(mut self, layout: VertexLayout) -> Self {
+        self.vertex_layouts.push(layout);
+        self
+    }
+    
+    // Собрать все параметры и RenderConfig в raw gpu пайплайн
+    // pub fn build(
+    //     &self,
+    //     ctx: &Context,
+    //     wgpu_format: wgpu::TextureFormat,
+    //     wgpu_bind_groups: &[&wgpu::BindGroupLayout],
+    // ) -> Result<PipelineResult, MoonWalkError> {
+    //     // Валидация конфигурации
+    //     self.validate()?;
+
+    //     let cache_key = self.create_cache_key(ctx);
+
+    //     if let Some(cached) = PIPELINE_CACHE.lock().get(&cache_key).cloned() {
+    //         return Ok(PipelineResult {
+    //             pipeline: Pipeline { raw: (*cached).clone() },
+    //             split_count: 1,
+    //             used_stride: self.get_max_stride(),
+    //             cache_hit: true,
+    //         });
+    //     }
+
+    //     let result = match self.fallback_strategy {
+    //         FallbackStrategy::None => self.build_direct(ctx, wgpu_format, wgpu_bind_groups, 1)?,
+    //         FallbackStrategy::Adaptive => self.clone().build_with_fallback(ctx, wgpu_format, wgpu_bind_groups)?,
+    //         FallbackStrategy::Split => self.clone().build_with_split(ctx, wgpu_format, wgpu_bind_groups)?,
+    //         FallbackStrategy::Reduce => self.clone().build_with_reduce(ctx, wgpu_format, wgpu_bind_groups)?,
+    //     };
+
+    //     // Кэширование результата
+    //     if let Some(label) = &self.label {
+    //         log::debug!("Caching pipeline: {}", label);
+    //     }
+
+    //     PIPELINE_CACHE.lock().insert(cache_key, Arc::new(result.pipeline.raw.clone()));
+
+    //     Ok(result)
+    // }
 }
