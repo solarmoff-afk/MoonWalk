@@ -17,6 +17,7 @@ pub struct BackendPipeline {
     shader_source: String,
     vertex_entry: String,
     fragment_entry: String,
+    label: Option<String>,
     raw: Option<RawPipeline>,
 }
 
@@ -26,6 +27,7 @@ impl BackendPipeline {
             shader_source: shader_source.to_string(),
             vertex_entry: "vs_main".to_string(),
             fragment_entry: "fs_main".to_string(),
+            label: None,
             raw: None,
         }
     }
@@ -39,6 +41,12 @@ impl BackendPipeline {
     /// Метол чтобы установить точку входа фрагментного шейдера
     pub fn fragment_shader(mut self, entry: &str) -> Self {
         self.fragment_entry = entry.to_string();
+        self
+    }
+
+    /// Этот метод нужен чтобы установить название пайплайна для отладки
+    pub fn label(mut self, label: &str) -> Self {
+        self.label = Some(label.to_string());
         self
     }
 }
