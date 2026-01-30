@@ -89,3 +89,51 @@ pub enum FallbackStrategy {
     /// Без фаллбека то есть вернуть ошибку если не укладывается в лимиты
     None,
 }
+
+/// Тип ресурса в bind group
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BindEntryType {
+    /// Uniform буфер
+    Uniform,
+    /// Текстура
+    Texture,
+    /// Сэмплер
+    Sampler,
+    /// Storage буфер только для чтения
+    StorageRead,
+    /// Storage буфер для записи
+    StorageWrite,
+}
+
+/// Этапы шейдера в которых доступен ресурс
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ShaderStage {
+    /// Только вершинный шейдер
+    Vertex,
+    /// Только фрагментный шейдер
+    Fragment,
+    /// Оба шейдера
+    Both,
+}
+
+/// Тип семплинга текстуры
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TextureType {
+    /// Текстура с числами с плавающей точкой
+    Float,
+    /// Текстура глубины
+    Depth,
+    /// Текстура с беззнаковыми целыми
+    Uint,
+}
+
+/// Тип фильтрации сэмплера
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SamplerType {
+    /// Линейная фильтрация
+    Linear,
+    /// Ближайший сосед
+    Nearest,
+    /// Сравнительный сэмплер для теней
+    Comparison,
+}

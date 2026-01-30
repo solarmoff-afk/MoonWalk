@@ -3,9 +3,11 @@
 
 pub mod types;
 pub mod vertex;
+pub mod bind;
 
 use types::*;
 use vertex::VertexLayout;
+use bind::BindGroup;
 
 /// Стратегия обработки ограничений видеокарты по данным на вершину
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,6 +83,7 @@ pub struct BackendPipeline {
 
     /// Список (вектор) вершинных лайаутов
     vertex_layouts: Vec<VertexLayout>,
+    bind_groups: Vec<BindGroup>,
 
     raw: Option<RawPipeline>,
 }
@@ -98,6 +101,7 @@ impl BackendPipeline {
             fallback_strategy: FallbackStrategy::Adaptive,
 
             vertex_layouts: Vec::new(),
+            bind_groups: Vec::new(),
 
             raw: None,
         }
@@ -166,6 +170,12 @@ impl BackendPipeline {
     /// Этот метод устанавливает добавляет вертексный лайаут
     pub fn add_vertex_layout(mut self, layout: VertexLayout) -> Self {
         self.vertex_layouts.push(layout);
+        self
+    }
+
+    /// Добавить bind group
+    pub fn add_bind_group(mut self, bind_group: BindGroup) -> Self {
+        self.bind_groups.push(bind_group);
         self
     }
     
