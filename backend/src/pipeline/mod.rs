@@ -19,7 +19,7 @@ use parking_lot::Mutex;
 
 use crate::error::MoonBackendError;
 use crate::core::context::BackendContext;
-use crate::render::texture::BackendTextureFormat;
+use crate::render::texture::{BackendTextureFormat, map_format_to_wgpu};
 
 /// Структура для кэширования пайплайна
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -111,6 +111,8 @@ pub struct RenderConfig {
     /// Включён ли тест глубины
     pub depth_test: bool,
     pub depth_write: bool,
+
+    pub polygon_mode: PolygonMode,
 }
 
 impl Default for RenderConfig {
@@ -122,6 +124,7 @@ impl Default for RenderConfig {
             topology: Topology::TriangleList,
             depth_test: false,
             depth_write: false,
+            polygon_mode: PolygonMode::Fill,
         }
     }
 }
@@ -214,6 +217,11 @@ impl BackendPipeline {
     /// Этот метод устанавливает запись глубины (true или false)
     pub fn depth_write(mut self, enabled: bool) -> Self {
         self.render_config.depth_write = enabled;
+        self
+    }
+
+    pub fn polygon_mode(mut self, polygon_mode: PolygonMode) -> Self {
+        self.render_config.polygon_mode = polygon_mode;
         self
     }
 
@@ -446,8 +454,11 @@ impl BackendPipeline {
                     }
                 );
 
+                // Этот код приводит к снижению производительности на маппинг,
+                // но это необходимо чтобы избежать утечки абстрации
                 let temp: Vec<&wgpu::BindGroupLayout> = bind_group_layouts.iter()
                     .map(|rg| &rg.raw).collect();
+                
                 let wgpu_bind_groups_layouts: &[&wgpu::BindGroupLayout] = &temp;
 
                 let layout = raw_context.device.create_pipeline_layout(
@@ -455,6 +466,60 @@ impl BackendPipeline {
                         label: Some(&format!("{} pipeline layout", &self.get_label())),
                         bind_group_layouts: wgpu_bind_groups_layouts,
                         push_constant_ranges: &[],
+                    }
+                );
+
+                // Конвертация вершинных лайаутов в wgpu и сборка в вектор
+                let mut vertex_layouts: Vec<wgpu::VertexBufferLayout> = Vec::new();
+                
+                for layout in &self.vertex_layouts {
+                    let wgpu_layout = self.convert_vertex_layout(layout);
+                    vertex_layouts.push(wgpu_layout);
+                }
+
+                let raw_pipeline = raw_context.device.create_render_pipeline(
+                    &wgpu::RenderPipelineDescriptor {
+                        // Форматирование с label для отладки
+                        label: Some(&format!("{} render pipeline", &self.get_label())),
+                        layout: Some(&layout),
+                        
+                        vertex: wgpu::VertexState {
+                            module: &shader,
+                            entry_point: Some(&self.vertex_entry),
+                            buffers: &vertex_layouts,
+                            compilation_options: Default::default(),
+                        },
+
+                        fragment: Some(wgpu::FragmentState {
+                            module: &shader,
+                            entry_point: Some(&self.fragment_entry),
+                            targets: &[Some(wgpu::ColorTargetState {
+                                format: map_format_to_wgpu(format),
+                                blend: Some(map_blend_state(self.render_config.blend_mode)),
+                                
+                                write_mask: wgpu::ColorWrites::ALL,
+                            })],
+                            compilation_options: Default::default(),
+                        }),
+
+                        primitive: wgpu::PrimitiveState {
+                            topology: map_topology(self.render_config.topology),
+                            strip_index_format: None,
+                            front_face: wgpu::FrontFace::Ccw,
+                            cull_mode: map_cull_mode(self.render_config.cull_mode),
+                            polygon_mode: map_polygon_mode(self.render_config.polygon_mode),
+                            unclipped_depth: false,
+                            conservative: false,
+                        },
+
+                        depth_stencil: get_depth_stencil_state(
+                            self.render_config.depth_test,
+                            self.render_config.depth_write
+                        ),
+                        
+                        multisample: wgpu::MultisampleState::default(),
+                        multiview: None,
+                        cache: None,
                     }
                 );
 
@@ -478,6 +543,51 @@ impl BackendPipeline {
         match &self.label {
             Some(label) => label.to_string(),
             None => "Label not found".to_string(),
+        }
+    }
+
+    // Конвертация в wgpu типы
+    fn convert_vertex_layout(&self, layout: &VertexLayout) -> wgpu::VertexBufferLayout<'static> {
+        let attributes: Vec<wgpu::VertexAttribute> = layout.attributes
+            .iter()
+            .map(|attr| wgpu::VertexAttribute {
+                format: self.convert_format(attr.format),
+                offset: attr.offset as u64,
+                shader_location: attr.location,
+            })
+            .collect();
+    
+        // [HACK]
+        // Используется Box::leak для получения 'static времени жизни
+        // Пайплайнов обычно мало (от 5 до 10) и живут всё время приложения
+        // В будущем можно использовать arena allocator если понадобится
+        // Уточненеи: вершинный лайаут это лайаут структуры входа внутри
+        // шейдера, а один пайплайн = один шейдер = один вершинный лайаут 
+        let attributes = Box::leak(attributes.into_boxed_slice());
+    
+        wgpu::VertexBufferLayout {
+            array_stride: layout.stride as u64,
+            
+            step_mode: match layout.step_mode {
+                StepMode::Vertex => wgpu::VertexStepMode::Vertex,
+                StepMode::Instance => wgpu::VertexStepMode::Instance,
+            },
+
+            attributes,
+        }
+    }
+
+    fn convert_format(&self, format: Format) -> wgpu::VertexFormat {
+        match format {
+            Format::Float32 => wgpu::VertexFormat::Float32,
+            Format::Float32x2 => wgpu::VertexFormat::Float32x2,
+            Format::Float32x3 => wgpu::VertexFormat::Float32x3,
+            Format::Float32x4 => wgpu::VertexFormat::Float32x4,
+            Format::Uint32 => wgpu::VertexFormat::Uint32,
+            Format::Uint16x2 => wgpu::VertexFormat::Uint16x2,
+            Format::Uint16x4 => wgpu::VertexFormat::Uint16x4,
+            Format::Unorm16x4 => wgpu::VertexFormat::Unorm16x4,
+            Format::Snorm16x4 => wgpu::VertexFormat::Snorm16x4,
         }
     }
 }
