@@ -6,6 +6,20 @@ use super::types::*;
 use crate::error::MoonBackendError;
 use crate::core::context::BackendContext;
 
+/// Обёртка для wgpu типа чтобы импортировать и хранить его без подключения
+/// wgpu в основном крейте
+pub struct RawBindGroupLayout {
+    pub raw: wgpu::BindGroupLayout,
+}
+
+impl RawBindGroupLayout {
+    pub fn new(layout: wgpu::BindGroupLayout) -> Self {
+        Self {
+            raw: layout
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BindGroupEntry {
     /// Индекс binding
@@ -89,7 +103,7 @@ impl BindGroup {
     }
 
     // TODO: Создать build_v2 который возвращает кастомный тип, а не wgpu
-    pub(crate) fn build(&self, context: &mut BackendContext) -> Result<wgpu::BindGroupLayout, MoonBackendError> {
+    pub(crate) fn build(&self, context: &mut BackendContext) -> Result<RawBindGroupLayout, MoonBackendError> {
         match &mut context.get_raw() {
             Some(raw_context) => {
                 let entries: Vec<wgpu::BindGroupLayoutEntry> = self.entries
@@ -163,7 +177,8 @@ impl BindGroup {
                     entries: &entries,
                 });
 
-                Ok(layout)
+                let raw = RawBindGroupLayout::new(layout);
+                Ok(raw)
             },
 
             None => Err(MoonBackendError::ContextNotFoundError),

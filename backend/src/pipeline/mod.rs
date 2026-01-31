@@ -7,14 +7,15 @@ pub mod bind;
 
 use types::*;
 use vertex::VertexLayout;
-use bind::BindGroup;
+use bind::{BindGroup, RawBindGroupLayout};
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
-use parking_lot::Mutex;
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
+use std::borrow::Cow;
+use parking_lot::Mutex;
 
 use crate::error::MoonBackendError;
 use crate::core::context::BackendContext;
@@ -234,9 +235,11 @@ impl BackendPipeline {
         self
     }
 
-    pub fn compile(
-        &self, context: &mut BackendContext,
+    pub fn build(
+        &self,
+        context: &mut BackendContext,
         texture_format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
     ) -> Result<PipelineResult, MoonBackendError> {
         // Валидация конфигурации
         self.validate()?;
@@ -271,6 +274,8 @@ impl BackendPipeline {
     // [MAYBE]
     // Собрать все параметры и RenderConfig в raw gpu пайплайн
     // Это легаси с утечкой абстрации, использовать только метод compile
+    // upd: Всё таки я сделаю breken change, build не буде принимать
+    // wgpu типы
     // pub fn build(
     //     &self,
     //     ctx: &Context,
@@ -424,11 +429,55 @@ impl BackendPipeline {
         }
     }
 
+    /// Прямое создание без фалбэкаa
+    fn build_direct(
+        &self,
+        context: &mut BackendContext,
+        format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+        split_count: u32,
+    ) -> Result<(), MoonBackendError> {
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                let shader = raw_context.device.create_shader_module(
+                    wgpu::ShaderModuleDescriptor {
+                        label: Some(&format!("{} shader module", &self.get_label())),
+                        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(&self.shader_source)),
+                    }
+                );
+
+                let temp: Vec<&wgpu::BindGroupLayout> = bind_group_layouts.iter()
+                    .map(|rg| &rg.raw).collect();
+                let wgpu_bind_groups_layouts: &[&wgpu::BindGroupLayout] = &temp;
+
+                let layout = raw_context.device.create_pipeline_layout(
+                    &wgpu::PipelineLayoutDescriptor {
+                        label: Some(&format!("{} pipeline layout", &self.get_label())),
+                        bind_group_layouts: wgpu_bind_groups_layouts,
+                        push_constant_ranges: &[],
+                    }
+                );
+
+                Ok(())
+            },
+
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+
     /// Получить максимальный размер для передачи в шейдер по шине
     fn get_max_stride(&self) -> u32 {
         self.vertex_layouts.iter()
             .map(|l| l.stride)
             .max()
             .unwrap_or(0)
+    }
+
+    /// Для сокращения кода чтобы не писать везде match на self.label
+    fn get_label(&self) -> String {
+        match &self.label {
+            Some(label) => label.to_string(),
+            None => "Label not found".to_string(),
+        }
     }
 }
