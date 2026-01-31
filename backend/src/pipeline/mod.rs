@@ -45,6 +45,17 @@ pub struct PipelineResult {
     pub cache_hit: bool,
 }
 
+impl PipelineResult {
+    // [MAYBE]
+    // Временный метод для разработки, потом удалить 
+    pub fn indev() -> Self {
+        Self {
+            split_count: 0,
+            used_stride: 0,
+            cache_hit: false,
+        }
+    }
+}
 
 // Глобальный кэш пайплайнов который необходим чтобы предотвратить перекомпиляцию
 // уже существующего пайплайна
@@ -226,13 +237,35 @@ impl BackendPipeline {
     pub fn compile(
         &self, context: &mut BackendContext,
         texture_format: BackendTextureFormat,
-    ) -> Result<(), MoonBackendError> {
+    ) -> Result<PipelineResult, MoonBackendError> {
         // Валидация конфигурации
         self.validate()?;
 
         let cache_key = self.create_cache_key();
 
-        Ok(())
+        // Если такой пайплайн уже есть в кэше то просто нужно вернуть его,
+        // нет смысла создавать новый, только память будет расходывать
+        // из-за хака с box::leak
+        if let Some(cached) = PIPELINE_CACHE.lock().get(&cache_key).cloned() {
+            return Ok(PipelineResult {
+                // pipeline: Pipeline {
+                //     raw: (*cached).clone()
+                // },
+
+                split_count: 1,
+                used_stride: self.get_max_stride(),
+                cache_hit: true,
+            })
+        };
+
+        // let result = match self.fallback_strategy {
+        //     FallbackStrategy::None => self.build_direct(ctx, wgpu_format, wgpu_bind_groups, 1)?,
+        //     FallbackStrategy::Adaptive => self.clone().build_with_fallback(ctx, wgpu_format, wgpu_bind_groups)?,
+        //     FallbackStrategy::Split => self.clone().build_with_split(ctx, wgpu_format, wgpu_bind_groups)?,
+        //     FallbackStrategy::Reduce => self.clone().build_with_reduce(ctx, wgpu_format, wgpu_bind_groups)?,
+        // };
+
+        Ok(PipelineResult::indev())
     }
     
     // [MAYBE]
@@ -275,6 +308,7 @@ impl BackendPipeline {
     //     Ok(result)
     // }
 
+    /// Валидация параметров пайплайна перед сборкой
     fn validate(&self) -> Result<(), MoonBackendError> {
         if self.vertex_entry.is_empty() {
             return Err(MoonBackendError::PipelineError("Vertex shader entry point not set".into()));
@@ -323,6 +357,8 @@ impl BackendPipeline {
         Ok(())
     }
 
+    /// Метод для получения ключа кэширования в системе кэша, оптимизация.
+    /// Зачем пересоздавать пайплайн если он уже есть в кэше?
     fn create_cache_key(&self) -> PipelineCacheKey {
         let mut hasher = DefaultHasher::new();
         
@@ -386,5 +422,13 @@ impl BackendPipeline {
             bind_groups_hash,
             format_hash,
         }
+    }
+
+    /// Получить максимальный размер для передачи в шейдер по шине
+    fn get_max_stride(&self) -> u32 {
+        self.vertex_layouts.iter()
+            .map(|l| l.stride)
+            .max()
+            .unwrap_or(0)
     }
 }
