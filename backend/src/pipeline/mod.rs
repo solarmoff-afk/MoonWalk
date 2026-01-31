@@ -13,8 +13,12 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use parking_lot::Mutex;
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 
 use crate::error::MoonBackendError;
+use crate::core::context::BackendContext;
+use crate::render::texture::BackendTextureFormat;
 
 /// Структура для кэширования пайплайна
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -24,6 +28,23 @@ struct PipelineCacheKey {
     bind_groups_hash: u64,
     format_hash: u64,
 }
+
+/// Результат создания пайплайна
+#[derive(Debug, Clone)]
+pub struct PipelineResult {
+    /// Созданный пайплайн
+    // pub pipeline: crate::gpu::Pipeline,
+
+    /// Количество разделений буферов (для фалбэка)
+    pub split_count: u32,
+
+    /// Используемый размер stride в байтах
+    pub used_stride: u32,
+    
+    /// Попал ли пайплайн в кэш
+    pub cache_hit: bool,
+}
+
 
 // Глобальный кэш пайплайнов который необходим чтобы предотвратить перекомпиляцию
 // уже существующего пайплайна
@@ -201,10 +222,22 @@ impl BackendPipeline {
         self.bind_groups.push(bind_group);
         self
     }
+
+    pub fn compile(
+        &self, context: &mut BackendContext,
+        texture_format: BackendTextureFormat,
+    ) -> Result<(), MoonBackendError> {
+        // Валидация конфигурации
+        self.validate()?;
+
+        let cache_key = self.create_cache_key();
+
+        Ok(())
+    }
     
     // [MAYBE]
     // Собрать все параметры и RenderConfig в raw gpu пайплайн
-    // Это легаси с утечкой абстрации, использовать только метод collect
+    // Это легаси с утечкой абстрации, использовать только метод compile
     // pub fn build(
     //     &self,
     //     ctx: &Context,
@@ -288,5 +321,70 @@ impl BackendPipeline {
         }
 
         Ok(())
+    }
+
+    fn create_cache_key(&self) -> PipelineCacheKey {
+        let mut hasher = DefaultHasher::new();
+        
+        // Хэширование шейдер
+        self.shader_source.hash(&mut hasher);
+        self.vertex_entry.hash(&mut hasher);
+        self.fragment_entry.hash(&mut hasher);
+
+        let shader_hash = hasher.finish();
+
+        // Хэширование vertex layouts
+        let mut hasher = DefaultHasher::new();
+        for layout in &self.vertex_layouts {
+            layout.stride.hash(&mut hasher);
+            (layout.step_mode as u8).hash(&mut hasher);
+            
+            for attr in &layout.attributes {
+                (attr.format as u8).hash(&mut hasher);
+                
+                attr.location.hash(&mut hasher);
+                attr.offset.hash(&mut hasher);
+            }
+        }
+
+        let vertex_layouts_hash = hasher.finish();
+
+        // Хэширование bind groups
+        let mut hasher = DefaultHasher::new();
+        
+        for bind_group in &self.bind_groups {
+            for entry in &bind_group.entries {
+                entry.binding.hash(&mut hasher);
+                (entry.entry_type as u8).hash(&mut hasher);
+                (entry.visibility as u8).hash(&mut hasher);
+                
+                if let Some(st) = &entry.sample_type {
+                    (*st as u8).hash(&mut hasher);
+                }
+                
+                if let Some(st) = &entry.sampler_type {
+                    (*st as u8).hash(&mut hasher);
+                }
+            }
+        }
+
+        let bind_groups_hash = hasher.finish();
+
+        // Хэширование render config
+        let mut hasher = DefaultHasher::new();
+        (self.render_config.blend_mode as u8).hash(&mut hasher);
+        (self.render_config.cull_mode as u8).hash(&mut hasher);
+        (self.render_config.topology as u8).hash(&mut hasher);
+        self.render_config.depth_test.hash(&mut hasher);
+        self.render_config.depth_write.hash(&mut hasher);
+        
+        let format_hash = hasher.finish();
+
+        PipelineCacheKey {
+            shader_hash,
+            vertex_layouts_hash,
+            bind_groups_hash,
+            format_hash,
+        }
     }
 }
