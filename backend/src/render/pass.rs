@@ -101,38 +101,59 @@ impl<'a> RenderPass<'a> {
     //     self.raw.set_index_buffer(buffer.raw.slice(..), wgpu::IndexFormat::Uint32);
     // }
 
-    // pub fn set_scissor(&mut self, x: u32, y: u32, w: u32, h: u32) {
-    //     self.raw.set_scissor_rect(x, y, w, h);
-    // }
+    pub fn set_scissor(&mut self, x: u32, y: u32, w: u32, h: u32) -> Result<(), MoonBackendError> {
+        match &mut self.raw {
+            Some(raw) => {
+                raw.set_scissor_rect(x, y, w, h);
+                Ok(())
+            },
 
-    // pub fn draw(&mut self, vertex_count: u32) {
-    //     self.raw.draw(0..vertex_count, 0..1);
-    // }
+            None => Err(MoonBackendError::RenderPassError("Render pass not created".into()))
+        }
+    }
 
-    // pub fn draw_indexed(&mut self, index_count: u32) {
-    //     self.raw.draw_indexed(0..index_count, 0, 0..1);
-    // }
+    pub fn draw(&mut self, vertex_count: u32) -> Result<(), MoonBackendError> {
+        match &mut self.raw {
+            Some(raw) => {
+                raw.draw(0..vertex_count, 0..1);
+                Ok(())
+            },
 
-    // pub fn draw_indexed_instanced_extended(
-    //     &mut self, 
-    //     index_count: u32, 
-    //     instance_count: u32, 
-    //     base_index: u32, 
-    //     base_vertex: i32, 
-    //     first_instance: u32
-    // ) {
-    //     self.raw.draw_indexed(
-    //         base_index..(base_index + index_count), 
-    //         base_vertex, 
-    //         first_instance..(first_instance + instance_count)
-    //     );
-    // }
+            None => Err(MoonBackendError::RenderPassError("Render pass not created".into()))
+        }
+    }
 
-    // pub fn draw_instanced(&mut self, vertex_count: u32, instance_count: u32) {
-    //     self.raw.draw(0..vertex_count, 0..instance_count);
-    // }
+    pub fn draw_indexed(&mut self, index_count: u32) -> Result<(), MoonBackendError> {
+        match &mut self.raw {
+            Some(raw) => {
+                raw.draw_indexed(0..index_count, 0, 0..1);
+                Ok(())
+            },
 
-    // pub fn draw_indexed_instanced(&mut self, index_count: u32, instance_count: u32) {
-    //     self.raw.draw_indexed(0..index_count, 0, 0..instance_count);
-    // }
+            None => Err(MoonBackendError::RenderPassError("Render pass not created".into()))
+        }
+    }
+
+    pub fn draw_indexed_instanced_extended(
+        &mut self, 
+        index_count: u32, 
+        instance_count: u32, 
+        base_index: u32, 
+        base_vertex: i32, 
+        first_instance: u32
+    ) -> Result<(), MoonBackendError> {
+        match &mut self.raw {
+            Some(raw) => {
+                raw.draw_indexed(
+                    base_index..(base_index + index_count), 
+                    base_vertex, 
+                    first_instance..(first_instance + instance_count)
+                );
+
+                Ok(())
+            },
+
+            None => Err(MoonBackendError::RenderPassError("Render pass not created".into()))
+        }
+    }
 }
