@@ -85,7 +85,7 @@ pub enum FallbackStrategy {
 
 #[derive(Debug, Clone)]
 pub struct RawPipeline {
-    pipeline: wgpu::RenderPipeline,
+    pub pipeline: wgpu::RenderPipeline,
 }
 
 impl RawPipeline {
@@ -248,7 +248,7 @@ impl BackendPipeline {
     }
 
     pub fn build(
-        &self,
+        &mut self,
         context: &mut BackendContext,
         texture_format: BackendTextureFormat,
         bind_group_layouts: &[&RawBindGroupLayout],
@@ -270,14 +270,26 @@ impl BackendPipeline {
             })
         };
 
-        // let result = match self.fallback_strategy {
-        //     FallbackStrategy::None => self.build_direct(ctx, wgpu_format, wgpu_bind_groups, 1)?,
-        //     FallbackStrategy::Adaptive => self.clone().build_with_fallback(ctx, wgpu_format, wgpu_bind_groups)?,
-        //     FallbackStrategy::Split => self.clone().build_with_split(ctx, wgpu_format, wgpu_bind_groups)?,
-        //     FallbackStrategy::Reduce => self.clone().build_with_reduce(ctx, wgpu_format, wgpu_bind_groups)?,
-        // };
+        let result = match self.fallback_strategy {
+            FallbackStrategy::None => self.build_direct(context, texture_format, bind_group_layouts, 1)?,
+            FallbackStrategy::Adaptive => self.clone().build_with_fallback(context, texture_format, bind_group_layouts)?,
+            FallbackStrategy::Split => self.clone().build_with_split(context, texture_format, bind_group_layouts)?,
+            FallbackStrategy::Reduce => self.clone().build_with_reduce(context, texture_format, bind_group_layouts)?,
+        };
 
-        Ok(PipelineResult::indev())
+        match result.pipeline {
+            Some(ref raw) => { 
+                PIPELINE_CACHE.lock().insert(cache_key, Arc::new(raw.clone()));
+            },
+
+            None => {
+                return Err(MoonBackendError::PipelineError("Raw pipeline not found".into()));
+            }
+        };
+
+        Ok(result)
+
+        // Ok(PipelineResult::indev())
     }
     
     // [MAYBE]
@@ -633,6 +645,50 @@ impl BackendPipeline {
 
         new_pipeline.build_direct(context, format, bind_group_layouts, 1)
             .ok()
+    }
+
+    fn build_with_split(
+        self,
+        context: &mut BackendContext,
+        format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+    ) -> Result<PipelineResult, MoonBackendError> {
+        let mut _max_stride = 0;
+        
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                _max_stride = raw_context.device.limits().max_vertex_buffer_array_stride;
+            },
+
+            None => {
+                return Err(MoonBackendError::ContextNotFoundError);
+            }
+        };
+
+        self.try_split_strategy(context, format, bind_group_layouts, _max_stride)
+            .ok_or_else(|| MoonBackendError::PipelineError("Split strategy failed".into()))
+    }
+
+    fn build_with_reduce(
+        self,
+        context: &mut BackendContext,
+        format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+    ) -> Result<PipelineResult, MoonBackendError> {
+        let mut _max_stride = 0;
+        
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                _max_stride = raw_context.device.limits().max_vertex_buffer_array_stride;
+            },
+
+            None => {
+                return Err(MoonBackendError::ContextNotFoundError);
+            }
+        };
+
+        self.try_reduce_strategy(context, format, bind_group_layouts, _max_stride)
+            .ok_or_else(|| MoonBackendError::PipelineError("Reduce strategy failed".into()))
     }
 
     /// Получить максимальный размер для передачи в шейдер по шине
