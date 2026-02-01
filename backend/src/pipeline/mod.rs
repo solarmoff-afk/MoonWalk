@@ -20,6 +20,7 @@ use parking_lot::Mutex;
 use crate::error::MoonBackendError;
 use crate::core::context::BackendContext;
 use crate::render::texture::{BackendTextureFormat, map_format_to_wgpu};
+use crate::pipeline::vertex::VertexAttr;
 
 /// Структура для кэширования пайплайна
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -34,7 +35,7 @@ struct PipelineCacheKey {
 #[derive(Debug, Clone)]
 pub struct PipelineResult {
     /// Созданный пайплайн
-    // pub pipeline: crate::gpu::Pipeline,
+    pub pipeline: Option<RawPipeline>,
 
     /// Количество разделений буферов (для фалбэка)
     pub split_count: u32,
@@ -51,6 +52,7 @@ impl PipelineResult {
     // Временный метод для разработки, потом удалить 
     pub fn indev() -> Self {
         Self {
+            pipeline: None,
             split_count: 0,
             used_stride: 0,
             cache_hit: false,
@@ -61,7 +63,7 @@ impl PipelineResult {
 // Глобальный кэш пайплайнов который необходим чтобы предотвратить перекомпиляцию
 // уже существующего пайплайна
 lazy_static::lazy_static! {
-    static ref PIPELINE_CACHE: Mutex<HashMap<PipelineCacheKey, Arc<wgpu::RenderPipeline>>> = 
+    static ref PIPELINE_CACHE: Mutex<HashMap<PipelineCacheKey, Arc<RawPipeline>>> = 
         Mutex::new(HashMap::new());
 }
 
@@ -81,6 +83,7 @@ pub enum FallbackStrategy {
     None,
 }
 
+#[derive(Debug, Clone)]
 pub struct RawPipeline {
     pipeline: wgpu::RenderPipeline,
 }
@@ -129,6 +132,7 @@ impl Default for RenderConfig {
     }
 }
 
+#[derive(Clone)]
 pub struct BackendPipeline {
     shader_source: String,
     vertex_entry: String,
@@ -259,10 +263,7 @@ impl BackendPipeline {
         // из-за хака с box::leak
         if let Some(cached) = PIPELINE_CACHE.lock().get(&cache_key).cloned() {
             return Ok(PipelineResult {
-                // pipeline: Pipeline {
-                //     raw: (*cached).clone()
-                // },
-
+                pipeline: Some((*cached).clone()),
                 split_count: 1,
                 used_stride: self.get_max_stride(),
                 cache_hit: true,
@@ -439,12 +440,12 @@ impl BackendPipeline {
 
     /// Прямое создание без фалбэкаa
     fn build_direct(
-        &self,
+        &mut self,
         context: &mut BackendContext,
         format: BackendTextureFormat,
         bind_group_layouts: &[&RawBindGroupLayout],
         split_count: u32,
-    ) -> Result<(), MoonBackendError> {
+    ) -> Result<PipelineResult, MoonBackendError> {
         match &mut context.get_raw() {
             Some(raw_context) => {
                 let shader = raw_context.device.create_shader_module(
@@ -523,11 +524,115 @@ impl BackendPipeline {
                     }
                 );
 
-                Ok(())
+                // self.raw = Some(RawPipeline::new(raw_pipeline));
+
+                Ok(PipelineResult {
+                    pipeline: Some(RawPipeline::new(raw_pipeline)),
+                    split_count,
+                    used_stride: self.get_max_stride(),
+                    cache_hit: false,
+                })
             },
 
             None => Err(MoonBackendError::ContextNotFoundError),
         }
+    }
+
+    /// Создание с адаптивным фалбэком
+    fn build_with_fallback(
+        &mut self,
+        context: &mut BackendContext,
+        format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+    ) -> Result<PipelineResult, MoonBackendError> {
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                let max_stride = raw_context.device.limits().max_vertex_buffer_array_stride;
+                
+                // Если stride в пределах лимитов то создание напрямую
+                if self.get_max_stride() <= max_stride {
+                    return Ok(self.build_direct(context, format, bind_group_layouts, 1)?);
+                }
+
+                // разные стратегии fallback
+                let strategies = [
+                    self.try_split_strategy(context, format, bind_group_layouts, max_stride),
+                    self.try_reduce_strategy(context, format, bind_group_layouts, max_stride),
+                ];
+
+                for strategy_result in strategies.iter().flatten() {
+                    return Ok(strategy_result.clone());
+                }
+
+                Err(MoonBackendError::PipelineError("Failed to create pipeline with any fallback strategy".into()))
+            },
+
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+
+    // Стратегия разделить layout на несколько
+    fn try_split_strategy(
+        &self,
+        context: &mut BackendContext,
+        format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+        max_stride: u32,
+    ) -> Option<PipelineResult> {
+        // Попытка разделить каждый слишком большой layout
+        let mut split_layouts = Vec::new();
+        let mut split_count = 0;
+
+        for layout in &self.vertex_layouts {
+            if layout.stride > max_stride {
+                // Деление пополам
+                if let Some((a, b)) = self.split_layout_half(layout, max_stride) {
+                    split_layouts.push(a);
+                    split_layouts.push(b);
+                    split_count += 1;
+                } else {
+                    return None;
+                }
+            } else {
+                split_layouts.push(layout.clone());
+            }
+        }
+
+        // Создание нового пайплайна с разделенными лайаута
+        let mut new_pipeline: &mut BackendPipeline = &mut self.clone();
+        new_pipeline.vertex_layouts = split_layouts;
+
+        new_pipeline.build_direct(context, format, bind_group_layouts, split_count)
+            .map(|mut result| {
+                result.split_count = split_count;
+                result
+            })
+            .ok()
+    }
+
+    // Стратегия уменьшить stride
+    fn try_reduce_strategy(
+        &self,
+        context: &mut BackendContext,
+        format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+        max_stride: u32,
+    ) -> Option<PipelineResult> {
+        // Нахождение минимального возможного stride для атрибутов
+        let mut reduced_layouts = Vec::new();
+
+        for layout in &self.vertex_layouts {
+            let mut new_layout = layout.clone();
+            new_layout.stride = new_layout.stride.min(max_stride);
+            reduced_layouts.push(new_layout);
+        }
+
+        // Создание новых пайплайн с уменьшенным stride
+        let mut new_pipeline = self.clone();
+        new_pipeline.vertex_layouts = reduced_layouts;
+
+        new_pipeline.build_direct(context, format, bind_group_layouts, 1)
+            .ok()
     }
 
     /// Получить максимальный размер для передачи в шейдер по шине
@@ -589,5 +694,51 @@ impl BackendPipeline {
             Format::Unorm16x4 => wgpu::VertexFormat::Unorm16x4,
             Format::Snorm16x4 => wgpu::VertexFormat::Snorm16x4,
         }
+    }
+
+    // Разделить layout пополам
+    fn split_layout_half(
+        &self,
+        layout: &VertexLayout,
+        max_stride: u32,
+    ) -> Option<(VertexLayout, VertexLayout)> {
+        if layout.attributes.len() < 2 {
+            return None;
+        }
+
+        let mid = layout.attributes.len() / 2;
+        let (first, second) = layout.attributes.split_at(mid);
+
+        // Вычисление нового страйда
+        let first_stride = self.calculate_stride_for_attrs(first);
+        let second_stride = self.calculate_stride_for_attrs(second);
+
+        if first_stride > max_stride || second_stride > max_stride {
+            // Одна из половин все еще слишком большая
+            return None;
+        }
+
+        Some((
+            VertexLayout {
+                stride: first_stride,
+                step_mode: layout.step_mode,
+                attributes: first.to_vec(),
+            },
+
+            VertexLayout {
+                stride: second_stride,
+                step_mode: layout.step_mode,
+                attributes: second.to_vec(),
+            },
+        ))
+    }
+
+    fn calculate_stride_for_attrs(&self, attrs: &[VertexAttr]) -> u32 {
+        if attrs.is_empty() {
+            return 0;
+        }
+
+        let last = attrs.last().unwrap();
+        last.offset + format_size_bytes(last.format)
     }
 }

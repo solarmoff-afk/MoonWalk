@@ -246,3 +246,17 @@ pub fn get_depth_stencil_state(
 
     None
 }
+
+pub fn format_size_bytes(format: Format) -> u32 {
+    match format {
+        Format::Float32 => 4,
+        Format::Float32x2 => 8,
+        Format::Float32x3 => 12,
+        Format::Float32x4 => 16,
+        Format::Uint32 => 4,
+        Format::Uint16x2 => 4,
+        Format::Uint16x4 => 8,
+        Format::Unorm16x4 => 8,
+        Format::Snorm16x4 => 8,
+    }
+}
