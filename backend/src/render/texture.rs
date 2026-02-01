@@ -155,7 +155,7 @@ impl BackendTexture {
                 let size = self.pack_size(width, height);
 
                 let format = self.config.get_format();
-                let texture_format = self.map_format_to_wgpu(format);
+                let texture_format = map_format_to_wgpu(format);
 
                 let usage = match texture_type {
                     TextureType::Default => self.get_usage(),
@@ -567,15 +567,6 @@ impl BackendTexture {
         )
     }
 
-    /// Этот метод нужен чтобы конвертировать абстрактное перечисление BackendTextureFormat
-    /// в формат wgpu
-    fn map_format_to_wgpu(&self, format: BackendTextureFormat) -> wgpu::TextureFormat {
-        match format {
-            BackendTextureFormat::Rgba8UnormSrgb => wgpu::TextureFormat::Rgba8UnormSrgb,
-            BackendTextureFormat::Bgra8UnormSrgb => wgpu::TextureFormat::Bgra8UnormSrgb,
-        }
-    }
-
     // Упаковка разрешения текстуры в wgpu::Extent3d
     fn pack_size(&self, width: u32, height: u32) -> wgpu::Extent3d {
         wgpu::Extent3d {
@@ -583,5 +574,14 @@ impl BackendTexture {
             height,
             depth_or_array_layers: 1,
         }
+    }
+}
+
+/// Этот метод нужен чтобы конвертировать абстрактное перечисление BackendTextureFormat
+/// в формат wgpu
+pub fn map_format_to_wgpu(format: BackendTextureFormat) -> wgpu::TextureFormat {
+    match format {
+        BackendTextureFormat::Rgba8UnormSrgb => wgpu::TextureFormat::Rgba8UnormSrgb,
+        BackendTextureFormat::Bgra8UnormSrgb => wgpu::TextureFormat::Bgra8UnormSrgb,
     }
 }

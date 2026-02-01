@@ -7,14 +7,20 @@ pub mod bind;
 
 use types::*;
 use vertex::VertexLayout;
-use bind::BindGroup;
+use bind::{BindGroup, RawBindGroupLayout};
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
+use std::borrow::Cow;
 use parking_lot::Mutex;
 
 use crate::error::MoonBackendError;
+use crate::core::context::BackendContext;
+use crate::render::texture::{BackendTextureFormat, map_format_to_wgpu};
+use crate::pipeline::vertex::VertexAttr;
 
 /// Структура для кэширования пайплайна
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -25,10 +31,39 @@ struct PipelineCacheKey {
     format_hash: u64,
 }
 
+/// Результат создания пайплайна
+#[derive(Debug, Clone)]
+pub struct PipelineResult {
+    /// Созданный пайплайн
+    pub pipeline: Option<RawPipeline>,
+
+    /// Количество разделений буферов (для фалбэка)
+    pub split_count: u32,
+
+    /// Используемый размер stride в байтах
+    pub used_stride: u32,
+    
+    /// Попал ли пайплайн в кэш
+    pub cache_hit: bool,
+}
+
+impl PipelineResult {
+    // [MAYBE]
+    // Временный метод для разработки, потом удалить 
+    pub fn indev() -> Self {
+        Self {
+            pipeline: None,
+            split_count: 0,
+            used_stride: 0,
+            cache_hit: false,
+        }
+    }
+}
+
 // Глобальный кэш пайплайнов который необходим чтобы предотвратить перекомпиляцию
 // уже существующего пайплайна
 lazy_static::lazy_static! {
-    static ref PIPELINE_CACHE: Mutex<HashMap<PipelineCacheKey, Arc<wgpu::RenderPipeline>>> = 
+    static ref PIPELINE_CACHE: Mutex<HashMap<PipelineCacheKey, Arc<RawPipeline>>> = 
         Mutex::new(HashMap::new());
 }
 
@@ -48,8 +83,9 @@ pub enum FallbackStrategy {
     None,
 }
 
+#[derive(Debug, Clone)]
 pub struct RawPipeline {
-    pipeline: wgpu::RenderPipeline,
+    pub pipeline: wgpu::RenderPipeline,
 }
 
 impl RawPipeline {
@@ -78,6 +114,8 @@ pub struct RenderConfig {
     /// Включён ли тест глубины
     pub depth_test: bool,
     pub depth_write: bool,
+
+    pub polygon_mode: PolygonMode,
 }
 
 impl Default for RenderConfig {
@@ -89,10 +127,12 @@ impl Default for RenderConfig {
             topology: Topology::TriangleList,
             depth_test: false,
             depth_write: false,
+            polygon_mode: PolygonMode::Fill,
         }
     }
 }
 
+#[derive(Clone)]
 pub struct BackendPipeline {
     shader_source: String,
     vertex_entry: String,
@@ -184,6 +224,11 @@ impl BackendPipeline {
         self
     }
 
+    pub fn polygon_mode(mut self, polygon_mode: PolygonMode) -> Self {
+        self.render_config.polygon_mode = polygon_mode;
+        self
+    }
+
     /// Этот метод устанавливает стратегию фалбек
     pub fn fallback_strategy(mut self, strategy: FallbackStrategy) -> Self {
         self.fallback_strategy = strategy;
@@ -201,10 +246,57 @@ impl BackendPipeline {
         self.bind_groups.push(bind_group);
         self
     }
+
+    pub fn build(
+        &mut self,
+        context: &mut BackendContext,
+        texture_format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+    ) -> Result<PipelineResult, MoonBackendError> {
+        // Валидация конфигурации
+        self.validate()?;
+
+        let cache_key = self.create_cache_key();
+
+        // Если такой пайплайн уже есть в кэше то просто нужно вернуть его,
+        // нет смысла создавать новый, только память будет расходывать
+        // из-за хака с box::leak
+        if let Some(cached) = PIPELINE_CACHE.lock().get(&cache_key).cloned() {
+            return Ok(PipelineResult {
+                pipeline: Some((*cached).clone()),
+                split_count: 1,
+                used_stride: self.get_max_stride(),
+                cache_hit: true,
+            })
+        };
+
+        let result = match self.fallback_strategy {
+            FallbackStrategy::None => self.build_direct(context, texture_format, bind_group_layouts, 1)?,
+            FallbackStrategy::Adaptive => self.clone().build_with_fallback(context, texture_format, bind_group_layouts)?,
+            FallbackStrategy::Split => self.clone().build_with_split(context, texture_format, bind_group_layouts)?,
+            FallbackStrategy::Reduce => self.clone().build_with_reduce(context, texture_format, bind_group_layouts)?,
+        };
+
+        match result.pipeline {
+            Some(ref raw) => { 
+                PIPELINE_CACHE.lock().insert(cache_key, Arc::new(raw.clone()));
+            },
+
+            None => {
+                return Err(MoonBackendError::PipelineError("Raw pipeline not found".into()));
+            }
+        };
+
+        Ok(result)
+
+        // Ok(PipelineResult::indev())
+    }
     
     // [MAYBE]
     // Собрать все параметры и RenderConfig в raw gpu пайплайн
-    // Это легаси с утечкой абстрации, использовать только метод collect
+    // Это легаси с утечкой абстрации, использовать только метод compile
+    // upd: Всё таки я сделаю breken change, build не буде принимать
+    // wgpu типы
     // pub fn build(
     //     &self,
     //     ctx: &Context,
@@ -242,6 +334,7 @@ impl BackendPipeline {
     //     Ok(result)
     // }
 
+    /// Валидация параметров пайплайна перед сборкой
     fn validate(&self) -> Result<(), MoonBackendError> {
         if self.vertex_entry.is_empty() {
             return Err(MoonBackendError::PipelineError("Vertex shader entry point not set".into()));
@@ -288,5 +381,420 @@ impl BackendPipeline {
         }
 
         Ok(())
+    }
+
+    /// Метод для получения ключа кэширования в системе кэша, оптимизация.
+    /// Зачем пересоздавать пайплайн если он уже есть в кэше?
+    fn create_cache_key(&self) -> PipelineCacheKey {
+        let mut hasher = DefaultHasher::new();
+        
+        // Хэширование шейдер
+        self.shader_source.hash(&mut hasher);
+        self.vertex_entry.hash(&mut hasher);
+        self.fragment_entry.hash(&mut hasher);
+
+        let shader_hash = hasher.finish();
+
+        // Хэширование vertex layouts
+        let mut hasher = DefaultHasher::new();
+        for layout in &self.vertex_layouts {
+            layout.stride.hash(&mut hasher);
+            (layout.step_mode as u8).hash(&mut hasher);
+            
+            for attr in &layout.attributes {
+                (attr.format as u8).hash(&mut hasher);
+                
+                attr.location.hash(&mut hasher);
+                attr.offset.hash(&mut hasher);
+            }
+        }
+
+        let vertex_layouts_hash = hasher.finish();
+
+        // Хэширование bind groups
+        let mut hasher = DefaultHasher::new();
+        
+        for bind_group in &self.bind_groups {
+            for entry in &bind_group.entries {
+                entry.binding.hash(&mut hasher);
+                (entry.entry_type as u8).hash(&mut hasher);
+                (entry.visibility as u8).hash(&mut hasher);
+                
+                if let Some(st) = &entry.sample_type {
+                    (*st as u8).hash(&mut hasher);
+                }
+                
+                if let Some(st) = &entry.sampler_type {
+                    (*st as u8).hash(&mut hasher);
+                }
+            }
+        }
+
+        let bind_groups_hash = hasher.finish();
+
+        // Хэширование render config
+        let mut hasher = DefaultHasher::new();
+        (self.render_config.blend_mode as u8).hash(&mut hasher);
+        (self.render_config.cull_mode as u8).hash(&mut hasher);
+        (self.render_config.topology as u8).hash(&mut hasher);
+        self.render_config.depth_test.hash(&mut hasher);
+        self.render_config.depth_write.hash(&mut hasher);
+        
+        let format_hash = hasher.finish();
+
+        PipelineCacheKey {
+            shader_hash,
+            vertex_layouts_hash,
+            bind_groups_hash,
+            format_hash,
+        }
+    }
+
+    /// Прямое создание без фалбэкаa
+    fn build_direct(
+        &mut self,
+        context: &mut BackendContext,
+        format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+        split_count: u32,
+    ) -> Result<PipelineResult, MoonBackendError> {
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                let shader = raw_context.device.create_shader_module(
+                    wgpu::ShaderModuleDescriptor {
+                        label: Some(&format!("{} shader module", &self.get_label())),
+                        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(&self.shader_source)),
+                    }
+                );
+
+                // Этот код приводит к снижению производительности на маппинг,
+                // но это необходимо чтобы избежать утечки абстрации
+                let temp: Vec<&wgpu::BindGroupLayout> = bind_group_layouts.iter()
+                    .map(|rg| &rg.raw).collect();
+                
+                let wgpu_bind_groups_layouts: &[&wgpu::BindGroupLayout] = &temp;
+
+                let layout = raw_context.device.create_pipeline_layout(
+                    &wgpu::PipelineLayoutDescriptor {
+                        label: Some(&format!("{} pipeline layout", &self.get_label())),
+                        bind_group_layouts: wgpu_bind_groups_layouts,
+                        push_constant_ranges: &[],
+                    }
+                );
+
+                // Конвертация вершинных лайаутов в wgpu и сборка в вектор
+                let mut vertex_layouts: Vec<wgpu::VertexBufferLayout> = Vec::new();
+                
+                for layout in &self.vertex_layouts {
+                    let wgpu_layout = self.convert_vertex_layout(layout);
+                    vertex_layouts.push(wgpu_layout);
+                }
+
+                let raw_pipeline = raw_context.device.create_render_pipeline(
+                    &wgpu::RenderPipelineDescriptor {
+                        // Форматирование с label для отладки
+                        label: Some(&format!("{} render pipeline", &self.get_label())),
+                        layout: Some(&layout),
+                        
+                        vertex: wgpu::VertexState {
+                            module: &shader,
+                            entry_point: Some(&self.vertex_entry),
+                            buffers: &vertex_layouts,
+                            compilation_options: Default::default(),
+                        },
+
+                        fragment: Some(wgpu::FragmentState {
+                            module: &shader,
+                            entry_point: Some(&self.fragment_entry),
+                            targets: &[Some(wgpu::ColorTargetState {
+                                format: map_format_to_wgpu(format),
+                                blend: Some(map_blend_state(self.render_config.blend_mode)),
+                                
+                                write_mask: wgpu::ColorWrites::ALL,
+                            })],
+                            compilation_options: Default::default(),
+                        }),
+
+                        primitive: wgpu::PrimitiveState {
+                            topology: map_topology(self.render_config.topology),
+                            strip_index_format: None,
+                            front_face: wgpu::FrontFace::Ccw,
+                            cull_mode: map_cull_mode(self.render_config.cull_mode),
+                            polygon_mode: map_polygon_mode(self.render_config.polygon_mode),
+                            unclipped_depth: false,
+                            conservative: false,
+                        },
+
+                        depth_stencil: get_depth_stencil_state(
+                            self.render_config.depth_test,
+                            self.render_config.depth_write
+                        ),
+                        
+                        multisample: wgpu::MultisampleState::default(),
+                        multiview: None,
+                        cache: None,
+                    }
+                );
+
+                // self.raw = Some(RawPipeline::new(raw_pipeline));
+
+                Ok(PipelineResult {
+                    pipeline: Some(RawPipeline::new(raw_pipeline)),
+                    split_count,
+                    used_stride: self.get_max_stride(),
+                    cache_hit: false,
+                })
+            },
+
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+
+    /// Создание с адаптивным фалбэком
+    fn build_with_fallback(
+        &mut self,
+        context: &mut BackendContext,
+        format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+    ) -> Result<PipelineResult, MoonBackendError> {
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                let max_stride = raw_context.device.limits().max_vertex_buffer_array_stride;
+                
+                // Если stride в пределах лимитов то создание напрямую
+                if self.get_max_stride() <= max_stride {
+                    return Ok(self.build_direct(context, format, bind_group_layouts, 1)?);
+                }
+
+                // разные стратегии fallback
+                let strategies = [
+                    self.try_split_strategy(context, format, bind_group_layouts, max_stride),
+                    self.try_reduce_strategy(context, format, bind_group_layouts, max_stride),
+                ];
+
+                for strategy_result in strategies.iter().flatten() {
+                    return Ok(strategy_result.clone());
+                }
+
+                Err(MoonBackendError::PipelineError("Failed to create pipeline with any fallback strategy".into()))
+            },
+
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+
+    // Стратегия разделить layout на несколько
+    fn try_split_strategy(
+        &self,
+        context: &mut BackendContext,
+        format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+        max_stride: u32,
+    ) -> Option<PipelineResult> {
+        // Попытка разделить каждый слишком большой layout
+        let mut split_layouts = Vec::new();
+        let mut split_count = 0;
+
+        for layout in &self.vertex_layouts {
+            if layout.stride > max_stride {
+                // Деление пополам
+                if let Some((a, b)) = self.split_layout_half(layout, max_stride) {
+                    split_layouts.push(a);
+                    split_layouts.push(b);
+                    split_count += 1;
+                } else {
+                    return None;
+                }
+            } else {
+                split_layouts.push(layout.clone());
+            }
+        }
+
+        // Создание нового пайплайна с разделенными лайаута
+        let mut new_pipeline: &mut BackendPipeline = &mut self.clone();
+        new_pipeline.vertex_layouts = split_layouts;
+
+        new_pipeline.build_direct(context, format, bind_group_layouts, split_count)
+            .map(|mut result| {
+                result.split_count = split_count;
+                result
+            })
+            .ok()
+    }
+
+    // Стратегия уменьшить stride
+    fn try_reduce_strategy(
+        &self,
+        context: &mut BackendContext,
+        format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+        max_stride: u32,
+    ) -> Option<PipelineResult> {
+        // Нахождение минимального возможного stride для атрибутов
+        let mut reduced_layouts = Vec::new();
+
+        for layout in &self.vertex_layouts {
+            let mut new_layout = layout.clone();
+            new_layout.stride = new_layout.stride.min(max_stride);
+            reduced_layouts.push(new_layout);
+        }
+
+        // Создание новых пайплайн с уменьшенным stride
+        let mut new_pipeline = self.clone();
+        new_pipeline.vertex_layouts = reduced_layouts;
+
+        new_pipeline.build_direct(context, format, bind_group_layouts, 1)
+            .ok()
+    }
+
+    fn build_with_split(
+        self,
+        context: &mut BackendContext,
+        format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+    ) -> Result<PipelineResult, MoonBackendError> {
+        let mut _max_stride = 0;
+        
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                _max_stride = raw_context.device.limits().max_vertex_buffer_array_stride;
+            },
+
+            None => {
+                return Err(MoonBackendError::ContextNotFoundError);
+            }
+        };
+
+        self.try_split_strategy(context, format, bind_group_layouts, _max_stride)
+            .ok_or_else(|| MoonBackendError::PipelineError("Split strategy failed".into()))
+    }
+
+    fn build_with_reduce(
+        self,
+        context: &mut BackendContext,
+        format: BackendTextureFormat,
+        bind_group_layouts: &[&RawBindGroupLayout],
+    ) -> Result<PipelineResult, MoonBackendError> {
+        let mut _max_stride = 0;
+        
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                _max_stride = raw_context.device.limits().max_vertex_buffer_array_stride;
+            },
+
+            None => {
+                return Err(MoonBackendError::ContextNotFoundError);
+            }
+        };
+
+        self.try_reduce_strategy(context, format, bind_group_layouts, _max_stride)
+            .ok_or_else(|| MoonBackendError::PipelineError("Reduce strategy failed".into()))
+    }
+
+    /// Получить максимальный размер для передачи в шейдер по шине
+    fn get_max_stride(&self) -> u32 {
+        self.vertex_layouts.iter()
+            .map(|l| l.stride)
+            .max()
+            .unwrap_or(0)
+    }
+
+    /// Для сокращения кода чтобы не писать везде match на self.label
+    fn get_label(&self) -> String {
+        match &self.label {
+            Some(label) => label.to_string(),
+            None => "Label not found".to_string(),
+        }
+    }
+
+    // Конвертация в wgpu типы
+    fn convert_vertex_layout(&self, layout: &VertexLayout) -> wgpu::VertexBufferLayout<'static> {
+        let attributes: Vec<wgpu::VertexAttribute> = layout.attributes
+            .iter()
+            .map(|attr| wgpu::VertexAttribute {
+                format: self.convert_format(attr.format),
+                offset: attr.offset as u64,
+                shader_location: attr.location,
+            })
+            .collect();
+    
+        // [HACK]
+        // Используется Box::leak для получения 'static времени жизни
+        // Пайплайнов обычно мало (от 5 до 10) и живут всё время приложения
+        // В будущем можно использовать arena allocator если понадобится
+        // Уточненеи: вершинный лайаут это лайаут структуры входа внутри
+        // шейдера, а один пайплайн = один шейдер = один вершинный лайаут 
+        let attributes = Box::leak(attributes.into_boxed_slice());
+    
+        wgpu::VertexBufferLayout {
+            array_stride: layout.stride as u64,
+            
+            step_mode: match layout.step_mode {
+                StepMode::Vertex => wgpu::VertexStepMode::Vertex,
+                StepMode::Instance => wgpu::VertexStepMode::Instance,
+            },
+
+            attributes,
+        }
+    }
+
+    fn convert_format(&self, format: Format) -> wgpu::VertexFormat {
+        match format {
+            Format::Float32 => wgpu::VertexFormat::Float32,
+            Format::Float32x2 => wgpu::VertexFormat::Float32x2,
+            Format::Float32x3 => wgpu::VertexFormat::Float32x3,
+            Format::Float32x4 => wgpu::VertexFormat::Float32x4,
+            Format::Uint32 => wgpu::VertexFormat::Uint32,
+            Format::Uint16x2 => wgpu::VertexFormat::Uint16x2,
+            Format::Uint16x4 => wgpu::VertexFormat::Uint16x4,
+            Format::Unorm16x4 => wgpu::VertexFormat::Unorm16x4,
+            Format::Snorm16x4 => wgpu::VertexFormat::Snorm16x4,
+        }
+    }
+
+    // Разделить layout пополам
+    fn split_layout_half(
+        &self,
+        layout: &VertexLayout,
+        max_stride: u32,
+    ) -> Option<(VertexLayout, VertexLayout)> {
+        if layout.attributes.len() < 2 {
+            return None;
+        }
+
+        let mid = layout.attributes.len() / 2;
+        let (first, second) = layout.attributes.split_at(mid);
+
+        // Вычисление нового страйда
+        let first_stride = self.calculate_stride_for_attrs(first);
+        let second_stride = self.calculate_stride_for_attrs(second);
+
+        if first_stride > max_stride || second_stride > max_stride {
+            // Одна из половин все еще слишком большая
+            return None;
+        }
+
+        Some((
+            VertexLayout {
+                stride: first_stride,
+                step_mode: layout.step_mode,
+                attributes: first.to_vec(),
+            },
+
+            VertexLayout {
+                stride: second_stride,
+                step_mode: layout.step_mode,
+                attributes: second.to_vec(),
+            },
+        ))
+    }
+
+    fn calculate_stride_for_attrs(&self, attrs: &[VertexAttr]) -> u32 {
+        if attrs.is_empty() {
+            return 0;
+        }
+
+        let last = attrs.last().unwrap();
+        last.offset + format_size_bytes(last.format)
     }
 }

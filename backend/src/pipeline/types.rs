@@ -137,3 +137,126 @@ pub enum SamplerType {
     /// Сравнительный сэмплер для теней
     Comparison,
 }
+
+#[derive(Debug, Clone, Copy)]
+pub enum PolygonMode {
+    Fill = 1,
+}
+
+pub fn map_blend_state(blend_mode: BlendMode) -> wgpu::BlendState {
+    match blend_mode {
+        BlendMode::None => wgpu::BlendState::REPLACE,
+
+        BlendMode::Alpha => wgpu::BlendState::ALPHA_BLENDING,
+
+        BlendMode::Additive => wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::SrcAlpha,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::Add,
+            },
+            
+            alpha: wgpu::BlendComponent::OVER,
+        },
+
+        BlendMode::Multiply => {
+            wgpu::BlendState {
+                color: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::Dst,
+                    dst_factor: wgpu::BlendFactor::Zero,
+                    operation: wgpu::BlendOperation::Add,
+                },
+
+                alpha: wgpu::BlendComponent::OVER,
+            }
+        },
+
+        BlendMode::Screen => wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::OneMinusSrc,
+                operation: wgpu::BlendOperation::Add,
+            },
+            alpha: wgpu::BlendComponent::OVER,
+        },
+
+        BlendMode::Subtract => wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::ReverseSubtract,
+            },
+
+            alpha: wgpu::BlendComponent::OVER,
+        },
+
+        BlendMode::Eraser => wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::Zero,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+
+            alpha: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::Zero,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+        },
+    }
+}
+
+pub fn map_topology(topology: Topology) -> wgpu::PrimitiveTopology {
+    match topology {
+        Topology::PointList => wgpu::PrimitiveTopology::PointList,
+        Topology::LineList => wgpu::PrimitiveTopology::LineList,
+        Topology::LineStrip => wgpu::PrimitiveTopology::LineStrip,
+        Topology::TriangleList => wgpu::PrimitiveTopology::TriangleList,
+        Topology::TriangleStrip => wgpu::PrimitiveTopology::TriangleStrip,
+    }
+}
+
+pub fn map_cull_mode(cull_mode: CullMode) -> Option<wgpu::Face> {
+    match cull_mode {
+        CullMode::None => None,
+        CullMode::Front => Some(wgpu::Face::Front),
+        CullMode::Back => Some(wgpu::Face::Back),
+    }
+}
+
+pub fn map_polygon_mode(polygon_mode: PolygonMode) -> wgpu::PolygonMode {
+    match polygon_mode {
+        PolygonMode::Fill => wgpu::PolygonMode::Fill,
+    }
+}
+
+pub fn get_depth_stencil_state(
+    depth_test: bool,
+    depth_write: bool
+) -> Option<wgpu::DepthStencilState> {
+    if depth_test {
+        return Some(wgpu::DepthStencilState {
+            format: wgpu::TextureFormat::Depth32Float,
+            depth_write_enabled: depth_write,
+            depth_compare: wgpu::CompareFunction::Less,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        });
+    }
+
+    None
+}
+
+pub fn format_size_bytes(format: Format) -> u32 {
+    match format {
+        Format::Float32 => 4,
+        Format::Float32x2 => 8,
+        Format::Float32x3 => 12,
+        Format::Float32x4 => 16,
+        Format::Uint32 => 4,
+        Format::Uint16x2 => 4,
+        Format::Uint16x4 => 8,
+        Format::Unorm16x4 => 8,
+        Format::Snorm16x4 => 8,
+    }
+}
