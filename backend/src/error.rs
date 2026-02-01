@@ -8,6 +8,9 @@ pub enum MoonBackendError {
     #[error("Context not found, please create context")]
     ContextNotFoundError,
 
+    #[error("Encoder raw not found, please create encoder")]
+    EncoderNotFountError,
+
     #[error("Command encoder submit failed")]
     EncoderSubmitError,
 
@@ -19,4 +22,7 @@ pub enum MoonBackendError {
 
     #[error("Pipeline validation error: {0}")]
     PipelineError(String),
+
+    #[error("RenderPass validation error: {0}")]
+    RenderPassError(String),
 }

@@ -4,7 +4,7 @@
 use crate::core::context::BackendContext;
 use crate::error::MoonBackendError;
 
-struct RawEncoder {
+pub struct RawEncoder {
     encoder: Option<wgpu::CommandEncoder>,
 }
 
@@ -78,6 +78,15 @@ impl BackendEncoder {
                 Ok(())
             },
             None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+
+    // Метод для получения сырого wgpu команд энкодера, используется в
+    // BackendRenderPass, но может также использоваться за пределами крейта
+    pub fn get_raw(&mut self) -> Option<&mut wgpu::CommandEncoder> {
+        match &mut self.encoder.encoder {
+            Some(raw) => Some(raw),
+            None => None,
         }
     }
 

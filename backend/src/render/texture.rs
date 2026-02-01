@@ -575,6 +575,10 @@ impl BackendTexture {
             depth_or_array_layers: 1,
         }
     }
+
+    pub fn get_raw(&self) -> Option<&RawTexture> {
+        self.raw.as_ref()
+    }
 }
 
 /// Этот метод нужен чтобы конвертировать абстрактное перечисление BackendTextureFormat
