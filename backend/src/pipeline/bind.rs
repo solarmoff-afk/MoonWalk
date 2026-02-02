@@ -15,7 +15,19 @@ pub struct RawBindGroupLayout {
 impl RawBindGroupLayout {
     pub fn new(layout: wgpu::BindGroupLayout) -> Self {
         Self {
-            raw: layout
+            raw: layout,
+        }
+    }
+}
+
+pub struct RawBindGroup {
+    pub raw: wgpu::BindGroup,
+}
+
+impl RawBindGroup {
+    pub fn new(bind: wgpu::BindGroup) -> Self {
+        Self {
+            raw: bind,
         }
     }
 }
@@ -102,7 +114,6 @@ impl BindGroup {
         self
     }
 
-    // TODO: Создать build_v2 который возвращает кастомный тип, а не wgpu
     pub(crate) fn build(&self, context: &mut BackendContext) -> Result<RawBindGroupLayout, MoonBackendError> {
         match &mut context.get_raw() {
             Some(raw_context) => {

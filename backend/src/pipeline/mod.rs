@@ -58,6 +58,16 @@ impl PipelineResult {
             cache_hit: false,
         }
     }
+
+    pub fn get_raw(&self) -> Result<&RawPipeline, MoonBackendError> {
+        match &self.pipeline {
+            Some(pipeline) => {
+                Ok(pipeline)
+            },
+            
+            None => Err(MoonBackendError::PipelineError("Pipeline not found".into())),
+        }
+    }
 }
 
 // Глобальный кэш пайплайнов который необходим чтобы предотвратить перекомпиляцию
@@ -283,7 +293,7 @@ impl BackendPipeline {
             },
 
             None => {
-                return Err(MoonBackendError::PipelineError("Raw pipeline not found".into()));
+                return Err(MoonBackendError::PipelineError("Raw pipeline not created".into()));
             }
         };
 
