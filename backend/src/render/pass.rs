@@ -80,11 +80,11 @@ impl<'a> RenderPass<'a> {
         self.raw.set_bind_group(index, &group.raw, &[]);
     }
 
-    pub fn set_vertex_buffer<T: Pod>(&mut self, slot: u32, buffer: &'a BackendBuffer<T>) {
+    pub fn set_vertex_buffer<T: Pod>(&mut self, slot: u32, buffer: &BackendBuffer<T>) {
         self.raw.set_vertex_buffer(slot, buffer.raw.slice(..));
     }
 
-    pub fn set_index_buffer(&mut self, buffer: &'a BackendBuffer<u32>) {
+    pub fn set_index_buffer(&mut self, buffer: &BackendBuffer<u32>) {
         self.raw.set_index_buffer(buffer.raw.slice(..), wgpu::IndexFormat::Uint32);
     }
 
