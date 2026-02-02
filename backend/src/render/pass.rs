@@ -6,6 +6,7 @@ use glam::Vec4;
 
 use crate::core::encoder::BackendEncoder;
 use crate::pipeline::PipelineResult;
+use crate::pipeline::bind::RawBindGroup;
 use crate::render::texture::{BackendTexture, RawTexture};
 use crate::error::MoonBackendError;
 
@@ -69,14 +70,14 @@ impl<'a> RenderPass<'a> {
         })
     }
 
-    pub fn set_pipeline(&mut self, pipeline: PipelineResult) -> Result<(), MoonBackendError> {
+    pub fn set_pipeline(&mut self, pipeline: &PipelineResult) -> Result<(), MoonBackendError> {
         self.raw.set_pipeline(&pipeline.get_raw()?.pipeline);
         Ok(())
     }
 
-    // pub fn set_bind_group(&mut self, index: u32, group: &'a wgpu::BindGroup) {
-    //     self.raw.set_bind_group(index, group, &[]);
-    // }
+    pub fn set_bind_group(&mut self, index: u32, group: &RawBindGroup) {
+        self.raw.set_bind_group(index, &group.raw, &[]);
+    }
 
     // pub fn set_vertex_buffer<T: Pod>(&mut self, slot: u32, buffer: &'a Buffer<T>) {
     //     self.raw.set_vertex_buffer(slot, buffer.raw.slice(..));

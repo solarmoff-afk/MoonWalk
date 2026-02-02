@@ -3,6 +3,7 @@
 
 use crate::core::context::{BackendContext, RawContext};
 use crate::error::MoonBackendError;
+use crate::pipeline::bind::RawBindGroup;
 
 // Абстрация над wgpu, добавить другие типы по необходимости, но этих двух должно
 // хватить для кейсов использования MoonWalk
@@ -65,7 +66,7 @@ pub struct RawTexture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
-    pub bind_group: wgpu::BindGroup,
+    pub bind_group: RawBindGroup,
 }
 
 impl RawTexture {
@@ -73,7 +74,7 @@ impl RawTexture {
         texture: wgpu::Texture,
         view: wgpu::TextureView,
         sampler: wgpu::Sampler,
-        bind_group: wgpu::BindGroup
+        bind_group: RawBindGroup
     ) -> Self {
         Self {
             texture,
@@ -239,7 +240,7 @@ impl BackendTexture {
                 // вернуть ContextNotFoundError если что
                 self.width = width;
                 self.height = height;
-                self.raw = Some(RawTexture::new(texture, view, sampler, bind_group));
+                self.raw = Some(RawTexture::new(texture, view, sampler, RawBindGroup::new(bind_group)));
 
                 Ok(())
             }
@@ -567,12 +568,21 @@ impl BackendTexture {
         )
     }
 
-    // Упаковка разрешения текстуры в wgpu::Extent3d
+    /// Упаковка разрешения текстуры в wgpu::Extent3d
     fn pack_size(&self, width: u32, height: u32) -> wgpu::Extent3d {
         wgpu::Extent3d {
             width,
             height,
             depth_or_array_layers: 1,
+        }
+    }
+
+    /// Метод для получения RawBindGroup напрямую который переносит сырой
+    /// wgpu тип 
+    pub fn get_raw_bind_group(&self) -> Option<&RawBindGroup> {
+        match &self.raw {
+            Some(raw_texture) => Some(&raw_texture.bind_group),
+            None => None,
         }
     }
 
