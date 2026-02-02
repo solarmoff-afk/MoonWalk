@@ -606,6 +606,8 @@ pub fn map_wgpu_to_format(format: wgpu::TextureFormat) -> BackendTextureFormat {
     match format {
         wgpu::TextureFormat::Rgba8UnormSrgb => BackendTextureFormat::Rgba8UnormSrgb,
         wgpu::TextureFormat::Bgra8UnormSrgb => BackendTextureFormat::Bgra8UnormSrgb,
-        _ => panic!("Texture format not found"),
+
+        // Фаллбек
+        _ => BackendTextureFormat::Rgba8UnormSrgb,
     }
 }
