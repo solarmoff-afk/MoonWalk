@@ -20,6 +20,7 @@ impl RawBindGroupLayout {
     }
 }
 
+#[derive(Clone)]
 pub struct RawBindGroup {
     pub raw: wgpu::BindGroup,
 }
