@@ -299,6 +299,7 @@ impl BackendPipeline {
 
         Ok(result)
 
+        // Заглушка для тестирования, на всякий случай
         // Ok(PipelineResult::indev())
     }
     

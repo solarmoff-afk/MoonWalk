@@ -578,7 +578,7 @@ impl BackendTexture {
     }
 
     /// Метод для получения RawBindGroup напрямую который переносит сырой
-    /// wgpu тип 
+    /// wgpu тип
     pub fn get_raw_bind_group(&self) -> Option<&RawBindGroup> {
         match &self.raw {
             Some(raw_texture) => Some(&raw_texture.bind_group),
@@ -597,5 +597,15 @@ pub fn map_format_to_wgpu(format: BackendTextureFormat) -> wgpu::TextureFormat {
     match format {
         BackendTextureFormat::Rgba8UnormSrgb => wgpu::TextureFormat::Rgba8UnormSrgb,
         BackendTextureFormat::Bgra8UnormSrgb => wgpu::TextureFormat::Bgra8UnormSrgb,
+    }
+}
+
+/// Этот метод нужен для BackendContext чтобы наоборот перевести формат из
+/// wgpu перечисления в BackendTextureFormat для использования в BackendPipeline
+pub fn map_wgpu_to_format(format: wgpu::TextureFormat) -> BackendTextureFormat {
+    match format {
+        wgpu::TextureFormat::Rgba8UnormSrgb => BackendTextureFormat::Rgba8UnormSrgb,
+        wgpu::TextureFormat::Bgra8UnormSrgb => BackendTextureFormat::Bgra8UnormSrgb,
+        _ => panic!("Texture format not found"),
     }
 }
