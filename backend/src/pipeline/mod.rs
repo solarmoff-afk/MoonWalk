@@ -588,7 +588,7 @@ impl BackendPipeline {
         }
 
         // Создание нового пайплайна с разделенными лайаута
-        let mut new_pipeline: &mut BackendPipeline = &mut self.clone();
+        let new_pipeline: &mut BackendPipeline = &mut self.clone();
         new_pipeline.vertex_layouts = split_layouts;
 
         new_pipeline.build_direct(context, format, bind_group_layouts, split_count)

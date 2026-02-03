@@ -4,6 +4,8 @@
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use glam::{Vec2, Vec4};
 
+use moonwalk_backend::core::context::BackendContext;
+
 use crate::gpu::Context;
 use crate::error::MoonWalkError;
 use crate::rendering::texture::Texture;
@@ -26,10 +28,15 @@ struct SnapshotTask {
     h: u32,
 }
 
-/// Структура рендерера. Она хранит контекст (gpu -> wgpu)
+/// Структура рендерера. Она хранит контекст moonwalk_backend
 /// и состояние рендера (матричный стэк, храниоище объектов и так далее)
 pub struct MoonRenderer {
+    #[cfg(feature = "modern")]
+    pub context: BackendContext,
+
+    #[cfg(not(feature = "modern"))]
     pub context: Context,
+
     pub state: RenderState,
     pub scale_factor: f32,
     pub filters: FilterSystem,
@@ -51,10 +58,15 @@ impl MoonRenderer {
         window: &(impl HasWindowHandle + HasDisplayHandle),
         width: u32, height: u32
     ) -> Result<Self, MoonWalkError> {
-        // Асинхронно создаём контекст рендеринга через pollster
-        let context = pollster::block_on(
-            Context::new(window, width, height)
-        );
+        // Создание контекст рендеринга
+        #[cfg(feature = "modern")]
+        {
+            let mut context = BackendContext::new();
+            context.create_context_sync(window, width, height);
+        }
+
+        #[cfg(not(feature = "modern"))]
+        let context = pollster::block_on(Context::new(window, width, height));
 
         let filters = FilterSystem::new(&context)?;
         
@@ -225,8 +237,7 @@ impl MoonRenderer {
             self.snapshot_tasks.clear();
         }
 
-        let frame = self.context.surface.as_ref().unwrap().get_current_texture()
-            .map_err(|e| MoonWalkError::SurfaceError(e))?;
+        let frame = self.context.surface.as_ref().unwrap().get_current_texture()?;
 
         let surface_view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 

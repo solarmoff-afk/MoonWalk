@@ -8,7 +8,7 @@ use crate::core::encoder::BackendEncoder;
 use crate::core::buffer::BackendBuffer;
 use crate::pipeline::PipelineResult;
 use crate::pipeline::bind::RawBindGroup;
-use crate::render::texture::{BackendTexture, RawTexture};
+use crate::render::texture::BackendTexture;
 use crate::error::MoonBackendError;
 
 pub struct RenderPass<'a> {

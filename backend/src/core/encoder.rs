@@ -2,6 +2,7 @@
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
 use crate::core::context::BackendContext;
+use crate::render::texture::RawTexture;
 use crate::error::MoonBackendError;
 
 pub struct RawEncoder {
@@ -90,7 +91,48 @@ impl BackendEncoder {
         }
     }
 
-    // TODO
-    // pub fn copy_texture_to_texture(&mut self) {
-    // }
+    /// Метод чтобы копировать текстуру в текстуру
+    pub fn copy_texture_to_texture(
+        &mut self,
+        x: u32,
+        y: u32,
+        w: u32,
+        h: u32,
+        texture: &RawTexture,
+        target_texture: &RawTexture,
+    ) -> Result<(), MoonBackendError> {
+        match &mut self.encoder.encoder {
+            Some(raw_encoder) => {
+                raw_encoder.copy_texture_to_texture(
+                    wgpu::TexelCopyTextureInfo {
+                        texture: &texture.texture,
+                        mip_level: 0,
+                        origin: wgpu::Origin3d {
+                            x: x,
+                            y: y,
+                            z: 0
+                        },
+                        aspect: wgpu::TextureAspect::All,
+                    },
+
+                    wgpu::TexelCopyTextureInfo {
+                        texture: &target_texture.texture,
+                        mip_level: 0,
+                        origin: wgpu::Origin3d::ZERO,
+                        aspect: wgpu::TextureAspect::All,
+                    },
+
+                    wgpu::Extent3d {
+                        width: w,
+                        height: h,
+                        depth_or_array_layers: 1,
+                    }
+                );
+
+                Ok(())
+            },
+
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
 }

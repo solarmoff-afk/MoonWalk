@@ -5,7 +5,9 @@ use glam::{Vec2, Vec4};
 
 use crate::MoonWalk;
 use crate::painting::BrushVertex;
+
 use crate::r#abstract::BlendMode as InternalBlendMode;
+// use moonwalk_backend::pipeline::types::BlendMode as InternalBlendMode;
 
 /// Простой генератор псевдослучайных чисел для джиттера
 struct Lcg {
