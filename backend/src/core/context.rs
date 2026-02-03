@@ -4,6 +4,7 @@
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use wgpu::SurfaceTargetUnsafe;
 
+use crate::render::texture::{BackendTextureFormat, map_wgpu_to_format};
 use crate::error::MoonBackendError;
 
 const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
@@ -266,6 +267,16 @@ impl BackendContext {
                 Ok(())
             },
             None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+
+    pub fn get_format(&mut self) -> BackendTextureFormat {
+        match &mut self.context.as_mut() {
+            Some(raw_context) => {
+                map_wgpu_to_format(raw_context.config.format)
+            },
+
+            None => BackendTextureFormat::Rgba8UnormSrgb,
         }
     }
 }

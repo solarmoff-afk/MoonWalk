@@ -5,6 +5,7 @@ use bytemuck::Pod;
 use glam::Vec4;
 
 use crate::core::encoder::BackendEncoder;
+use crate::core::buffer::BackendBuffer;
 use crate::pipeline::PipelineResult;
 use crate::pipeline::bind::RawBindGroup;
 use crate::render::texture::{BackendTexture, RawTexture};
@@ -79,13 +80,13 @@ impl<'a> RenderPass<'a> {
         self.raw.set_bind_group(index, &group.raw, &[]);
     }
 
-    // pub fn set_vertex_buffer<T: Pod>(&mut self, slot: u32, buffer: &'a Buffer<T>) {
-    //     self.raw.set_vertex_buffer(slot, buffer.raw.slice(..));
-    // }
+    pub fn set_vertex_buffer<T: Pod>(&mut self, slot: u32, buffer: &BackendBuffer<T>) {
+        self.raw.set_vertex_buffer(slot, buffer.raw.slice(..));
+    }
 
-    // pub fn set_index_buffer(&mut self, buffer: &'a Buffer<u32>) {
-    //     self.raw.set_index_buffer(buffer.raw.slice(..), wgpu::IndexFormat::Uint32);
-    // }
+    pub fn set_index_buffer(&mut self, buffer: &BackendBuffer<u32>) {
+        self.raw.set_index_buffer(buffer.raw.slice(..), wgpu::IndexFormat::Uint32);
+    }
 
     pub fn set_scissor(&mut self, x: u32, y: u32, w: u32, h: u32) {
         self.raw.set_scissor_rect(x, y, w, h);

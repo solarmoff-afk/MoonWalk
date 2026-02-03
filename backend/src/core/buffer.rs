@@ -8,7 +8,7 @@ use bytemuck::Pod;
 use crate::core::context::BackendContext;
 use crate::error::MoonBackendError;
 
-pub struct Buffer<T: Pod> {
+pub struct BackendBuffer<T: Pod> {
     // Сырой буфер wgpu
     pub raw: wgpu::Buffer,
 
@@ -16,7 +16,7 @@ pub struct Buffer<T: Pod> {
     _marker: PhantomData<T>,
 }
 
-impl<T: Pod> Buffer<T> {
+impl<T: Pod> BackendBuffer<T> {
     pub fn vertex(context: &mut BackendContext, data: &[T]) -> Result<Self, MoonBackendError> {
         Self::create(
             context,
@@ -44,7 +44,7 @@ impl<T: Pod> Buffer<T> {
         ).map_err(|_e| MoonBackendError::ContextNotFoundError)
     }
 
-    pub fn index(context: &mut BackendContext, data: &[u32]) -> Result<Buffer<u32>, MoonBackendError> {
+    pub fn index(context: &mut BackendContext, data: &[u32]) -> Result<BackendBuffer<u32>, MoonBackendError> {
         match &mut context.get_raw() {
             Some(raw_context) => {
                 let raw = raw_context.device.create_buffer_init(
@@ -55,7 +55,7 @@ impl<T: Pod> Buffer<T> {
                     }
                 );
 
-                Ok(Buffer {
+                Ok(BackendBuffer {
                     raw,
                     count: data.len() as u32,
                     _marker: PhantomData,

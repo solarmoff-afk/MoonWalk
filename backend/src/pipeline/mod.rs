@@ -299,61 +299,23 @@ impl BackendPipeline {
 
         Ok(result)
 
+        // Заглушка для тестирования, на всякий случай
         // Ok(PipelineResult::indev())
     }
-    
-    // [MAYBE]
-    // Собрать все параметры и RenderConfig в raw gpu пайплайн
-    // Это легаси с утечкой абстрации, использовать только метод compile
-    // upd: Всё таки я сделаю breken change, build не буде принимать
-    // wgpu типы
-    // pub fn build(
-    //     &self,
-    //     ctx: &Context,
-    //     wgpu_format: wgpu::TextureFormat,
-    //     wgpu_bind_groups: &[&wgpu::BindGroupLayout],
-    // ) -> Result<PipelineResult, MoonWalkError> {
-    //     // Валидация конфигурации
-    //     self.validate()?;
-
-    //     let cache_key = self.create_cache_key(ctx);
-
-    //     if let Some(cached) = PIPELINE_CACHE.lock().get(&cache_key).cloned() {
-    //         return Ok(PipelineResult {
-    //             pipeline: Pipeline { raw: (*cached).clone() },
-    //             split_count: 1,
-    //             used_stride: self.get_max_stride(),
-    //             cache_hit: true,
-    //         });
-    //     }
-
-    //     let result = match self.fallback_strategy {
-    //         FallbackStrategy::None => self.build_direct(ctx, wgpu_format, wgpu_bind_groups, 1)?,
-    //         FallbackStrategy::Adaptive => self.clone().build_with_fallback(ctx, wgpu_format, wgpu_bind_groups)?,
-    //         FallbackStrategy::Split => self.clone().build_with_split(ctx, wgpu_format, wgpu_bind_groups)?,
-    //         FallbackStrategy::Reduce => self.clone().build_with_reduce(ctx, wgpu_format, wgpu_bind_groups)?,
-    //     };
-
-    //     // Кэширование результата
-    //     if let Some(label) = &self.label {
-    //         log::debug!("Caching pipeline: {}", label);
-    //     }
-
-    //     PIPELINE_CACHE.lock().insert(cache_key, Arc::new(result.pipeline.raw.clone()));
-
-    //     Ok(result)
-    // }
 
     /// Валидация параметров пайплайна перед сборкой
     fn validate(&self) -> Result<(), MoonBackendError> {
+        // Если точки входа в вершинный шейдер нет
         if self.vertex_entry.is_empty() {
             return Err(MoonBackendError::PipelineError("Vertex shader entry point not set".into()));
         }
 
+        // Если точки входа в фрагметный шейдер нет
         if self.fragment_entry.is_empty() {
             return Err(MoonBackendError::PipelineError("Fragment shader entry point not set".into()));
         }
 
+        // Если вершинного лайаута нет
         if self.vertex_layouts.is_empty() {
             return Err(MoonBackendError::PipelineError("No vertex layouts specified".into()));
         }
@@ -517,7 +479,10 @@ impl BackendPipeline {
                             module: &shader,
                             entry_point: Some(&self.fragment_entry),
                             targets: &[Some(wgpu::ColorTargetState {
+                                // Формат рендер таргета (rgb, brg)
                                 format: map_format_to_wgpu(format),
+
+                                // Режим смешивания цветов
                                 blend: Some(map_blend_state(self.render_config.blend_mode)),
                                 
                                 write_mask: wgpu::ColorWrites::ALL,
@@ -540,13 +505,14 @@ impl BackendPipeline {
                             self.render_config.depth_write
                         ),
                         
+                        // [TODO]
+                        // Добавить настройку multisample
                         multisample: wgpu::MultisampleState::default(),
+                        
                         multiview: None,
                         cache: None,
                     }
                 );
-
-                // self.raw = Some(RawPipeline::new(raw_pipeline));
 
                 Ok(PipelineResult {
                     pipeline: Some(RawPipeline::new(raw_pipeline)),
@@ -593,7 +559,8 @@ impl BackendPipeline {
         }
     }
 
-    // Стратегия разделить layout на несколько
+    // Стратегия разделить лайаут на несколько частей чтобы передать их и
+    // обойти лимит
     fn try_split_strategy(
         &self,
         context: &mut BackendContext,
@@ -601,7 +568,7 @@ impl BackendPipeline {
         bind_group_layouts: &[&RawBindGroupLayout],
         max_stride: u32,
     ) -> Option<PipelineResult> {
-        // Попытка разделить каждый слишком большой layout
+        // Попытка разделить каждый слишком большой лайаут
         let mut split_layouts = Vec::new();
         let mut split_count = 0;
 
@@ -663,6 +630,8 @@ impl BackendPipeline {
         format: BackendTextureFormat,
         bind_group_layouts: &[&RawBindGroupLayout],
     ) -> Result<PipelineResult, MoonBackendError> {
+        // Исправление предупреждения, max_stride используется, но компилятор
+        // так не считает поэтому "_"
         let mut _max_stride = 0;
         
         match &mut context.get_raw() {
@@ -685,6 +654,9 @@ impl BackendPipeline {
         format: BackendTextureFormat,
         bind_group_layouts: &[&RawBindGroupLayout],
     ) -> Result<PipelineResult, MoonBackendError> {
+        // [MAYBE]
+        // Дубляж кода
+
         let mut _max_stride = 0;
         
         match &mut context.get_raw() {
@@ -748,6 +720,7 @@ impl BackendPipeline {
         }
     }
 
+    /// Конвертировать абстрацию формата в wgpu вершинный формат
     fn convert_format(&self, format: Format) -> wgpu::VertexFormat {
         match format {
             Format::Float32 => wgpu::VertexFormat::Float32,

@@ -22,6 +22,24 @@ enum TextureType {
     Depth = 3,
 }
 
+#[derive(Clone)]
+pub struct RawRgbaImage {
+    raw: image::RgbaImage,
+}
+
+impl RawRgbaImage {
+    pub fn new(raw: image::RgbaImage) -> Self {
+        Self {
+            raw
+        }
+    }
+
+    pub fn get_raw(&self) -> &image::RgbaImage {
+        &self.raw
+    }
+}
+
+#[derive(Clone)]
 pub struct BackendTextureConfig {
     format: BackendTextureFormat,
     label: String,
@@ -62,6 +80,7 @@ impl BackendTextureConfig {
 }
 
 /// Сырая текстура. Нужна чтобы передать без подключения wgpu
+#[derive(Clone)]
 pub struct RawTexture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
@@ -85,6 +104,7 @@ impl RawTexture {
     }
 }
 
+#[derive(Clone)]
 pub struct BackendTexture {
     // Ширина
     pub width: u32,
@@ -261,7 +281,7 @@ impl BackendTexture {
     pub fn download(
         &self,
         context: &mut BackendContext,
-    ) -> Result<image::RgbaImage, MoonBackendError> {
+    ) -> Result<RawRgbaImage, MoonBackendError> {
         match &mut context.get_raw() {
             Some(raw_context) => {
                 // [HACK]
@@ -347,8 +367,10 @@ impl BackendTexture {
                 drop(data);
                 buffer.unmap();
 
-                image::RgbaImage::from_raw(self.width, self.height, pixels)
-                    .ok_or_else(|| MoonBackendError::IOError("Failed to create image buffer".to_string()))
+                let rgba_image = image::RgbaImage::from_raw(self.width, self.height, pixels)
+                    .ok_or_else(|| MoonBackendError::IOError("Failed to create image buffer".to_string()));
+
+                Ok(RawRgbaImage::new(rgba_image?))
             }
 
             None => Err(MoonBackendError::ContextNotFoundError)
@@ -578,7 +600,7 @@ impl BackendTexture {
     }
 
     /// Метод для получения RawBindGroup напрямую который переносит сырой
-    /// wgpu тип 
+    /// wgpu тип
     pub fn get_raw_bind_group(&self) -> Option<&RawBindGroup> {
         match &self.raw {
             Some(raw_texture) => Some(&raw_texture.bind_group),
@@ -597,5 +619,17 @@ pub fn map_format_to_wgpu(format: BackendTextureFormat) -> wgpu::TextureFormat {
     match format {
         BackendTextureFormat::Rgba8UnormSrgb => wgpu::TextureFormat::Rgba8UnormSrgb,
         BackendTextureFormat::Bgra8UnormSrgb => wgpu::TextureFormat::Bgra8UnormSrgb,
+    }
+}
+
+/// Этот метод нужен для BackendContext чтобы наоборот перевести формат из
+/// wgpu перечисления в BackendTextureFormat для использования в BackendPipeline
+pub fn map_wgpu_to_format(format: wgpu::TextureFormat) -> BackendTextureFormat {
+    match format {
+        wgpu::TextureFormat::Rgba8UnormSrgb => BackendTextureFormat::Rgba8UnormSrgb,
+        wgpu::TextureFormat::Bgra8UnormSrgb => BackendTextureFormat::Bgra8UnormSrgb,
+
+        // Фаллбек
+        _ => BackendTextureFormat::Rgba8UnormSrgb,
     }
 }
