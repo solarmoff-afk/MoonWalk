@@ -5,16 +5,3 @@ pub mod core;
 pub mod render;
 pub mod pipeline;
 pub mod error;
-
-pub struct BackendInstance {
-    label: String,
-}
-
-impl BackendInstance {
-    pub fn new(label: &str) -> Self {
-        Self {
-            // Тут String чтобы не думать о лайфтаймах при хранении str
-            label: label.to_string(),
-        }
-    }
-}

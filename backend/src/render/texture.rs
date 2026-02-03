@@ -368,7 +368,7 @@ impl BackendTexture {
                 buffer.unmap();
 
                 let rgba_image = image::RgbaImage::from_raw(self.width, self.height, pixels)
-                    .ok_or_else(|| MoonBackendError::IOError("Failed to create image buffer".to_string()));;
+                    .ok_or_else(|| MoonBackendError::IOError("Failed to create image buffer".to_string()));
 
                 Ok(RawRgbaImage::new(rgba_image?))
             }
