@@ -1,3 +1,4 @@
 target/
 Cargo.lock
 moonwalk/src/animator/
+examples/example-material3/

@@ -10,13 +10,14 @@ pub fn create_blur_pipeline(
     uniform_layout: &wgpu::BindGroupLayout,
     texture_layout: &wgpu::BindGroupLayout,
 ) -> Result<wgpu::RenderPipeline, MoonWalkError> {
+    let actual_format = ctx.config.format;
     let result = MoonPipeline::new(include_str!("shaders/blur.wgsl"))
         .vertex_shader("vs_main")
         .fragment_shader("fs_main")
         .add_vertex_layout(VertexLayout::new().stride(0).step_mode(StepMode::Vertex))
         .blend(BlendMode::None)
         .label("blur_filter")
-        .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[uniform_layout, texture_layout])?;
+        .build(ctx, actual_format, &[uniform_layout, texture_layout])?;
 
     Ok(result.pipeline.raw)
 }
@@ -26,13 +27,14 @@ pub fn create_color_pipeline(
     uniform_layout: &wgpu::BindGroupLayout,
     texture_layout: &wgpu::BindGroupLayout,
 ) -> Result<wgpu::RenderPipeline, MoonWalkError> {
+    let actual_format = ctx.config.format;
     let result = MoonPipeline::new(include_str!("shaders/color_matrix.wgsl"))
         .vertex_shader("vs_main")
         .fragment_shader("fs_main")
         .add_vertex_layout(VertexLayout::new().stride(0).step_mode(StepMode::Vertex))
         .blend(BlendMode::None)
         .label("color_filter")
-        .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[uniform_layout, texture_layout])?;
+        .build(ctx, actual_format, &[uniform_layout, texture_layout])?;
 
     Ok(result.pipeline.raw)
 }
@@ -42,13 +44,14 @@ pub fn create_advanced_pipeline(
     uniform_layout: &wgpu::BindGroupLayout,
     advanced_layout: &wgpu::BindGroupLayout,
 ) -> Result<wgpu::RenderPipeline, MoonWalkError> {
+    let actual_format = ctx.config.format;
     let result = MoonPipeline::new(include_str!("shaders/advanced.wgsl"))
         .vertex_shader("vs_main")
         .fragment_shader("fs_main")
         .add_vertex_layout(VertexLayout::new().stride(0).step_mode(StepMode::Vertex))
         .blend(BlendMode::None)
         .label("advanced_filter")
-        .build(ctx, wgpu::TextureFormat::Rgba8UnormSrgb, &[uniform_layout, advanced_layout])?;
+        .build(ctx, actual_format, &[uniform_layout, advanced_layout])?;
 
     Ok(result.pipeline.raw)
 }
