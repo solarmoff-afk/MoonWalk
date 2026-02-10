@@ -184,6 +184,7 @@ impl TextWare {
                     let h = image.placement.height as f32;
 
                     let x = (physical.x as f32 + left).round();
+
                     let y = (run.line_y + physical.y as f32 - top).round();
 
                     let (u, v, uw, vh) = uv_rect;
@@ -292,12 +293,22 @@ impl TextWare {
         max_width: f32,
         max_height: f32,
         align: u8,
-    ) -> Vec<(f32, f32, cosmic_text::CacheKey)> {
+    ) -> (Vec<(f32, f32, cosmic_text::CacheKey)>, f32) {
         self.process_text(id, text, font_id, font_size, max_width, max_height, align);
 
         let buffer = self.buffers.get(&id).expect("Buffer not found after process");
 
         let mut glyphs = Vec::new();
+
+        let mut ascent = font_size * 0.8;
+
+        if let Some(line) = buffer.0.lines.first() {
+            if let Some(layout_lines) = line.layout_opt() {
+                if let Some(first_physicsl_line) = layout_lines.first() {
+                    ascent = first_physicsl_line.max_ascent;
+                }
+            }
+        }
         
         for run in buffer.0.layout_runs() {
             for glyph in run.glyphs {
@@ -308,7 +319,7 @@ impl TextWare {
             }
         }
         
-        glyphs
+        (glyphs, ascent)
     }
 
     pub fn measure_text(
