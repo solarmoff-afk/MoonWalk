@@ -6,8 +6,8 @@ use glam::{Vec2, Vec4};
 use crate::MoonWalk;
 use crate::painting::BrushVertex;
 
-use crate::r#abstract::BlendMode as InternalBlendMode;
-// use moonwalk_backend::pipeline::types::BlendMode as InternalBlendMode;
+// use crate::r#abstract::BlendMode as InternalBlendMode;
+use moonwalk_backend::pipeline::types::BlendMode as InternalBlendMode;
 
 /// Простой генератор псевдослучайных чисел для джиттера
 struct Lcg {
@@ -115,7 +115,7 @@ impl Default for Brush {
     }
 }
 
-impl MoonWalk {
+impl MoonWalk<'_> {
     /// Этот метод создаёт растровую кисть для рисования на текстуре
     pub fn new_brush(&self) -> Brush {
         Brush::default()
@@ -200,7 +200,7 @@ impl MoonWalk {
 
         if let Some(target) = self.renderer.state.textures.get(&target_id) {
             self.renderer.painting_system.draw_strokes(
-                &self.renderer.context,
+                &mut self.renderer.context,
                 target,
                 tip_texture,
                 &instances,

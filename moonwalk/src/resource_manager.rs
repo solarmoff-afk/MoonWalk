@@ -6,8 +6,12 @@ use std::path::Path;
 #[cfg(target_os = "android")]
 use std::ffi::CString;
 
+#[cfg(not(feature = "modern"))]
 use crate::gpu::Context;
+
+#[cfg(not(feature = "modern"))]
 use crate::rendering::texture::Texture;
+
 use crate::error::MoonWalkError;
 
 pub struct ResourceManager {

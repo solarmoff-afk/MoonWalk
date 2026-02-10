@@ -6,7 +6,7 @@ use glam::{Vec2, Vec4};
 use crate::objects::ObjectId;
 use crate::{MoonWalk, FontAsset, PathBuilder, TextAlign};
 
-impl MoonWalk {
+impl MoonWalk<'_> {
     /// Функция для создания прямоугольника и получения его ID.
     /// Важное предупреждение: НЕ СОЗДАВАЙТЕ ОБЪЕКТЫ КАЖДЫЙ КАДР
     /// ЕСЛИ ЭТО НЕ ВАША ПРЯМАЯ ЦЕЛЬ. После создания объекта он

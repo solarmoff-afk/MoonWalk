@@ -1,21 +1,56 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
-// Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
+// Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
 use glam::{Vec2, Vec4};
 
+#[cfg(feature = "modern")]
+use moonwalk_backend::core::context::BackendContext;
+
+use moonwalk_backend::core::encoder::BackendEncoder;
+#[cfg(feature = "modern")]
+use moonwalk_backend::pipeline::bind::RawBindGroup;
+
+#[cfg(feature = "modern")]
+use moonwalk_backend::render::texture::BackendTexture;
+
+#[cfg(feature = "modern")]
+use moonwalk_backend::error::MoonBackendError;
+
+#[cfg(feature = "modern")]
+use crate::error::MoonWalkError;
+#[cfg(not(feature = "modern"))]
 use crate::gpu::context::Context;
-use crate::gpu::{Buffer, MatrixStack};
+
+#[cfg(not(feature = "modern"))]
+use crate::gpu::Buffer;
+
+use crate::gpu::MatrixStack;
+
 use crate::objects::store::ObjectStore;
 use crate::objects::ObjectId;
 use crate::batching::shapes::uber::UberBatch;
 use crate::rendering::snapshot::ClippedSnapshot;
 use crate::rendering::state::GlobalUniform;
+
+#[cfg(not(feature = "modern"))]
 use crate::rendering::texture::Texture;
+
 use crate::textware::FontId;
 use crate::MoonWalk;
 use crate::FontAsset;
 use crate::TextAlign;
 
+#[cfg(feature = "modern")]
+pub struct RenderContainer {
+    pub store: ObjectStore,
+    pub batch: UberBatch,
+    pub proj_bind_group: RawBindGroup,
+    pub target: BackendTexture,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[cfg(not(feature = "modern"))]
 pub struct RenderContainer {
     pub store: ObjectStore,
     pub batch: UberBatch,
@@ -25,6 +60,7 @@ pub struct RenderContainer {
     pub height: u32,
 }
 
+#[cfg(not(feature = "modern"))]
 impl RenderContainer {
     pub fn new(ctx: &Context, width: u32, height: u32) -> Self {
         let target = crate::rendering::texture::Texture::create_empty(
@@ -76,7 +112,47 @@ impl RenderContainer {
             height,
         }
     }
-    
+}
+
+#[cfg(feature = "modern")]
+impl RenderContainer {
+    pub fn new(context: &mut BackendContext, width: u32, height: u32) -> Result<Self, MoonBackendError> {
+        use moonwalk_backend::pipeline::bind::{BindGroup, ShaderStage};
+
+        let target = BackendTexture::new(width, height);
+        target.create_render_target(context, width, height)?;
+
+        let mut matrix_stack = MatrixStack::new();
+        matrix_stack.set_ortho(width as f32, height as f32);
+        
+        let uniform_data = GlobalUniform {
+            view_proj: matrix_stack.projection.to_cols_array_2d(),
+        };
+
+        let uniform_buffer = BackendBuffer::uniform(
+            context, &uniform_data
+        )?;
+        
+        let proj_layout = BindGroup::new()
+            .add_uniform(0, ShaderStage::Vertex)
+            .build(context)?;
+
+        let proj_bind_group = BindGroup::create_uniform_bind_group(
+            &proj_layout, context, &uniform_buffer, Some("Container Proj Bind Group")
+        )?;
+
+        Ok(Self {
+            store: ObjectStore::new(),
+            batch: UberBatch::new(context)?,
+            proj_bind_group,
+            target,
+            width,
+            height,
+        })
+    }
+}
+
+impl RenderContainer {
     pub fn new_rect(&mut self) -> ObjectId {
         self.store.new_rect()
     }
@@ -296,6 +372,122 @@ impl RenderContainer {
         self.store.config_effect_data(id, [border_width, box_shadow]);
     }
 
+    #[cfg(feature = "modern")]
+    pub fn draw(&mut self, mw: &mut MoonWalk, clear_color: Option<Vec4>) -> Result<(), MoonWalkError> {
+        let renderer = &mut mw.renderer;
+        let context = &mut renderer.context;
+        let text_engine = &mut renderer.text_engine;
+        
+        self.batch.prepare(context, &self.store, text_engine);
+
+        text_engine.prepare(context);
+        let atlas_bg = text_engine.get_bind_group();
+        
+        let clear_color = clear_color.map(|c| Vec4::new(c.x, c.y, c.z, c.w));
+
+        let mut encoder = BackendEncoder::new(context, "Render Container Encoder")?;
+
+        let mut pass = RenderPass::new(
+            &mut encoder,
+            &self.target,
+            clear_color,
+            "Render Container Pass".to_string()
+        )?;
+
+        if let Some(pipeline) = renderer.state.shaders.get_pipeline(renderer.state.rect_shader) {
+            pass.set_pipeline(&pipeline.pipeline);
+            pass.set_bind_group(0, &self.proj_bind_group);
+            
+            self.batch.render(
+                &mut pass, 
+                &renderer.state.white_texture, 
+                &renderer.state.textures,
+                Some(&atlas_bg),
+            );
+        }
+
+        encoder.submit_frame(context)?;
+
+        Ok(())
+    }
+
+    #[cfg(feature = "modern")]
+    pub fn snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32) -> Result<u32, MoonWalkError> {
+        let renderer = &mut mw.renderer;
+
+        let mut snapshot_region = ClippedSnapshot::new(
+            Vec2::new(x as f32, y as f32),
+            Vec2::new(w as f32, h as f32),
+        );
+
+        snapshot_region.clip_snapshot(Vec2::new(
+            self.width as f32,
+            self.height as f32
+        ));
+        
+        let mut snapshot_texture = BackendTexture::new(snapshot_region.size.x as u32, snapshot_region.size.y as u32);
+        snapshot_texture.create_render_target(&mut renderer.context, snapshot_region.size.x as u32, snapshot_region.size.y as u32)?;
+
+        let id = renderer.state.add_texture(snapshot_texture);
+        let target_tex = renderer.state.textures.get(&id).unwrap();
+        
+        let mut encoder = BackendEncoder::new(&mut renderer.context, "Snapshot Encoder")?;
+
+        encoder.copy_texture_to_texture(
+            snapshot_region.position.x as u32,
+            snapshot_region.position.y as u32,
+            snapshot_region.size.x as u32,
+            snapshot_region.size.y as u32,
+            &self.target.get_raw().unwrap(),
+            &target_tex.get_raw().unwrap()
+        )?;
+
+        encoder.submit_frame(&mut renderer.context)?;
+
+        Ok(id)
+    }
+
+    #[cfg(feature = "modern")]
+    pub fn update_snapshot(
+        &mut self,
+        mw: &mut MoonWalk,
+        x: u32,
+        y: u32,
+        w: u32,
+        h: u32,
+        id: u32
+    ) -> Result<(), MoonWalkError> {
+        let renderer = &mut mw.renderer;
+        
+        let mut snapshot_region = ClippedSnapshot::new(
+            Vec2::new(x as f32, y as f32),
+            Vec2::new(w as f32, h as f32),
+        );
+
+        snapshot_region.clip_snapshot(Vec2::new(
+            self.width as f32,
+            self.height as f32
+        ));
+
+        let target_tex = renderer.state.textures.get(&id).unwrap();
+        
+        let mut encoder = BackendEncoder::new(&mut renderer.context, "Update Snapshot Encoder")?;
+
+        encoder.copy_texture_to_texture(
+            snapshot_region.position.x as u32,
+            snapshot_region.position.y as u32,
+            snapshot_region.size.x as u32,
+            snapshot_region.size.y as u32,
+            &self.target.get_raw().unwrap(),
+            &target_tex.get_raw().unwrap()
+        )?;
+
+        encoder.submit_frame(&mut renderer.context)?;
+
+        Ok(())
+    }
+
+    #[cfg(not(feature = "modern"))]
     pub fn draw(&mut self, mw: &mut MoonWalk, clear_color: Option<Vec4>) {
         let renderer = &mut mw.renderer;
         let ctx = &renderer.context;
@@ -337,7 +529,8 @@ impl RenderContainer {
         
         ctx.submit(encoder);
     }
-    
+
+    #[cfg(not(feature = "modern"))]
     pub fn snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32) -> u32 {
         let renderer = &mut mw.renderer;
 
@@ -393,6 +586,7 @@ impl RenderContainer {
         id
     }
 
+    #[cfg(not(feature = "modern"))]
     pub fn update_snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32, id: u32) {
         let renderer = &mut mw.renderer;
         

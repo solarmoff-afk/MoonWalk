@@ -1,0 +1,8 @@
+{
+    "rust-analyzer.cargo.features": ["default", "modern"],
+
+    "rust-analyzer.check.extraArgs": ["--features", "modern"],
+    "rust-analyzer.cargo.extraArgs": ["--features", "modern"],
+
+    "rust-analyzer.cargo.allTargets": true,
+}

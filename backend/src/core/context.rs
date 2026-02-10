@@ -4,7 +4,7 @@
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use wgpu::SurfaceTargetUnsafe;
 
-use crate::render::texture::{BackendTextureFormat, map_wgpu_to_format};
+use crate::render::texture::{BackendTexture, BackendTextureFormat, map_wgpu_to_format};
 use crate::error::MoonBackendError;
 
 const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
@@ -43,6 +43,8 @@ pub struct RawContext {
     
     // Экземпляр wgpu
     pub instance: wgpu::Instance,
+
+    pub current_frame: Option<wgpu::SurfaceTexture>,
 }
 
 impl RawContext {
@@ -63,6 +65,21 @@ impl RawContext {
             adapter,
             adapter_info,
             instance,
+            current_frame: None,
+        }
+    }
+}
+
+pub struct Vec2u32 {
+    pub x: u32,
+    pub y: u32,
+}
+
+impl Vec2u32 {
+    pub fn new(x: u32, y: u32) -> Self {
+        Self {
+            x,
+            y,
         }
     }
 }
@@ -75,7 +92,7 @@ impl BackendContext {
     pub fn new() -> Self {
         // Не создаём RawContext чтобы создать его потом синхронно через pollster
         Self {
-            context: None
+            context: None,
         }
     }
 
@@ -184,6 +201,7 @@ impl BackendContext {
 
                 Ok(())
             },
+
             None => Err(MoonBackendError::ContextNotFoundError),
         }
     }
@@ -277,6 +295,178 @@ impl BackendContext {
             },
 
             None => BackendTextureFormat::Rgba8UnormSrgb,
+        }
+    }
+
+    pub fn write_texture(
+        &mut self,
+        texture: &BackendTexture,
+        x: u32,
+        y: u32,
+        w: u32,
+        h: u32,
+        data: &Vec<u8>,
+    ) -> Result<(), MoonBackendError> {
+        match (&mut self.get_raw(), texture.get_raw()) {
+            (Some(raw_context), Some(raw_texture)) => {
+                raw_context.queue.write_texture(
+                    wgpu::TexelCopyTextureInfo {
+                        texture: &raw_texture.texture,
+                        mip_level: 0,
+                        origin: wgpu::Origin3d {
+                            x,
+                            y,
+                            z: 0
+                        },
+                        aspect: wgpu::TextureAspect::All,
+                    },
+
+                    &data,
+                    
+                    wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(w),
+                        rows_per_image: None,
+                    },
+                    
+                    wgpu::Extent3d {
+                        width: w,
+                        height: h,
+                        depth_or_array_layers: 1
+                    },
+                );
+
+                Ok(())
+            },
+
+            _ => {
+                Err(MoonBackendError::ContextNotFoundError)
+            }
+        }
+    }
+
+    pub fn get_size(&mut self) -> Result<Vec2u32, MoonBackendError> {
+        match &mut self.context.as_mut() {
+            Some(raw_context) => {
+                Ok(Vec2u32::new(raw_context.config.width, raw_context.config.height))
+            },
+
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+}
+
+pub struct SurfaceRenderer {
+    cached_texture: Option<BackendTexture>,
+    cached_width: u32,
+    cached_height: u32,
+    pending_frame: Option<wgpu::SurfaceTexture>,
+    pending_view: Option<wgpu::TextureView>,
+    pending_sampler: Option<wgpu::Sampler>,
+}
+
+impl SurfaceRenderer {
+    pub fn new() -> Self {
+        Self {
+            cached_texture: None,
+            cached_width: 0,
+            cached_height: 0,
+            pending_frame: None,
+            pending_view: None,
+            pending_sampler: None,
+        }
+    }
+
+    // [AI]
+    pub fn begin(&mut self, context: &mut BackendContext) -> Result<&mut BackendTexture, MoonBackendError> {
+        let raw_context = match context.context.as_mut() {
+            Some(raw_context) => raw_context,
+            None => return Err(MoonBackendError::ContextNotFoundError),
+        };
+        
+        let surface = match raw_context.surface.as_ref() {
+            Some(surface) => surface,
+            None => return Err(MoonBackendError::SurfaceNotInitializedError),
+        };
+        
+        let frame = match surface.get_current_texture() {
+            Ok(frame) => frame,
+            Err(error) => return Err(MoonBackendError::SurfaceError(error.to_string())),
+        };
+        
+        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = raw_context.device.create_sampler(&wgpu::SamplerDescriptor::default());
+        
+        self.pending_frame = Some(frame);
+        self.pending_view = Some(view);
+        self.pending_sampler = Some(sampler);
+        
+        let width = raw_context.config.width;
+        let height = raw_context.config.height;
+        
+        let needs_new_texture = match self.cached_texture.as_ref() {
+            Some(texture) => texture.width != width || texture.height != height,
+            None => true,
+        };
+        
+        match needs_new_texture {
+            true => {
+                let mut new_texture = BackendTexture::new(width, height);
+                
+                match new_texture.create_render_target(context, width, height) {
+                    Ok(_) => {
+                        match (self.pending_view.take(), self.pending_sampler.take()) {
+                            (Some(view), Some(sampler)) => {
+                                new_texture.update_view(view);
+                                new_texture.update_sampler(sampler);
+                                
+                                self.cached_texture = Some(new_texture);
+                                self.cached_width = width;
+                                self.cached_height = height;
+                            },
+                            
+                            _ => return Err(MoonBackendError::SurfaceError("Failed to get pending resources".to_string())),
+                        }
+                    },
+
+                    Err(error) => return Err(error),
+                }
+            },
+
+            false => {
+                match (self.pending_view.take(), self.pending_sampler.take()) {
+                    (Some(view), Some(sampler)) => {
+                        match self.cached_texture.as_mut() {
+                            Some(texture) => {
+                                texture.update_view(view);
+                                texture.update_sampler(sampler);
+                            },
+
+                            None => return Err(MoonBackendError::SurfaceError("No cached texture".to_string())),
+                        }
+                    },
+
+                    _ => return Err(MoonBackendError::SurfaceError("Failed to get pending resources".to_string())),
+                }
+            },
+        }
+        
+        match self.cached_texture.as_mut() {
+            Some(texture) => Ok(texture),
+            None => Err(MoonBackendError::SurfaceError("Failed to get texture".to_string())),
+        }
+    }
+    
+    // [AI]
+    pub fn end(&mut self) -> Result<(), MoonBackendError> {
+        match self.pending_frame.take() {
+            Some(frame) => {
+                frame.present();
+
+                Ok(())
+            },
+
+            None => Err(MoonBackendError::SurfaceError("No frame to present".to_string())),
         }
     }
 }

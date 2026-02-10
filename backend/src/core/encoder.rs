@@ -40,7 +40,7 @@ pub struct BackendEncoder {
 }
 
 impl BackendEncoder {
-    pub fn new(&self, context: &mut BackendContext, label: &str) -> Result<Self, MoonBackendError> {
+    pub fn new(context: &mut BackendContext, label: &str) -> Result<Self, MoonBackendError> {
         match &mut context.get_raw().as_mut() {
             // Берём сырой контекст через метод get_raw, проверяет что Option не None
             // (Требование компилятора раста), создаём новый RawEncoder (Сырая обёртка над wgpu

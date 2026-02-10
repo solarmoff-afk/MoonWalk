@@ -119,7 +119,7 @@ impl MoonVideo {
         let texture = mw.renderer.state.textures.get(&texture_id)
             .ok_or(MoonWalkError::IOError("Texture not found".to_string()))?;
 
-        let rgba_image = texture.download(&mw.renderer.context)?;
+        let rgba_image = texture.download(&mut mw.renderer.context)?;
 
         if rgba_image.width() != self.width || rgba_image.height() != self.height {
             return Err(MoonWalkError::IOError("Frame size mismatch".to_string()));

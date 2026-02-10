@@ -20,7 +20,14 @@ pub use cosmic_text::{Attrs, Metrics, Family, Wrap};
 
 use bytemuck::{Pod, Zeroable};
 use cosmic_text::Shaping;
+use moonwalk_backend::pipeline::bind::RawBindGroup;
+
+#[cfg(feature = "modern")]
+use moonwalk_backend::{core::context::{BackendContext, RawContext}, error::MoonBackendError};
+
 use std::collections::HashMap;
+
+use crate::MoonWalkError;
 
 /// DONT TOUCH / НЕ ТРОГАТЬ
 /// В ШЕЙДЕРЕ ИДЁТ ХАРДКОД НА u32::MAX, изменение приведёт к поломке текстовой
@@ -51,10 +58,10 @@ struct BufferState {
 }
 
 /// Основная структура для этого модуля, хранит кэщ и шрифтовую систему 
-pub struct TextWare {
+pub struct TextWare<'a> {
     pub atlas_id: Option<u32>,
     pub font_system: FontSystem,
-    pub glyph_cache: GlyphCache,
+    pub glyph_cache: GlyphCache<'a>,
     buffers: HashMap<u64, (cosmic_text::Buffer, BufferState)>,
     scratch_buffer: cosmic_text::Buffer,
 }
@@ -76,7 +83,32 @@ fn hash_str(s: &str) -> u64 {
     hasher.finish()
 }
 
-impl TextWare {
+impl TextWare<'_> {
+    #[cfg(feature = "modern")]
+    pub fn new(context: &mut BackendContext) -> Result<Self, MoonWalkError> {
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                let mut font_system = FontSystem::new();
+
+                let scratch_buffer = cosmic_text::Buffer::new(
+                    &mut font_system.sys, 
+                    Metrics::new(24.0, 24.0)
+                ); 
+
+                Ok(Self {
+                    atlas_id: Some(ATLAS_ID),
+                    font_system,
+                    glyph_cache: GlyphCache::new(context)?,
+                    buffers: HashMap::new(),
+                    scratch_buffer,
+                })
+            },
+
+            None => Err(MoonWalkError::ContextNotFoundError),
+        }
+    }
+
+    #[cfg(not(feature = "modern"))]
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         let mut font_system = FontSystem::new();
 
@@ -142,13 +174,18 @@ impl TextWare {
     }
 
     pub fn resize_text(&mut self, text: &mut Text, font_size: f32, line_height: Option<f32>) {
-        let metrics = Metrics::new(font_size, line_height.unwrap_or(font_size * 1.2));
+        let metrics = Metrics::new(
+            font_size,
+            line_height.unwrap_or(font_size * 1.2)
+        );
+        
         text.buffer.set_metrics(&mut self.font_system.sys, metrics);
     }
 
     pub fn set_size(&mut self, text: &mut Text, width: Option<f32>, height: Option<f32>) {
         let w = width.unwrap_or(f32::MAX);
         let h = height.unwrap_or(f32::MAX);
+        
         text.buffer.set_size(&mut self.font_system.sys, w, h);
     }
 
@@ -156,11 +193,11 @@ impl TextWare {
         text.buffer.set_wrap(&mut self.font_system.sys, wrap);
     }
 
-    pub fn prepare(&mut self, queue: &wgpu::Queue) {
-        self.glyph_cache.upload_pending(queue);
+    pub fn prepare(&mut self, context: &mut BackendContext) {
+        self.glyph_cache.upload_pending(context);
     }
 
-    pub fn get_bind_group(&self) -> wgpu::BindGroup {
+    pub fn get_bind_group(&self) -> RawBindGroup {
         self.glyph_cache.get_bind_group().clone()
     }
 

@@ -3,6 +3,18 @@
 
 pub mod svg;
 
+#[cfg(feature = "modern")]
+use moonwalk_backend::core::context::BackendContext;
+
+#[cfg(feature = "modern")]
+use moonwalk_backend::pipeline::RawPipeline;
+
+#[cfg(feature = "modern")]
+use moonwalk_backend::pipeline::bind::RawBindGroup;
+
+#[cfg(feature = "modern")]
+use moonwalk_backend::render::texture::BackendTexture;
+
 use wgpu::util::DeviceExt;
 use lyon::math::point;
 use lyon::path::Path;
@@ -10,8 +22,13 @@ use lyon::tessellation::*;
 use bytemuck::{Pod, Zeroable};
 
 use crate::MoonWalkError;
+
+#[cfg(not(feature = "modern"))]
 use crate::gpu::context::Context;
+
+#[cfg(not(feature = "modern"))]
 use crate::rendering::texture::Texture;
+
 use crate::r#abstract::*;
 
 /// Настройка концов линий
@@ -62,12 +79,63 @@ pub struct VectorVertex {
 }
 
 /// Система для рендеринга векторной графики (векторных путей) в текстуры
+#[cfg(feature = "modern")]
+pub struct VectorSystem {
+    pipeline: RawPipeline,
+    bind_group: Option<RawBindGroup>,
+}
+
+#[cfg(not(feature = "modern"))]
 pub struct VectorSystem {
     pipeline: wgpu::RenderPipeline,
     bind_group: Option<wgpu::BindGroup>,
 }
 
 impl VectorSystem {
+    #[cfg(feature = "modern")]
+    pub fn new(context: &mut BackendContext) -> Result<Self, MoonWalkError> {
+        use moonwalk_backend::pipeline::{BackendPipeline, bind::BindGroup, types::{BlendMode, CullMode, Format, ShaderStage, StepMode, Topology}, vertex::{VertexAttr, VertexLayout}};
+
+        let shader_source = include_str!("path.wgsl");
+        let actual_format = context.get_format();
+        
+        let pipeline = BackendPipeline::new(shader_source)
+            .vertex_shader("vs_main")
+            .fragment_shader("fs_main")
+            .add_vertex_layout(
+                VertexLayout::new()
+                    .stride(8)
+                    .step_mode(StepMode::Vertex)
+                    .add_attr(
+                        VertexAttr::new()
+                            .format(Format::Float32x2)
+                            .location(0)
+                            .offset(0)
+                    )
+            )
+            .add_bind_group(
+                BindGroup::new()
+                    .add_uniform(0, ShaderStage::Both)
+            )
+            .blend(BlendMode::Alpha)
+            .cull(CullMode::None)
+            .topology(Topology::TriangleList)
+            .depth_test(false)
+            .depth_write(false)
+            .label("vector_path")
+            .build(context, actual_format, &[])?;
+        
+        Ok(Self {
+            // Паники здесь никогда не будет, так как прямо выше идёт вызов метода
+            // build и обработка Result из него, так что pipeline.pipeline
+            // точно существует
+            pipeline: pipeline.pipeline.expect("[IRE]: New vector pipeline"),
+
+            bind_group: None,
+        })
+    }
+
+    #[cfg(not(feature = "modern"))]
     pub fn new(ctx: &Context) -> Result<Self, MoonWalkError> {
         let shader_source = include_str!("path.wgsl");
         let actual_format = ctx.config.format;
@@ -104,6 +172,92 @@ impl VectorSystem {
         })
     }
 
+    #[cfg(feature = "modern")]
+    pub fn render(
+        &mut self,
+        context: &mut BackendContext,
+        vertices: &[VectorVertex],
+        indices: &[u16],
+        width: u32,
+        height: u32,
+        color: [f32; 4],
+        target: &BackendTexture,
+    ) -> Result<(), MoonWalkError> {
+        use moonwalk_backend::{core::{buffer::BackendBuffer, encoder::BackendEncoder}, pipeline::{bind::BindGroup, types::ShaderStage}, render::pass::RenderPass};
+
+        if vertices.is_empty() || indices.is_empty() {
+            return Ok(());
+        }
+
+        let vertex_buffer = BackendBuffer::vertex(context, vertices)?;
+        
+        // [HACK]
+        // Перевод u16 в u32 чтобы сохранить легаси сигнатуру
+        let u32_indices: Vec<u32> = indices.iter().map(|&i| i as u32).collect();
+        let index_buffer = BackendBuffer::index(context, &u32_indices)?;
+
+        let mut matrix_stack = crate::gpu::MatrixStack::new();
+        matrix_stack.set_ortho(width as f32, height as f32);
+        
+        let uniform_data = VectorUniform {
+            view_proj: matrix_stack.projection.to_cols_array_2d(),
+            color,
+        };
+
+        let uniform_buffer = BackendBuffer::uniform(context, &uniform_data)?;
+
+        // Создаём bind group
+        let bind_group_layout = BindGroup::new()
+            .add_uniform(0, ShaderStage::Both)
+            .build(context)?;
+
+        let bind_group = BindGroup::create_uniform_bind_group(
+            &bind_group_layout,
+            context,
+            &uniform_buffer,
+            None,
+        )?;
+
+        let mut encoder = BackendEncoder::new(context, "Vector encoder")?;
+        
+        let mut pass = RenderPass::new(
+            &mut encoder,
+            target,
+            Some(color.into()),
+            "Vector Pass".to_string(),
+        )?;
+
+        pass.set_pipeline(&self.pipeline);
+        pass.set_bind_group(0, &bind_group);
+        pass.set_vertex_buffer(0, &vertex_buffer);
+        pass.set_index_buffer(&index_buffer);
+        pass.draw_indexed(indices.len() as u32);
+
+        drop(pass);
+
+        encoder.submit_frame(context)?;
+        Ok(())
+    }
+
+    #[cfg(feature = "modern")]
+    pub fn render_to_texture(
+        &mut self,
+        context: &mut BackendContext,
+        vertices: &[VectorVertex],
+        indices: &[u16],
+        width: u32,
+        height: u32,
+        color: [f32; 4],
+    ) -> Result<BackendTexture, MoonWalkError> {
+        let mut texture = BackendTexture::new(width, height);
+        texture.create_render_target(context, width, height)?;
+
+        self.render(context, vertices, indices, width, height, color, &texture)?;
+
+        Ok(texture)
+    }
+
+    #[cfg(not(feature = "modern"))]
     pub fn render(
         &mut self,
         ctx: &Context,
@@ -182,6 +336,7 @@ impl VectorSystem {
         ctx.submit(encoder);
     }
 
+    #[cfg(not(feature = "modern"))]
     pub fn render_to_texture(
         &mut self,
         ctx: &Context,
@@ -203,6 +358,7 @@ impl VectorSystem {
         texture
     }
 
+    #[cfg(not(feature = "modern"))]
     fn get_bind_group_layout(&self, ctx: &Context) -> wgpu::BindGroupLayout {
         BindGroup::new()
             .add_uniform(0, ShaderStage::Both)
@@ -312,7 +468,12 @@ impl PathBuilder {
                 &path,
                 &self.stroke_options,
                 &mut BuffersBuilder::new(&mut geometry, |vertex: StrokeVertex| {
-                    VectorVertex { position: [vertex.position().x, vertex.position().y] }
+                    VectorVertex {
+                        position: [
+                            vertex.position().x,
+                            vertex.position().y
+                        ]
+                    }
                 }),
             );
         } else {
@@ -330,7 +491,7 @@ impl PathBuilder {
         }
 
         let texture = mw.renderer.vector_system.render_to_texture(
-            &mw.renderer.context, 
+            &mut mw.renderer.context, 
             &geometry.vertices, 
             &geometry.indices, 
             width, 
@@ -338,7 +499,9 @@ impl PathBuilder {
             self.color
         );
         
-        mw.renderer.register_texture(texture)
+        // [HACK]
+        // Убрать expect
+        mw.renderer.register_texture(texture.expect("Texture not created"))
     }
 
     pub fn tessellate_to(self, mw: &mut crate::MoonWalk, texture_id: u32, width: u32, height: u32) {
@@ -370,7 +533,7 @@ impl PathBuilder {
 
         if let Some(texture) = mw.renderer.state.textures.get(&texture_id) {
             mw.renderer.vector_system.render(
-                &mw.renderer.context, 
+                &mut mw.renderer.context, 
                 &geometry.vertices, 
                 &geometry.indices, 
                 width, 

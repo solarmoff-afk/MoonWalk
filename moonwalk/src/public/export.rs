@@ -7,7 +7,7 @@ use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
 use crate::{MoonWalk, MoonWalkError};
 use crate::RenderContainer;
 
-impl MoonWalk {
+impl MoonWalk<'_> {
     /// Функция чтобы установить размер viewport'а (Область, куда идёт рисование)
     /// Если пользователь вашего приложения изменит размер окна (Через оконный менеджер) 
     /// то область рисования не уменьшится и не увеличиться.
@@ -94,8 +94,10 @@ impl MoonWalk {
     ///  container.draw(mw, Some(Vec4::ZERO));
     /// Только после того как была вызвана функция .draw можно делать снапшот, так
     /// как до этого момента данные ещё не готовы
-    pub fn new_render_container(&self, width: u32, height: u32) -> RenderContainer {
-        RenderContainer::new(&self.renderer.context, width, height)
+    pub fn new_render_container(&mut self, width: u32, height: u32) -> RenderContainer {
+        // [HACK]
+        // Удалить expect
+        RenderContainer::new(&mut self.renderer.context, width, height).expect("Failed to create render container")
     }
 
     /// Этот метод берёт айди текстуры (его можно получить через снапшот, билдер пути либо
@@ -115,9 +117,9 @@ impl MoonWalk {
         let texture = self.renderer.state.textures.get(&texture_id)
             .ok_or_else(|| crate::MoonWalkError::IOError("Texture not found".to_string()))?;
 
-        let image = texture.download(&self.renderer.context)?;
+        let image = texture.download(&mut self.renderer.context)?;
 
-        image.save(path)
+        image.get_raw().save(path)
             .map_err(|e| crate::MoonWalkError::IOError(e.to_string()))?;
 
         Ok(())

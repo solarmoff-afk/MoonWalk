@@ -3,7 +3,11 @@
 
 use super::types::*;
 
+use bytemuck::Pod;
+
 use crate::error::MoonBackendError;
+use crate::render::texture::BackendTexture;
+use crate::core::buffer::BackendBuffer;
 use crate::core::context::BackendContext;
 
 /// Обёртка для wgpu типа чтобы импортировать и хранить его без подключения
@@ -115,7 +119,7 @@ impl BindGroup {
         self
     }
 
-    pub(crate) fn build(&self, context: &mut BackendContext) -> Result<RawBindGroupLayout, MoonBackendError> {
+    pub fn build(&self, context: &mut BackendContext) -> Result<RawBindGroupLayout, MoonBackendError> {
         match &mut context.get_raw() {
             Some(raw_context) => {
                 let entries: Vec<wgpu::BindGroupLayoutEntry> = self.entries
@@ -191,6 +195,87 @@ impl BindGroup {
 
                 let raw = RawBindGroupLayout::new(layout);
                 Ok(raw)
+            },
+
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+
+    // [AI]
+    pub fn create_uniform_bind_group<T: Pod>(
+        layout: &RawBindGroupLayout,
+        context: &mut BackendContext,
+        buffer: &BackendBuffer<T>,
+        label: Option<&str>
+    ) -> Result<RawBindGroup, MoonBackendError> {
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                let entries = &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(
+                        wgpu::BufferBinding {
+                            buffer: &buffer.raw,
+                            offset: 0,
+                            size: None,
+                        }
+                    ),
+                }];
+
+                let bind_group = raw_context.device.create_bind_group(
+                    &wgpu::BindGroupDescriptor {
+                        label,
+                        layout: &layout.raw,
+                        entries,
+                    }
+                );
+
+                Ok(RawBindGroup::new(
+                    bind_group
+                ))
+            },
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+
+    // [AI]
+    pub fn create_texture_bind_group(
+        layout: &RawBindGroupLayout,
+        context: &mut BackendContext,
+        textures: &[(&BackendTexture, u32)],
+        samplers: &[(&BackendTexture, u32)],
+        label: Option<&str>
+    ) -> Result<RawBindGroup, MoonBackendError> {
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                let mut entries = Vec::new();
+                
+                for (texture, binding) in textures {
+                    if let Some(raw_texture) = texture.get_raw() {
+                        entries.push(wgpu::BindGroupEntry {
+                            binding: *binding,
+                            resource: wgpu::BindingResource::TextureView(&raw_texture.view),
+                        });
+                    }
+                }
+                
+                for (texture, binding) in samplers {
+                    if let Some(raw_texture) = texture.get_raw() {
+                        entries.push(wgpu::BindGroupEntry {
+                            binding: *binding,
+                            resource: wgpu::BindingResource::Sampler(&raw_texture.sampler),
+                        });
+                    }
+                }
+
+                let bind_group = raw_context.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label,
+                    layout: &layout.raw,
+                    entries: &entries,
+                });
+
+                Ok(RawBindGroup::new(
+                    bind_group
+                ))
             },
 
             None => Err(MoonBackendError::ContextNotFoundError),

@@ -4,11 +4,21 @@
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use glam::{Vec2, Vec4};
 
-use moonwalk_backend::core::context::BackendContext;
+#[cfg(feature = "modern")]
+use moonwalk_backend::core::context::{BackendContext, BackendPresentMode};
+use moonwalk_backend::core::encoder::BackendEncoder;
+use moonwalk_backend::render::pass::RenderPass;
+use moonwalk_backend::render::texture::BackendTexture;
+use moonwalk_backend::core::context::SurfaceRenderer;
 
+#[cfg(not(feature = "modern"))]
 use crate::gpu::Context;
+
 use crate::error::MoonWalkError;
+
+#[cfg(not(feature = "modern"))]
 use crate::rendering::texture::Texture;
+
 use crate::rendering::snapshot::ClippedSnapshot;
 use crate::rendering::state::RenderState;
 use crate::objects::ObjectId;
@@ -30,27 +40,32 @@ struct SnapshotTask {
 
 /// Структура рендерера. Она хранит контекст moonwalk_backend
 /// и состояние рендера (матричный стэк, храниоище объектов и так далее)
-pub struct MoonRenderer {
+pub struct MoonRenderer<'a> {
     #[cfg(feature = "modern")]
     pub context: BackendContext,
+    surface_renderer: SurfaceRenderer,
 
     #[cfg(not(feature = "modern"))]
     pub context: Context,
 
-    pub state: RenderState,
+    pub state: RenderState<'a>,
     pub scale_factor: f32,
     pub filters: FilterSystem,
-    pub text_engine: crate::textware::TextWare,
+    pub text_engine: crate::textware::TextWare<'a>,
     pub vector_system: VectorSystem,
     pub painting_system: PaintingSystem,
 
     // [WAIT DOC]
     snapshot_tasks: Vec<SnapshotTask>,
 
+    #[cfg(feature = "modern")]
+    offscreen: Option<BackendTexture>,
+
+    #[cfg(not(feature = "modern"))]
     offscreen: Option<crate::rendering::texture::Texture>,
 }
 
-impl MoonRenderer {
+impl MoonRenderer<'_> {
     /// В конструкуторе получаем окно и ширину/высоту. Конструктор
     /// в идеале вызывается только 1 раз при инициализации MoonWalk
     /// из публичного API
@@ -60,29 +75,33 @@ impl MoonRenderer {
     ) -> Result<Self, MoonWalkError> {
         // Создание контекст рендеринга
         #[cfg(feature = "modern")]
-        {
-            let mut context = BackendContext::new();
-            context.create_context_sync(window, width, height);
-        }
+        let mut context = BackendContext::new();
+
+        #[cfg(feature = "modern")]
+        context.create_context_sync(window, width, height);
 
         #[cfg(not(feature = "modern"))]
         let context = pollster::block_on(Context::new(window, width, height));
 
-        let filters = FilterSystem::new(&context)?;
+        let filters = FilterSystem::new(&mut context)?;
         
         // Система векторного рисования
-        let vector_system = VectorSystem::new(&context)?;
+        let vector_system = VectorSystem::new(&mut context)?;
 
         // Система растрового рисования
-        let painting_system = PaintingSystem::new(&context)?;
+        let painting_system = PaintingSystem::new(&mut context)?;
         
         // Создаём состояние рендерера
-        let state = RenderState::new(&context, width, height)?;
+        let state = RenderState::new(&mut context, width, height)?;
 
-        let text_engine = crate::textware::TextWare::new(&context.device, &context.queue);
+        let text_engine = crate::textware::TextWare::new(&mut context)?;
 
         Ok(Self {
             context, // Контекст gpu/wgpu
+
+            #[cfg(feature = "modern")]
+            surface_renderer: SurfaceRenderer::new(),
+
             state,   // Состояние рендерера
             scale_factor: 1.0,
             filters,
@@ -103,8 +122,12 @@ impl MoonRenderer {
         
         // Принудительно вызываем resize с текущими физическими размерами, 
         // чтобы пересчитать логическую матрицу
-        let width = self.context.config.width;
-        let height = self.context.config.height;
+
+        // [HACK] [UNWRAP]
+        let size = self.context.get_size().expect("Context not found");
+        
+        let width = size.x;
+        let height = size.y;
         
         self.resize(width, height);
     }
@@ -120,17 +143,17 @@ impl MoonRenderer {
             let logical_w = width as f32 / self.scale_factor;
             let logical_h = height as f32 / self.scale_factor;
 
-            self.state.update_projection(&self.context, logical_w, logical_h);
+            self.state.update_projection(&mut self.context, logical_w, logical_h);
         }
     }
 
     /// Регистрирует пустую текстуру, возвращает её, добавляет в очередь 
     /// и запекает (Снапшотит/скриншотит) туда экран когда приходит время
     pub fn request_snapshot(&mut self, x: u32, y: u32, w: u32, h: u32) -> u32 {
-        let format = self.context.config.format;
-        let texture = crate::rendering::texture::Texture::create_empty(
-            &self.context, w, h, format, "Snapshot Target"
-        );
+        let format = self.context.get_format();
+        
+        let mut texture = BackendTexture::new(w, h);
+        texture.create_render_target(&mut self.context, w, h);
 
         // Регистрируем текстуру в состоянии чтобы добавить в очередь на снапшот
         // и потом вернуть
@@ -142,9 +165,12 @@ impl MoonRenderer {
             Vec2::new(w as f32, h as f32)
         );
 
+        // [HACK] [UNWRAP]
+        let size = self.context.get_size().expect("Context not found");
+        
         snapshot_region.clip_snapshot(Vec2::new(
-            self.context.config.width as f32,
-            self.context.config.height as f32,
+            size.x as f32,
+            size.y as f32,
         ));
 
         self.snapshot_tasks.push(
@@ -173,6 +199,81 @@ impl MoonRenderer {
     }
 
     /// Функция для отправки всего на рендер
+    #[cfg(feature = "modern")]
+    pub fn render(&mut self, clear_color: Vec4) -> Result<(), MoonWalkError> {
+        let size = self.context.get_size()?;
+        let width = size.x;
+        let height = size.y;
+        
+        let format = self.context.get_format();
+
+        let need_recreate = self.offscreen.as_ref()
+            .map_or(true, |tex| tex.texture.width() != width || tex.texture.height() != height);
+
+        if need_recreate {
+            let texture = BackendTexture::new(width, height);
+            texture.create_render_target(&mut self.context, width, height)?;
+
+            self.offscreen = Some(texture);
+        }
+
+        let offscreen_tex = self.offscreen.as_ref().unwrap();
+        let render_target_view = &offscreen_tex.view; 
+
+        let mut encoder = BackendEncoder::new(&mut self.context, "Render encoder")?;
+
+        self.text_engine.prepare(&mut self.context);
+        let atlas_bg = self.text_engine.get_bind_group();
+
+        // Здесь рисуется текущее состояние в буфер кадра
+        self.state.draw(&mut self.context, &mut encoder, render_target_view, &mut self.text_engine, Some(&atlas_bg), clear_color);
+        
+        if !self.snapshot_tasks.is_empty() {
+            for task in &self.snapshot_tasks {
+                if let Some(target_tex) = self.state.textures.get(&task.target_id) {
+                    encoder.copy_texture_to_texture(task.x, task.y, task.w, task.h, &offscreen_tex.texture, &target_tex.texture)?;
+                }
+            }
+
+            // Очищаем очередь задач после выполнения
+            self.snapshot_tasks.clear();
+        }
+
+        let frame = self.surface_renderer.begin(&mut self.context)?;
+
+        let mut blit_encoder = BackendEncoder::new(&mut self.context, "Blit encoder")?;
+        {
+            let mut pass = RenderPass::new(
+                &mut blit_encoder,
+                &frame,
+                Some(clear_color),
+                label
+            )?;
+            
+            if let Some(pipeline) = self.state.shaders.get_pipeline(self.state.rect_shader) {
+                pass.set_pipeline(pipeline);
+                pass.set_bind_group(0, &self.state.proj_bind_group);
+                
+                self.state.batches.objects.blit(
+                    &self.context,
+                    &mut pass,
+                    &offscreen_tex,
+                    (width as f32 / self.scale_factor) as u32,
+                    (height as f32 / self.scale_factor) as u32
+                );
+            }
+        }
+
+        // Отправляем всё на рендер через контекст рендеринга
+        encoder.submit_frame(&mut self.context)?;
+        blit_encoder.submit_frame(&mut self.context)?;
+
+        self.surface_renderer.end();
+
+        Ok(())
+    }
+
+    #[cfg(not(feature = "modern"))]
     pub fn render(&mut self, clear_color: Vec4) -> Result<(), MoonWalkError> {
         let width = self.context.config.width;
         let height = self.context.config.height;
@@ -287,9 +388,9 @@ impl MoonRenderer {
         debug_println!("Vsync: {}", enable);
 
         let mode = if enable {
-            wgpu::PresentMode::Fifo
+            BackendPresentMode::Fifo
         } else {
-            wgpu::PresentMode::AutoNoVsync
+            BackendPresentMode::AutoNoVsync
         };
         
         self.context.set_present_mode(mode);
@@ -298,21 +399,21 @@ impl MoonRenderer {
     pub fn apply_blur(&mut self, texture_id: u32, radius: f32, horizontal: bool) {
         if let Some(texture) = self.state.textures.get(&texture_id) {
             debug_println!("Blur apply, texture found in state");
-            self.filters.apply_blur(&self.context, texture, radius, horizontal);
+            self.filters.apply_blur(&mut self.context, texture, radius, horizontal);
         }
     }
 
     pub fn apply_color_matrix(&mut self, texture_id: u32, matrix: [[f32; 4]; 4], offset: [f32; 4]) {
         if let Some(texture) = self.state.textures.get(&texture_id) {
             debug_println!("Color matrix apply, texture found in state");
-            self.filters.apply_color_matrix(&self.context, texture, matrix, offset);
+            self.filters.apply_color_matrix(&mut self.context, texture, matrix, offset);
         }
     }
     
     pub fn apply_chromakey(&mut self, texture_id: u32, key_color: [f32; 3], tolerance: f32) {
         if let Some(texture) = self.state.textures.get(&texture_id) {
             debug_println!("Chromakey apply, texture found in state");
-            self.filters.apply_chromakey(&self.context, texture, key_color, tolerance);
+            self.filters.apply_chromakey(&mut self.context, texture, key_color, tolerance);
         }
     }
 
@@ -320,7 +421,7 @@ impl MoonRenderer {
         if let Some(target) = self.state.textures.get(&target_id) {
             if let Some(mask) = self.state.textures.get(&mask_id) {
                 debug_println!("Stencil apply, textures found in state");
-                self.filters.apply_stencil(&self.context, target, mask, invert);
+                self.filters.apply_stencil(&mut self.context, target, mask, invert);
             }
         }
     }
@@ -373,7 +474,7 @@ impl MoonRenderer {
     }
 
     #[inline]
-    pub fn register_texture(&mut self, texture: Texture) -> u32 {
+    pub fn register_texture(&mut self, texture: BackendTexture) -> u32 {
         self.state.add_texture(texture)
     }
 

@@ -62,8 +62,8 @@ use crate::error::MoonWalkError;
 /// Совет: Вы можете получить статичное окно с помощью такого кода
 /// let window = event_loop.create_window( ... ).unwrap();
 /// let static_window: &'static Window = Box::leak(Box::new(window));
-pub struct MoonWalk {
-    pub renderer: MoonRenderer,
+pub struct MoonWalk<'a> {
+    pub renderer: MoonRenderer<'a>,
     pub resources: ResourceManager,
 }
 
@@ -88,7 +88,7 @@ pub struct GraphicsInfo {
     pub driver: String,
 }
 
-impl MoonWalk {
+impl MoonWalk<'_> {
     #[cfg(not(target_os = "android"))]
     pub fn new(
         window: &(impl HasWindowHandle + HasDisplayHandle),
@@ -121,6 +121,18 @@ impl MoonWalk {
         })
     }
 
+    #[cfg(feature = "modern")]
+    pub fn get_graphics_info(&self) -> GraphicsInfo {
+        // let info = &self.renderer.context.adapter_info;
+        
+        GraphicsInfo {
+            name: "".to_string(),
+            backend: "".to_string(),
+            driver: "".to_string(),
+        }
+    }
+
+    #[cfg(not(feature = "modern"))]
     pub fn get_graphics_info(&self) -> GraphicsInfo {
         let info = &self.renderer.context.adapter_info;
         

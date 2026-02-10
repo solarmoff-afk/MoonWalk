@@ -4,6 +4,7 @@
 use crate::core::context::{BackendContext, RawContext};
 use crate::error::MoonBackendError;
 use crate::pipeline::bind::RawBindGroup;
+use image::GenericImageView;
 
 // Абстрация над wgpu, добавить другие типы по необходимости, но этих двух должно
 // хватить для кейсов использования MoonWalk
@@ -13,6 +14,7 @@ pub enum BackendTextureFormat {
     Rgba8UnormSrgb = 1,
     
     Bgra8UnormSrgb = 2,
+    R8Unorm = 3,
 }
 
 // Приватное перечисление для определения типа текстуры
@@ -116,7 +118,7 @@ pub struct BackendTexture {
     pub config: BackendTextureConfig,
     
     // Сырая wgpu текстура
-    raw: Option<RawTexture>,
+    pub(crate) raw: Option<RawTexture>,
 }
 
 impl BackendTexture {
@@ -130,6 +132,28 @@ impl BackendTexture {
             
             raw: None,
         }
+    }
+
+    pub fn from_bytes(
+        &mut self,
+        context: &mut BackendContext, 
+        bytes: &[u8],
+    ) -> Result<(), MoonBackendError> {
+        let img = image::load_from_memory(bytes)
+            .map_err(|e| MoonBackendError::IOError(e.to_string()))?;
+            
+        self.from_image(context, &img)
+    }
+
+    pub fn from_image(
+        &mut self,
+        context: &mut BackendContext,
+        img: &image::DynamicImage,
+    ) -> Result<(), MoonBackendError> {
+        let rgba = img.to_rgba8();
+        let dimensions = img.dimensions();
+
+        self.from_raw(context, &rgba, dimensions.0, dimensions.1)
     }
 
     pub fn from_raw(
@@ -611,6 +635,25 @@ impl BackendTexture {
     pub fn get_raw(&self) -> Option<&RawTexture> {
         self.raw.as_ref()
     }
+
+    pub fn get_raw_result(&self) -> Result<&RawTexture, MoonBackendError> {
+        match self.raw.as_ref() {
+            Some(raw) => Ok(raw),
+            None => Err(MoonBackendError::TextureNotInitializedError),
+        }
+    }
+
+    pub(crate) fn update_view(&mut self, view: wgpu::TextureView) {
+        if let Some(raw) = &mut self.raw {
+            raw.view = view;
+        }
+    }
+    
+    pub(crate) fn update_sampler(&mut self, sampler: wgpu::Sampler) {
+        if let Some(raw) = &mut self.raw {
+            raw.sampler = sampler;
+        }
+    }
 }
 
 /// Этот метод нужен чтобы конвертировать абстрактное перечисление BackendTextureFormat
@@ -619,6 +662,7 @@ pub fn map_format_to_wgpu(format: BackendTextureFormat) -> wgpu::TextureFormat {
     match format {
         BackendTextureFormat::Rgba8UnormSrgb => wgpu::TextureFormat::Rgba8UnormSrgb,
         BackendTextureFormat::Bgra8UnormSrgb => wgpu::TextureFormat::Bgra8UnormSrgb,
+        BackendTextureFormat::R8Unorm => wgpu::TextureFormat::R8Unorm,
     }
 }
 
@@ -628,6 +672,7 @@ pub fn map_wgpu_to_format(format: wgpu::TextureFormat) -> BackendTextureFormat {
     match format {
         wgpu::TextureFormat::Rgba8UnormSrgb => BackendTextureFormat::Rgba8UnormSrgb,
         wgpu::TextureFormat::Bgra8UnormSrgb => BackendTextureFormat::Bgra8UnormSrgb,
+        wgpu::TextureFormat::R8Unorm => BackendTextureFormat::R8Unorm,
 
         // Фаллбек
         _ => BackendTextureFormat::Rgba8UnormSrgb,

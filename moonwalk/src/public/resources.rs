@@ -4,7 +4,7 @@
 use crate::error;
 use crate::{MoonWalk, FontAsset};
 
-impl MoonWalk {
+impl MoonWalk<'_> {
     /// Эта функция агружает текстуру из файла через его путь
     ///  [!] Данная функция очень медленная, не рекомендуется подгружать всё
     ///      при старте программы
@@ -70,10 +70,10 @@ impl MoonWalk {
     /// (для единобразия апи). Если координаты выходят за размер текстуры то
     /// возвращает None. Паники в таком случае не будет
     /// - [!] Эта операция медленная, не рекомендуется использовать каждый кадр
-    pub fn get_texture_pixel(&self, texture_id: u32, x: u32, y: u32) -> Option<glam::Vec4> {
+    pub fn get_texture_pixel(&mut self, texture_id: u32, x: u32, y: u32) -> Option<glam::Vec4> {
         let texture = self.renderer.state.textures.get(&texture_id)?;
         
-        match texture.read_pixel(&self.renderer.context, x, y) {
+        match texture.read_pixel(&mut self.renderer.context, x, y) {
             Ok(bytes) => {
                 Some(glam::Vec4::new(
                     bytes[0] as f32 / 255.0,

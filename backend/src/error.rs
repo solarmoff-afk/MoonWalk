@@ -20,6 +20,18 @@ pub enum MoonBackendError {
     #[error("IO error: {0}")]
     IOError(String),
 
+    #[error("Surface error: {0}")]
+    SurfaceError(String),
+
+    #[error("Surface not initialized error")]
+    SurfaceNotInitializedError,
+
+    #[error("Texture not initialized error")]
+    TextureNotInitializedError,
+
+    #[error("Buffer from bytes too small")]
+    BufferTooSmall,
+
     #[error("Pipeline validation error: {0}")]
     PipelineError(String),
 

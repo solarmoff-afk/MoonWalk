@@ -119,29 +119,3 @@ impl SortableInstance for ObjectInstance {
         self.extra[0]
     }
 }
-
-// На устройствах со слабым gpu лимит байт на вершину может быть ещё меньше,
-// 32 байта. Оптимизировать данные под 32 байта невероятно сложно и долго
-// (С точки зрения времени упаковки и распаковки), поэтому нужно разделение
-// на 2 инстанса
-
-// Первая часть, 32 байта
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct InstancePartA {
-    pub pos_size: [f32; 4], // 16
-    pub uv:       [u16; 4], // 8
-    pub extra:    [f32; 2], // 8
-}
-
-// Вторая часть, 32 байта
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct InstancePartB {
-    pub radii:         [u16; 4], // 8
-    pub gradient_data: [i16; 4], // 8
-    pub color2:        u32,      // 4
-    pub color:         u32,      // 4
-    pub type_id:       u32,      // 4
-    pub effect_data:   [u16; 2], // 4
-}

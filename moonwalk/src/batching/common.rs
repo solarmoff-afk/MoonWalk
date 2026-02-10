@@ -3,6 +3,12 @@
 
 use bytemuck::{Pod, Zeroable};
 
+#[cfg(feature = "modern")]
+use moonwalk_backend::{core::buffer::BackendBuffer, error::MoonBackendError};
+
+#[cfg(feature = "modern")]
+use moonwalk_backend::core::context::BackendContext;
+
 use crate::gpu::{Buffer, Context};
 
 /// Трейт, который должна реализовать любая структура инстанса
@@ -12,6 +18,13 @@ pub trait SortableInstance: Pod + Zeroable {
 }
 
 /// Контейнер для батчинга
+#[cfg(feature = "modern")]
+pub struct BatchBuffer<T: SortableInstance> {
+    pub cpu_buffer: Vec<T>,
+    pub gpu_buffer: Option<BackendBuffer<T>>,
+} 
+
+#[cfg(not(feature = "modern"))]
 pub struct BatchBuffer<T: SortableInstance> {
     pub cpu_buffer: Vec<T>,
     pub gpu_buffer: Option<Buffer<T>>,
@@ -48,6 +61,22 @@ impl<T: SortableInstance> BatchBuffer<T> {
 
     // Заливаем процессорный буфер на видеокарту создавая вершинные буферы. Функция
     // вернёт true если в буфере есть данные для создания буферов gpu
+    #[cfg(feature = "modern")]
+    pub fn upload(&mut self, context: &mut BackendContext) -> Result<bool, MoonBackendError> {
+        if self.cpu_buffer.is_empty() {
+            return Ok(false);
+        }
+
+        if let Some(buf) = &mut self.gpu_buffer {
+            buf.update(context, &self.cpu_buffer);
+        } else {
+            self.gpu_buffer = Some(BackendBuffer::vertex(context, &self.cpu_buffer)?);
+        }
+
+        Ok(true)
+    }
+    
+    #[cfg(not(feature = "modern"))]
     pub fn upload(&mut self, ctx: &Context) -> bool {
         if self.cpu_buffer.is_empty() {
             return false;

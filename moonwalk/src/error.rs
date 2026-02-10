@@ -64,8 +64,14 @@ pub enum MoonWalkError {
     #[error("Timeout error")]
     TimeoutError,
 
-    #[error("Undefined render surface error: {}")]
+    #[error("Undefined render surface error: {0}")]
     SurfaceError(String),
+
+    #[error("Context not found error")]
+    ContextNotFoundError,
+
+    #[error("Bind group not found error")]
+    BindGroupNotFoundError,
 
     #[error("No suitable surface format found")]
     NoSuitableSurfaceFormat,
@@ -85,6 +91,16 @@ pub enum MoonWalkError {
     #[error("Shader error: {0}")]
     ShaderError(String),
 
+    #[error("MoonWalk gpu backend error: {0}")]
+    BackendError(String),
+
     #[error("Text error: {0}")]
     TextError(#[from] crate::textware::TextError),
+}
+
+#[cfg(feature = "modern")]
+impl From<moonwalk_backend::error::MoonBackendError> for MoonWalkError {
+    fn from(err: moonwalk_backend::error::MoonBackendError) -> Self {
+        MoonWalkError::BackendError(err.to_string())
+    }
 }

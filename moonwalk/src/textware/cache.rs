@@ -2,14 +2,41 @@
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
 use cosmic_text::{CacheKey, SwashCache};
+
+#[cfg(feature = "modern")]
+use moonwalk_backend::{core::context::BackendContext, pipeline::bind::RawBindGroup, render::texture::BackendTexture};
+
+#[cfg(feature = "modern")]
+use moonwalk_backend::render::texture::BackendTextureFormat;
+
+#[cfg(feature = "modern")]
+use moonwalk_backend::pipeline::types::{TextureType, SamplerType};
+
+#[cfg(feature = "modern")]
+use moonwalk_backend::pipeline::bind::BindGroup;
+
 use swash::scale::image::{Content, Image as SwashImage};
 use std::collections::HashMap;
 
 use crate::textware::font::FontSystem;
+use crate::MoonWalkError;
 
 const ATLAS_SIZE: u32 = 2048;
 const PADDING: u32 = 1;
 
+#[cfg(feature = "modern")]
+pub struct GlyphCache<'a> {
+    swash_cache: SwashCache,
+    texture: BackendTexture,
+    bind_group: &'a RawBindGroup,
+    next_x: u32,
+    next_y: u32,
+    row_height: u32,
+    glyphs: HashMap<CacheKey, (SwashImage, (f32, f32, f32, f32))>,
+    pending_uploads: Vec<(CacheKey, u32, u32, SwashImage)>,
+}
+
+#[cfg(not(feature = "modern"))]
 pub struct GlyphCache {
     swash_cache: SwashCache,
     texture: wgpu::Texture,
@@ -21,7 +48,41 @@ pub struct GlyphCache {
     pending_uploads: Vec<(CacheKey, u32, u32, SwashImage)>,
 }
 
-impl GlyphCache {
+impl GlyphCache<'_> {
+    #[cfg(feature = "modern")]
+    pub fn new(context: &mut BackendContext) -> Result<Self, MoonWalkError> {
+        let mut texture = BackendTexture::new(ATLAS_SIZE, ATLAS_SIZE);
+        texture.config.set_format(BackendTextureFormat::R8Unorm);
+        
+        texture.create_render_target(context, ATLAS_SIZE, ATLAS_SIZE)?;
+        
+        // Создаем bind group layout через твою абстракцию
+        let bind_group_layout = BindGroup::new()
+            .add_texture(0, TextureType::Float)
+            .add_sampler(1, SamplerType::Linear)
+            .build(context)?;
+        
+        // Получаем bind group из текстуры
+        let bind_group = match texture.get_raw_bind_group() {
+            Some(group) => group,
+            None => {
+                return Err(MoonWalkError::BindGroupNotFoundError);
+            }
+        };
+
+        Ok(Self {
+            swash_cache: SwashCache::new(),
+            texture,
+            bind_group,
+            next_x: PADDING,
+            next_y: PADDING,
+            row_height: 0,
+            glyphs: HashMap::new(),
+            pending_uploads: Vec::new(),
+        })
+    }
+    
+    #[cfg(not(feature = "modern"))]
     pub fn new(device: &wgpu::Device, _queue: &wgpu::Queue) -> Self {
         let texture_size = wgpu::Extent3d {
             width: ATLAS_SIZE,
@@ -101,10 +162,43 @@ impl GlyphCache {
         }
     }
 
+    #[cfg(feature = "modern")]
+    pub fn get_bind_group(&self) -> &RawBindGroup {
+        &self.bind_group
+    }
+
+    #[cfg(not(feature = "modern"))]
     pub fn get_bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group
     }
 
+    #[cfg(feature = "modern")]
+    pub fn upload_pending(&mut self, context: &mut BackendContext) {
+        if self.pending_uploads.is_empty() {
+            return;
+        }
+
+        for (key, x, y, image) in self.pending_uploads.drain(..) {
+            let w = image.placement.width;
+            let h = image.placement.height;
+            
+            if w == 0 || h == 0 {
+                continue;
+            }
+
+            context.write_texture(&self.texture, x, y, w, h, &image.data);
+
+            let uv_rect = (
+                x as f32 / ATLAS_SIZE as f32,
+                y as f32 / ATLAS_SIZE as f32,
+                w as f32 / ATLAS_SIZE as f32,
+                h as f32 / ATLAS_SIZE as f32,
+            );
+            self.glyphs.insert(key, (image, uv_rect));
+        }
+    }
+
+    #[cfg(not(feature = "modern"))]
     pub fn upload_pending(&mut self, queue: &wgpu::Queue) {
         if self.pending_uploads.is_empty() {
             return;
@@ -113,7 +207,10 @@ impl GlyphCache {
         for (key, x, y, image) in self.pending_uploads.drain(..) {
             let w = image.placement.width;
             let h = image.placement.height;
-            if w == 0 || h == 0 { continue; }
+            
+            if w == 0 || h == 0 {
+                continue;
+            }
 
             queue.write_texture(
                 wgpu::TexelCopyTextureInfo {
@@ -148,7 +245,9 @@ impl GlyphCache {
 
         let image = self.swash_cache.get_image(&mut font_system.sys, key).clone()?;
         
-        if image.content != Content::Mask { return None; }
+        if image.content != Content::Mask {
+            return None;
+        }
 
         let rect = self.place_glyph(key, image.clone())?;
         Some((image, rect))

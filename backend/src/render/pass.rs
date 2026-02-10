@@ -6,11 +6,10 @@ use glam::Vec4;
 
 use crate::core::encoder::BackendEncoder;
 use crate::core::buffer::BackendBuffer;
-use crate::pipeline::PipelineResult;
+use crate::pipeline::RawPipeline;
 use crate::pipeline::bind::RawBindGroup;
 use crate::render::texture::BackendTexture;
 use crate::error::MoonBackendError;
-
 pub struct RenderPass<'a> {
     raw: wgpu::RenderPass<'a>,
 }
@@ -41,7 +40,6 @@ impl<'a> RenderPass<'a> {
                 return Err(MoonBackendError::RenderPassError("Texture raw not found".into()));
             }
         };
-
     
         let raw = match encoder.get_raw() {
             Some(raw_encoder) => {
@@ -71,9 +69,8 @@ impl<'a> RenderPass<'a> {
         })
     }
 
-    pub fn set_pipeline(&mut self, pipeline: &PipelineResult) -> Result<(), MoonBackendError> {
-        self.raw.set_pipeline(&pipeline.get_raw()?.pipeline);
-        Ok(())
+    pub fn set_pipeline(&mut self, pipeline: &RawPipeline) {
+        self.raw.set_pipeline(&pipeline.pipeline);
     }
 
     pub fn set_bind_group(&mut self, index: u32, group: &RawBindGroup) {

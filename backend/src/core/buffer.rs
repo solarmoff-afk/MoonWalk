@@ -8,6 +8,11 @@ use bytemuck::Pod;
 use crate::core::context::BackendContext;
 use crate::error::MoonBackendError;
 
+pub struct BufferBinding<'a> {
+    pub(crate) buffer: &'a wgpu::Buffer,
+    pub offset: u64,
+}
+
 pub struct BackendBuffer<T: Pod> {
     // Сырой буфер wgpu
     pub raw: wgpu::Buffer,
@@ -166,5 +171,50 @@ impl<T: Pod> BackendBuffer<T> {
             wgpu::BufferUsages::VERTEX,
             "Instance Buffer",
         ).map_err(|_e| MoonBackendError::ContextNotFoundError)
+    }
+
+    pub fn get_binding(&self) -> BufferBinding {
+        BufferBinding {
+            buffer: &self.raw,
+            offset: 0,
+        }
+    }
+
+    pub fn uniform_bytes(context: &mut BackendContext, bytes: &[u8]) -> Result<Self, MoonBackendError> {
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                let raw = raw_context.device.create_buffer_init(
+                    &wgpu::util::BufferInitDescriptor {
+                        label: Some("Uniform Buffer (bytes)"),
+                        contents: bytes,
+                        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                    }
+                );
+
+                Ok(Self {
+                    raw,
+                    count: bytes.len() as u32,
+                    _marker: PhantomData,
+                })
+            }
+
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+
+    pub fn update_bytes(&self, context: &mut BackendContext, bytes: &[u8]) -> Result<(), MoonBackendError> {
+        match &mut context.get_raw() {
+            Some(raw_context) => {
+                if (bytes.len() as u64) > self.raw.size() {
+                    return Err(MoonBackendError::BufferTooSmall);
+                }
+
+                raw_context.queue.write_buffer(&self.raw, 0, bytes);
+
+                Ok(())
+            }
+            
+            None => Err(MoonBackendError::ContextNotFoundError),
+        }
     }
 }
