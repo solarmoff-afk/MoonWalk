@@ -349,7 +349,8 @@ impl UberBatch {
                 }
 
                 let align = store.text_aligns[idx];
-                let glyphs = text_engine.collect_glyphs(
+
+                let (glyphs, ascent) = text_engine.collect_glyphs(
                     global_id.index() as u64,
                     text,
                     store.font_ids[idx],
@@ -372,7 +373,7 @@ impl UberBatch {
                         let top = image.placement.top as f32;
 
                         let x = pos.x + gx + left;
-                        let y = pos.y + gy - top;
+                        let y = pos.y + gy - top + ascent / 2.0;
 
                         let (u, v, uw, vh) = uv_rect;
                         let uv_arr = [u, v, uw, vh];
