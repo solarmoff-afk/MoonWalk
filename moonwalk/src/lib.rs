@@ -6,8 +6,6 @@
 // Данный файл предоставляет публичный API рендер движка (В том числе и FFI) для
 // использования в других проектах. В этом файле не должна содержаться какая-либо
 // логика кроме подключения модулей и объявления публичных функций.
-//
-// Смотрите подробную документацию здесь: [ССЫЛКА]
 
 #![allow(unused_must_use)]
 
@@ -20,9 +18,6 @@ pub mod rendering;
 pub mod objects;
 pub mod resource_manager;
 pub mod path;
-
-// abstract зарезервирован в расте поэтому нужно экранирование
-pub mod r#abstract;
 
 mod batching;
 mod textware;
@@ -38,10 +33,6 @@ pub use crate::objects::ObjectId;
 pub use crate::public::brush::BlendMode;
 pub use crate::rendering::custom::{
     CustomPaint, MoonRenderPass, MoonBuffer, MoonBindGroup, CustomPipeline
-};
-pub use crate::r#abstract::{
-    MoonPipeline, VertexLayout, VertexAttr, Format, StepMode, 
-    BindGroup, ShaderStage, TextureType, SamplerType, CullMode, Topology, FallbackStrategy
 };
 pub use crate::public::custom::BindResource;
 
