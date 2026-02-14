@@ -22,7 +22,6 @@ use bytemuck::{Pod, Zeroable};
 use cosmic_text::Shaping;
 use moonwalk_backend::pipeline::bind::RawBindGroup;
 
-#[cfg(feature = "modern")]
 use moonwalk_backend::{core::context::{BackendContext, RawContext}, error::MoonBackendError};
 
 use std::collections::HashMap;
@@ -84,7 +83,6 @@ fn hash_str(s: &str) -> u64 {
 }
 
 impl TextWare {
-    #[cfg(feature = "modern")]
     pub fn new(context: &mut BackendContext) -> Result<Self, MoonWalkError> {
         match &mut context.get_raw() {
             Some(raw_context) => {
@@ -105,24 +103,6 @@ impl TextWare {
             },
 
             None => Err(MoonWalkError::ContextNotFoundError),
-        }
-    }
-
-    #[cfg(not(feature = "modern"))]
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let mut font_system = FontSystem::new();
-
-        let scratch_buffer = cosmic_text::Buffer::new(
-            &mut font_system.sys, 
-            Metrics::new(24.0, 24.0)
-        ); 
-
-        Self {
-            atlas_id: Some(ATLAS_ID),
-            font_system,
-            glyph_cache: GlyphCache::new(device, queue),
-            buffers: HashMap::new(),
-            scratch_buffer,
         }
     }
 
@@ -242,7 +222,10 @@ impl TextWare {
             }
         }
 
-        TextMesh { vertices, indices }
+        TextMesh {
+            vertices,
+            indices,
+        }
     }
 
     /// Подготавливает текст (layout) и возвращает буфер с глифами.

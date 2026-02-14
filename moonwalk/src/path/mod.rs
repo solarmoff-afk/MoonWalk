@@ -3,19 +3,11 @@
 
 pub mod svg;
 
-#[cfg(feature = "modern")]
 use moonwalk_backend::core::context::BackendContext;
-
-#[cfg(feature = "modern")]
 use moonwalk_backend::pipeline::RawPipeline;
-
-#[cfg(feature = "modern")]
 use moonwalk_backend::pipeline::bind::RawBindGroup;
-
-#[cfg(feature = "modern")]
 use moonwalk_backend::render::texture::BackendTexture;
 
-use wgpu::util::DeviceExt;
 use lyon::math::point;
 use lyon::path::Path;
 use lyon::tessellation::*;
@@ -23,14 +15,6 @@ use bytemuck::{Pod, Zeroable};
 
 use crate::MoonWalkError;
 use crate::{perf_start, perf_end};
-
-#[cfg(not(feature = "modern"))]
-use crate::gpu::context::Context;
-
-#[cfg(not(feature = "modern"))]
-use crate::rendering::texture::Texture;
-
-use crate::r#abstract::*;
 
 /// Настройка концов линий
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -80,20 +64,12 @@ pub struct VectorVertex {
 }
 
 /// Система для рендеринга векторной графики (векторных путей) в текстуры
-#[cfg(feature = "modern")]
 pub struct VectorSystem {
     pipeline: RawPipeline,
     bind_group: Option<RawBindGroup>,
 }
 
-#[cfg(not(feature = "modern"))]
-pub struct VectorSystem {
-    pipeline: wgpu::RenderPipeline,
-    bind_group: Option<wgpu::BindGroup>,
-}
-
 impl VectorSystem {
-    #[cfg(feature = "modern")]
     pub fn new(context: &mut BackendContext) -> Result<Self, MoonWalkError> {
         use moonwalk_backend::pipeline::{BackendPipeline, bind::BindGroup, types::{BlendMode, CullMode, Format, ShaderStage, StepMode, Topology}, vertex::{VertexAttr, VertexLayout}};
 
@@ -140,44 +116,6 @@ impl VectorSystem {
         })
     }
 
-    #[cfg(not(feature = "modern"))]
-    pub fn new(ctx: &Context) -> Result<Self, MoonWalkError> {
-        let shader_source = include_str!("path.wgsl");
-        let actual_format = ctx.config.format;
-        
-        let pipeline = MoonPipeline::new(shader_source)
-            .vertex_shader("vs_main")
-            .fragment_shader("fs_main")
-            .add_vertex_layout(
-                VertexLayout::new()
-                    .stride(8)
-                    .step_mode(StepMode::Vertex)
-                    .add_attr(
-                        VertexAttr::new()
-                            .format(Format::Float32x2)
-                            .location(0)
-                            .offset(0)
-                    )
-            )
-            .add_bind_group(
-                BindGroup::new()
-                    .add_uniform(0, ShaderStage::Both)
-            )
-            .blend(BlendMode::Alpha)
-            .cull(CullMode::None)
-            .topology(Topology::TriangleList)
-            .depth_test(false)
-            .depth_write(false)
-            .label("vector_path")
-            .build(ctx, actual_format, &[])?;
-        
-        Ok(Self {
-            pipeline: pipeline.pipeline.raw,
-            bind_group: None,
-        })
-    }
-
-    #[cfg(feature = "modern")]
     pub fn render(
         &mut self,
         context: &mut BackendContext,
@@ -254,7 +192,6 @@ impl VectorSystem {
         Ok(())
     }
 
-    #[cfg(feature = "modern")]
     pub fn render_to_texture(
         &mut self,
         context: &mut BackendContext,
@@ -271,117 +208,6 @@ impl VectorSystem {
         self.render(context, vertices, indices, width, height, color, &texture)?;
 
         Ok(texture)
-    }
-
-    #[cfg(not(feature = "modern"))]
-    pub fn render(
-        &mut self,
-        ctx: &Context,
-        vertices: &[VectorVertex],
-        indices: &[u16],
-        width: u32,
-        height: u32,
-        color: [f32; 4],
-        target: &Texture,
-    ) {
-        if vertices.is_empty() || indices.is_empty() {
-            return;
-        }
-
-        let vertex_buffer = ctx.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vector VBO"),
-            contents: bytemuck::cast_slice(vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = ctx.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vector IBO"),
-            contents: bytemuck::cast_slice(indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        let mut matrix_stack = crate::gpu::MatrixStack::new();
-        matrix_stack.set_ortho(width as f32, height as f32);
-        
-        let uniform_data = VectorUniform {
-            view_proj: matrix_stack.projection.to_cols_array_2d(),
-            color,
-        };
-
-        let uniform_buffer = ctx.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vector Uniforms"),
-            contents: bytemuck::bytes_of(&uniform_data),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
-
-        self.bind_group = Some(ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &self.get_bind_group_layout(ctx),
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
-            label: None,
-        }));
-
-        let mut encoder = ctx.create_encoder();
-        {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Vector Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &target.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
-
-            pass.set_pipeline(&self.pipeline);
-
-            if let Some(bind_group) = &self.bind_group {
-                pass.set_bind_group(0, bind_group, &[]);
-            }
-
-            pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            pass.draw_indexed(0..indices.len() as u32, 0, 0..1);
-        }
-
-        ctx.submit(encoder);
-    }
-
-    #[cfg(not(feature = "modern"))]
-    pub fn render_to_texture(
-        &mut self,
-        ctx: &Context,
-        vertices: &[VectorVertex],
-        indices: &[u16],
-        width: u32,
-        height: u32,
-        color: [f32; 4],
-    ) -> Texture {
-        let texture = Texture::create_render_target(
-            ctx, 
-            width, 
-            height, 
-            wgpu::TextureFormat::Rgba8UnormSrgb
-        );
-
-        self.render(ctx, vertices, indices, width, height, color, &texture);
-
-        texture
-    }
-
-    #[cfg(not(feature = "modern"))]
-    fn get_bind_group_layout(&self, ctx: &Context) -> wgpu::BindGroupLayout {
-        BindGroup::new()
-            .add_uniform(0, ShaderStage::Both)
-            .build(ctx)
-            .expect("Failed to create vector bind group layout")
     }
 }
 

@@ -39,6 +39,10 @@ impl RawRgbaImage {
     pub fn get_raw(&self) -> &image::RgbaImage {
         &self.raw
     }
+
+    pub fn get_raw_clone(&self) -> image::RgbaImage {
+        self.raw.clone()
+    }
 }
 
 #[derive(Clone)]

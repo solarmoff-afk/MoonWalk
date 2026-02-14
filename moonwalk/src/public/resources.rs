@@ -55,19 +55,9 @@ impl MoonWalk {
 
     /// Возвращает размер текстуры в физических пикселях (ширина и высота) а если текстура
     /// не найдена то возвращает нули Vec2 [0.0, 0.0]
-    #[cfg(feature = "modern")]
     pub fn get_texture_size(&self, texture_id: u32) -> glam::Vec2 {
         if let Some(tex) = self.renderer.state.textures.get(&texture_id) {
             glam::Vec2::new(tex.width as f32, tex.height as f32)
-        } else {
-            glam::Vec2::ZERO
-        }
-    }
-
-    #[cfg(not(feature = "modern"))]
-    pub fn get_texture_size(&self, texture_id: u32) -> glam::Vec2 {
-        if let Some(tex) = self.renderer.state.textures.get(&texture_id) {
-            glam::Vec2::new(tex.texture.width() as f32, tex.texture.height() as f32)
         } else {
             glam::Vec2::ZERO
         }

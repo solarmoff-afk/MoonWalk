@@ -4,20 +4,13 @@
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use glam::{Vec2, Vec4};
 
-#[cfg(feature = "modern")]
 use moonwalk_backend::core::context::{BackendContext, BackendPresentMode};
 use moonwalk_backend::core::encoder::BackendEncoder;
 use moonwalk_backend::render::pass::RenderPass;
 use moonwalk_backend::render::texture::BackendTexture;
 use moonwalk_backend::core::context::SurfaceRenderer;
 
-#[cfg(not(feature = "modern"))]
-use crate::gpu::Context;
-
 use crate::error::MoonWalkError;
-
-#[cfg(not(feature = "modern"))]
-use crate::rendering::texture::Texture;
 
 use crate::rendering::snapshot::ClippedSnapshot;
 use crate::rendering::state::RenderState;
@@ -41,12 +34,8 @@ struct SnapshotTask {
 /// Структура рендерера. Она хранит контекст moonwalk_backend
 /// и состояние рендера (матричный стэк, храниоище объектов и так далее)
 pub struct MoonRenderer {
-    #[cfg(feature = "modern")]
     pub context: BackendContext,
     surface_renderer: SurfaceRenderer,
-
-    #[cfg(not(feature = "modern"))]
-    pub context: Context,
 
     pub state: RenderState,
     pub scale_factor: f32,
@@ -58,11 +47,7 @@ pub struct MoonRenderer {
     // [WAIT DOC]
     snapshot_tasks: Vec<SnapshotTask>,
 
-    #[cfg(feature = "modern")]
     offscreen: Option<BackendTexture>,
-
-    #[cfg(not(feature = "modern"))]
-    offscreen: Option<crate::rendering::texture::Texture>,
 }
 
 impl MoonRenderer {
@@ -74,14 +59,8 @@ impl MoonRenderer {
         width: u32, height: u32
     ) -> Result<Self, MoonWalkError> {
         // Создание контекст рендеринга
-        #[cfg(feature = "modern")]
         let mut context = BackendContext::new();
-
-        #[cfg(feature = "modern")]
         context.create_context_sync(window, width, height);
-
-        #[cfg(not(feature = "modern"))]
-        let context = pollster::block_on(Context::new(window, width, height));
 
         let filters = FilterSystem::new(&mut context)?;
         
@@ -98,8 +77,6 @@ impl MoonRenderer {
 
         Ok(Self {
             context, // Контекст gpu/wgpu
-
-            #[cfg(feature = "modern")]
             surface_renderer: SurfaceRenderer::new(),
 
             state,   // Состояние рендерера
@@ -199,7 +176,6 @@ impl MoonRenderer {
     }
 
     /// Функция для отправки всего на рендер
-    #[cfg(feature = "modern")]
     pub fn render(&mut self, clear_color: Vec4) -> Result<(), MoonWalkError> {
         let size = self.context.get_size()?;
         let width = size.x;
@@ -273,104 +249,6 @@ impl MoonRenderer {
 
         self.surface_renderer.end();
 
-        Ok(())
-    }
-
-    #[cfg(not(feature = "modern"))]
-    pub fn render(&mut self, clear_color: Vec4) -> Result<(), MoonWalkError> {
-        let width = self.context.config.width;
-        let height = self.context.config.height;
-        let format = self.context.config.format;
-
-        let need_recreate = self.offscreen.as_ref()
-            .map_or(true, |tex| tex.texture.width() != width || tex.texture.height() != height);
-
-        if need_recreate {
-            self.offscreen = Some(crate::rendering::texture::Texture::create_empty(
-                &self.context,
-                width,
-                height,
-                format,
-                "Offscreen Target",
-            ));
-        }
-
-        let offscreen_tex = self.offscreen.as_ref().unwrap();
-        let render_target_view = &offscreen_tex.view; 
-
-        let mut encoder = self.context.create_encoder();
-
-        self.text_engine.prepare(&self.context.queue);
-        let atlas_bg = self.text_engine.get_bind_group();
-
-        // Здесь рисуется текущее состояние в буфер кадра
-        self.state.draw(&self.context, &mut encoder, render_target_view, &mut self.text_engine, Some(&atlas_bg), clear_color);
-        
-        if !self.snapshot_tasks.is_empty() {
-            for task in &self.snapshot_tasks {
-                if let Some(target_tex) = self.state.textures.get(&task.target_id) {
-                    encoder.copy_texture_to_texture(
-                        wgpu::TexelCopyTextureInfo {
-                            texture: &offscreen_tex.texture,
-                            mip_level: 0,
-                            origin: wgpu::Origin3d {
-                                x: task.x,
-                                y: task.y,
-                                z: 0
-                            },
-                            aspect: wgpu::TextureAspect::All,
-                        },
-
-                        wgpu::TexelCopyTextureInfo {
-                            texture: &target_tex.texture,
-                            mip_level: 0,
-                            origin: wgpu::Origin3d::ZERO,
-                            aspect: wgpu::TextureAspect::All,
-                        },
-
-                        wgpu::Extent3d {
-                            width: task.w,
-                            height: task.h,
-                            depth_or_array_layers: 1,
-                        }
-                    );
-                }
-            }
-
-            // Очищаем очередь задач после выполнения
-            self.snapshot_tasks.clear();
-        }
-
-        let frame = self.context.surface.as_ref().unwrap().get_current_texture()?;
-
-        let surface_view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        let mut blit_encoder = self.context.create_encoder();
-        {
-            let mut pass = crate::gpu::RenderPass::new(
-                &mut blit_encoder,
-                &surface_view,
-                None
-            );
-            
-            if let Some(pipeline) = self.state.shaders.get_pipeline(self.state.rect_shader) {
-                pass.set_pipeline(pipeline);
-                pass.set_bind_group(0, &self.state.proj_bind_group);
-                
-                self.state.batches.objects.blit(
-                    &self.context,
-                    &mut pass,
-                    &offscreen_tex,
-                    (width as f32 / self.scale_factor) as u32,
-                    (height as f32 / self.scale_factor) as u32
-                );
-            }
-        }
-
-        // Отправляем всё на рендер через контекст рендеринга
-        self.context.queue.submit([encoder.finish(), blit_encoder.finish()]);
-
-        frame.present();
         Ok(())
     }
 

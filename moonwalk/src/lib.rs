@@ -123,7 +123,6 @@ impl MoonWalk {
         })
     }
 
-    #[cfg(feature = "modern")]
     pub fn get_graphics_info(&self) -> GraphicsInfo {
         // let info = &self.renderer.context.adapter_info;
         
@@ -131,17 +130,6 @@ impl MoonWalk {
             name: "".to_string(),
             backend: "".to_string(),
             driver: "".to_string(),
-        }
-    }
-
-    #[cfg(not(feature = "modern"))]
-    pub fn get_graphics_info(&self) -> GraphicsInfo {
-        let info = &self.renderer.context.adapter_info;
-        
-        GraphicsInfo {
-            name: info.name.clone(),
-            backend: format!("{:?}", info.backend),
-            driver: info.driver.clone(),
         }
     }
 }

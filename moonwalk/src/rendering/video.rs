@@ -126,7 +126,7 @@ impl MoonVideo {
         }
 
         self.tx.send(VideoMessage::Frame { 
-            pixels: rgba_image, 
+            pixels: rgba_image.get_raw_clone(), 
             frame_idx: self.frame_count 
         }).map_err(|_| MoonWalkError::IOError("Encoder thread died".to_string()))?;
 

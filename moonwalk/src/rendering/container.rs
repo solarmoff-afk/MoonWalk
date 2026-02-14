@@ -3,35 +3,15 @@
 
 use glam::{Vec2, Vec4};
 
-#[cfg(feature = "modern")]
 use moonwalk_backend::core::context::BackendContext;
-
-#[cfg(feature = "modern")]
 use moonwalk_backend::core::encoder::BackendEncoder;
-
-#[cfg(feature = "modern")]
 use moonwalk_backend::core::buffer::BackendBuffer;
-
-#[cfg(feature = "modern")]
 use moonwalk_backend::pipeline::bind::RawBindGroup;
-
-#[cfg(feature = "modern")]
 use moonwalk_backend::render::texture::BackendTexture;
-
-#[cfg(feature = "modern")]
 use moonwalk_backend::render::pass::RenderPass;
-
-#[cfg(feature = "modern")]
 use moonwalk_backend::error::MoonBackendError;
 
-#[cfg(feature = "modern")]
 use crate::error::MoonWalkError;
-
-#[cfg(not(feature = "modern"))]
-use crate::gpu::context::Context;
-
-#[cfg(not(feature = "modern"))]
-use crate::gpu::Buffer;
 
 use crate::gpu::MatrixStack;
 
@@ -41,15 +21,11 @@ use crate::batching::shapes::uber::UberBatch;
 use crate::rendering::snapshot::ClippedSnapshot;
 use crate::rendering::state::GlobalUniform;
 
-#[cfg(not(feature = "modern"))]
-use crate::rendering::texture::Texture;
-
 use crate::textware::FontId;
 use crate::MoonWalk;
 use crate::FontAsset;
 use crate::TextAlign;
 
-#[cfg(feature = "modern")]
 pub struct RenderContainer {
     pub store: ObjectStore,
     pub batch: UberBatch,
@@ -59,71 +35,6 @@ pub struct RenderContainer {
     pub height: u32,
 }
 
-#[cfg(not(feature = "modern"))]
-pub struct RenderContainer {
-    pub store: ObjectStore,
-    pub batch: UberBatch,
-    pub proj_bind_group: wgpu::BindGroup,
-    pub target: Texture,
-    pub width: u32,
-    pub height: u32,
-}
-
-#[cfg(not(feature = "modern"))]
-impl RenderContainer {
-    pub fn new(ctx: &Context, width: u32, height: u32) -> Self {
-        let target = crate::rendering::texture::Texture::create_empty(
-            ctx, 
-            width, 
-            height, 
-            ctx.config.format,
-            "Container Target"
-        );
-
-        let mut matrix_stack = MatrixStack::new();
-        matrix_stack.set_ortho(width as f32, height as f32);
-        
-        let uniform_data = GlobalUniform {
-            view_proj: matrix_stack.projection.to_cols_array_2d(),
-        };
-        let uniform_buffer = Buffer::uniform(ctx, &uniform_data);
-        
-        let proj_layout = ctx.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Container Proj Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
-
-        let proj_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &proj_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.raw.as_entire_binding(),
-            }],
-
-            label: Some("Container Proj Bind Group"),
-        });
-
-        Self {
-            store: ObjectStore::new(),
-            batch: UberBatch::new(ctx),
-            proj_bind_group,
-            target,
-            width,
-            height,
-        }
-    }
-}
-
-#[cfg(feature = "modern")]
 impl RenderContainer {
     pub fn new(context: &mut BackendContext, width: u32, height: u32) -> Result<Self, MoonWalkError> {
         use moonwalk_backend::pipeline::bind::BindGroup;
@@ -385,7 +296,6 @@ impl RenderContainer {
         self.store.config_effect_data(id, [border_width, box_shadow]);
     }
 
-    #[cfg(feature = "modern")]
     pub fn draw(&mut self, mw: &mut MoonWalk, clear_color: Option<Vec4>) -> Result<(), MoonWalkError> {
         let renderer = &mut mw.renderer;
         let context = &mut renderer.context;
@@ -426,7 +336,6 @@ impl RenderContainer {
         Ok(())
     }
 
-    #[cfg(feature = "modern")]
     pub fn snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32) -> u32 {
         // [HACK] [UNWRAP]
         // Для того чтобы не ломать api тут используется expect и unwrap везде,
@@ -472,7 +381,6 @@ impl RenderContainer {
         id
     }
 
-    #[cfg(feature = "modern")]
     pub fn update_snapshot(
         &mut self,
         mw: &mut MoonWalk,
@@ -516,150 +424,5 @@ impl RenderContainer {
         encoder.submit_frame(&mut renderer.context).expect("DELETE THIS PLEASE");
 
         // Ok(())
-    }
-
-    #[cfg(not(feature = "modern"))]
-    pub fn draw(&mut self, mw: &mut MoonWalk, clear_color: Option<Vec4>) {
-        let renderer = &mut mw.renderer;
-        let ctx = &renderer.context;
-        let text_engine = &mut renderer.text_engine;
-        
-        self.batch.prepare(ctx, &self.store, text_engine);
-
-        text_engine.prepare(&ctx.queue);
-        let atlas_bg = text_engine.get_bind_group();
-        
-        let wgpu_clear_color = clear_color.map(|c| wgpu::Color {
-            r: c.x as f64,
-            g: c.y as f64,
-            b: c.z as f64,
-            a: c.w as f64,
-        });
-
-        let mut encoder = ctx.create_encoder();
-        let view = &self.target.view;
-        {
-            let mut pass = crate::gpu::RenderPass::new(
-                &mut encoder,
-                view,
-                wgpu_clear_color
-            );
-            
-            if let Some(pipeline) = renderer.state.shaders.get_pipeline(renderer.state.rect_shader) {
-                pass.set_pipeline(pipeline);
-                pass.set_bind_group(0, &self.proj_bind_group);
-                
-                self.batch.render(
-                    &mut pass, 
-                    &renderer.state.white_texture, 
-                    &renderer.state.textures,
-                    Some(&atlas_bg),
-                );
-            }
-        }
-        
-        ctx.submit(encoder);
-    }
-
-    #[cfg(not(feature = "modern"))]
-    pub fn snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32) -> u32 {
-        let renderer = &mut mw.renderer;
-
-        let mut snapshot_region = ClippedSnapshot::new(
-            Vec2::new(x as f32, y as f32),
-            Vec2::new(w as f32, h as f32),
-        );
-
-        snapshot_region.clip_snapshot(Vec2::new(
-            self.width as f32,
-            self.height as f32
-        ));
-        
-        let result = Texture::create_render_target(
-            &renderer.context,
-            snapshot_region.size.x as u32,
-            snapshot_region.size.y as u32,
-            self.target.texture.format()
-        );
-        
-        let id = renderer.state.add_texture(result);
-        let target_tex = renderer.state.textures.get(&id).unwrap();
-        
-        let mut encoder = renderer.context.create_encoder();
-        encoder.copy_texture_to_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &self.target.texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d {
-                    x: snapshot_region.position.x as u32,
-                    y: snapshot_region.position.y as u32,
-                    z: 0
-                },
-                aspect: wgpu::TextureAspect::All,
-            },
-
-            wgpu::TexelCopyTextureInfo {
-                texture: &target_tex.texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-
-            wgpu::Extent3d {
-                width: snapshot_region.size.x as u32,
-                height: snapshot_region.size.y as u32,
-                depth_or_array_layers: 1
-            }
-        );
-        
-        renderer.context.submit(encoder);
-        
-        id
-    }
-
-    #[cfg(not(feature = "modern"))]
-    pub fn update_snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32, id: u32) {
-        let renderer = &mut mw.renderer;
-        
-        let mut snapshot_region = ClippedSnapshot::new(
-            Vec2::new(x as f32, y as f32),
-            Vec2::new(w as f32, h as f32),
-        );
-
-        snapshot_region.clip_snapshot(Vec2::new(
-            self.width as f32,
-            self.height as f32
-        ));
-
-        let target_tex = renderer.state.textures.get(&id).unwrap();
-        
-        let mut encoder = renderer.context.create_encoder();
-        encoder.copy_texture_to_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &self.target.texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d {
-                    x: snapshot_region.position.x as u32,
-                    y: snapshot_region.position.y as u32,
-                    z: 0
-                },
-                aspect: wgpu::TextureAspect::All,
-            },
-
-            wgpu::TexelCopyTextureInfo {
-                texture: &target_tex.texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-
-            wgpu::Extent3d {
-                width: snapshot_region.size.x as u32,
-                height: snapshot_region.size.y as u32,
-                depth_or_array_layers: 1
-            }
-        );
-        
-        renderer.context.submit(encoder);
     }
 }
