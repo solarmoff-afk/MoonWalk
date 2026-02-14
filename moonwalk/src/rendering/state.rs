@@ -39,6 +39,7 @@ use crate::objects::store::ObjectStore;
 use crate::objects::ShaderId;
 use crate::error::MoonWalkError;
 use crate::textware::TextWare;
+use crate::{perf_start, perf_end};
 
 /// Структура для единой юниформы под все шейдеры. Не передаём
 /// матрицу модели для экономии передачи данных через шину.
@@ -61,7 +62,7 @@ pub struct RenderState {
     pub rect_shader: ShaderId, // Пайплайн для прямоугольника
     pub white_texture: BackendTexture,
     pub textures: HashMap<u32, BackendTexture>,
-    next_texture_id: u32,
+    next_texture_id: u32, 
 }
 
 #[cfg(not(feature = "modern"))]
@@ -142,7 +143,7 @@ impl RenderState {
             rect_shader,
             white_texture,
             textures: HashMap::new(),
-            next_texture_id: 1, // 0 занят под white_texture
+            next_texture_id: 1, // 0 занят под white_texture 
         })
     }
     
@@ -261,11 +262,14 @@ impl RenderState {
         }
 
         // Создаём проход рендера
-        let mut pass = RenderPass::new(
-            encoder, 
-            target,
-            Some(clear_color),
-            "MoonWalk render pass".to_string())?;
+        perf_start!("[STATE]: Create render pass");
+            let mut pass = RenderPass::new(
+                encoder, 
+                target,
+                Some(clear_color),
+                "MoonWalk render pass"   
+            )?;
+        perf_end!("[STATE]: Create render pass");
 
         pass.set_bind_group(0, &self.proj_bind_group);
 

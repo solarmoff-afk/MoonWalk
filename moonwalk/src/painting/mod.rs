@@ -242,7 +242,7 @@ impl PaintingSystem {
         let mut encoder = BackendEncoder::new(context, "MoonWalk painting encoder")?;
 
         let mut pass = RenderPass::new(
-            &mut encoder, target, None, "MoonWalk brush render pass".to_string()
+            &mut encoder, target, None, "MoonWalk brush render pass"
         )?;
 
         // [HACK]

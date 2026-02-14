@@ -648,7 +648,7 @@ impl FilterSystem {
             // Прозрачный цвет для заливки чтобы если фильтр применился к png картинке
             // это wgpu не перекрыл бы прозрачный фон своим каким-то цветом
             Some(Vec4::ZERO),
-            "Filter render pass".to_string()
+            "Filter render pass"
         )?;
 
         pass.set_pipeline(pipeline.get_raw()?);

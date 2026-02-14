@@ -250,7 +250,7 @@ impl MoonRenderer {
                 &mut blit_encoder,
                 &frame,
                 Some(clear_color),
-                "Blit render pass".to_string(),
+                "Blit render pass",
             )?;
             
             if let Some(pipeline) = self.state.shaders.get_pipeline(self.state.rect_shader) {

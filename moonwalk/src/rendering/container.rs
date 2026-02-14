@@ -404,7 +404,7 @@ impl RenderContainer {
             &mut encoder,
             &self.target,
             clear_color,
-            "Render Container Pass".to_string()
+            "Render Container Pass"
         )?;
 
         if let Some(pipeline) = renderer.state.shaders.get_pipeline(renderer.state.rect_shader) {

@@ -11,6 +11,7 @@ default = []
 video = ["dep:video-rs", "dep:ndarray"]
 async = ["dep:tokio"]
 modern = []
+verbose = []
 
 [dependencies]
 pollster = "0.3"

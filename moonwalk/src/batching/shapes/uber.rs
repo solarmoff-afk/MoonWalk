@@ -31,6 +31,7 @@ use crate::objects::store::ObjectStore;
 use crate::batching::common::BatchBuffer;
 use crate::textware::TextWare;
 use crate::MoonWalkError;
+use crate::{perf_start, perf_end};
 
 #[derive(Debug, Clone, Copy)]
 pub struct DrawCommand {
@@ -239,7 +240,9 @@ impl UberBatch {
         }
         
         // Это сортировка по z идексу если что
-        self.batch.sort();
+        perf_start!("[BATCH]: Sort");
+            self.batch.sort();
+        perf_end!("[BATCH]: Sort");
 
         if !self.batch.cpu_buffer.is_empty() {
             // Получение текстуры. Если 0 - просто объект без текстуры
@@ -452,6 +455,8 @@ impl UberBatch {
         textures: &'a std::collections::HashMap<u32, BackendTexture>,
         atlas_bind_group: Option<&'a RawBindGroup>,
     ) -> Result<(), MoonWalkError> {
+        perf_start!("[BATCH]: Render");
+
         // Проверка есть ли данные для рендера
         if self.instance_vbo.is_none() || self.commands.is_empty() {
             return Ok(());
@@ -507,6 +512,8 @@ impl UberBatch {
                 cmd.start_index
             );
         }
+
+        perf_end!("[BATCH]: Render");
 
         Ok(())
     }

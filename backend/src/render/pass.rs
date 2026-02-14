@@ -10,6 +10,7 @@ use crate::pipeline::RawPipeline;
 use crate::pipeline::bind::RawBindGroup;
 use crate::render::texture::BackendTexture;
 use crate::error::MoonBackendError;
+
 pub struct RenderPass<'a> {
     raw: wgpu::RenderPass<'a>,
 }
@@ -19,7 +20,7 @@ impl<'a> RenderPass<'a> {
         encoder: &'a mut BackendEncoder,
         texture: &BackendTexture,
         clear_color: Option<Vec4>,
-        label: String,
+        label: &str,
     ) -> Result<Self, MoonBackendError> {
         let load_op = if let Some(color) = clear_color {
             let wgpu_clear_color: wgpu::Color = wgpu::Color {
@@ -44,7 +45,7 @@ impl<'a> RenderPass<'a> {
         let raw = match encoder.get_raw() {
             Some(raw_encoder) => {
                 raw_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some(label.as_str()),
+                    label: Some(label),
                     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                         view: &view,
                         resolve_target: None,

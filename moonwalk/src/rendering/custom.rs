@@ -280,7 +280,7 @@ impl CustomPaint {
                 command_encoder,
                 &self.render_target_texture,
                 clear_color,
-                "CustomPaint Render Pass".to_string(),
+                "CustomPaint Render Pass",
             ) {
                 return Some(ActiveMoonRenderPass {
                     pass: render_pass

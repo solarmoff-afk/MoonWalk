@@ -22,6 +22,7 @@ use lyon::tessellation::*;
 use bytemuck::{Pod, Zeroable};
 
 use crate::MoonWalkError;
+use crate::{perf_start, perf_end};
 
 #[cfg(not(feature = "modern"))]
 use crate::gpu::context::Context;
@@ -193,12 +194,17 @@ impl VectorSystem {
             return Ok(());
         }
 
-        let vertex_buffer = BackendBuffer::vertex(context, vertices)?;
+        perf_start!("[VECTOR]: Create vector vertex buffer");
+            let vertex_buffer = BackendBuffer::vertex(context, vertices)?;
+        perf_end!("[VECTOR]: Create vector vertex buffer");
         
         // [HACK]
         // Перевод u16 в u32 чтобы сохранить легаси сигнатуру
-        let u32_indices: Vec<u32> = indices.iter().map(|&i| i as u32).collect();
-        let index_buffer = BackendBuffer::<u32>::index(context, &u32_indices)?;
+        
+        perf_start!("[VECTOR]: Convert u16 indices to u32");
+            let u32_indices: Vec<u32> = indices.iter().map(|&i| i as u32).collect();
+            let index_buffer = BackendBuffer::<u32>::index(context, &u32_indices)?;
+        perf_end!("[VECTOR]: Convert u16 indices to u32");
 
         let mut matrix_stack = crate::gpu::MatrixStack::new();
         matrix_stack.set_ortho(width as f32, height as f32);
@@ -211,25 +217,30 @@ impl VectorSystem {
         let uniform_buffer = BackendBuffer::uniform(context, &uniform_data)?;
 
         // Создаём bind group
-        let bind_group_layout = BindGroup::new()
-            .add_uniform(0, ShaderStage::Both)
-            .build(context)?;
+       
+        perf_start!("[VECTOR]: Create bind group");
+            let bind_group_layout = BindGroup::new()
+                .add_uniform(0, ShaderStage::Both)
+                .build(context)?;
 
-        let bind_group = BindGroup::create_uniform_bind_group(
-            &bind_group_layout,
-            context,
-            &uniform_buffer,
-            None,
-        )?;
+            let bind_group = BindGroup::create_uniform_bind_group(
+                &bind_group_layout,
+                context,
+                &uniform_buffer,
+                None,
+            )?;
+        perf_end!("[VECTOR]: Create bind group");
 
-        let mut encoder = BackendEncoder::new(context, "Vector encoder")?;
+        perf_start!("[VECTOR]: Create encoder and render pass on render");
+            let mut encoder = BackendEncoder::new(context, "Vector encoder")?;
         
-        let mut pass = RenderPass::new(
-            &mut encoder,
-            target,
-            Some(color.into()),
-            "Vector Pass".to_string(),
-        )?;
+            let mut pass = RenderPass::new(
+                &mut encoder,
+                target,
+                Some(color.into()),
+                "Vector render pass",
+            )?;
+        perf_end!("[VECTOR]: Create encoder and render pass on render");
 
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &bind_group);
