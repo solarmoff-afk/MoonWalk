@@ -466,49 +466,35 @@ impl UberBatch {
         pass.set_vertex_buffer(1, self.instance_vbo.as_ref().unwrap());
         pass.set_index_buffer(&self.static_ibo);
 
-        // [SHITCODE]
-        // [REFACTORME]
-        // Этот код действительно полное дерьмо, но его страшно рефакторить
-        // код содержит ключевую логику 2д отрисовки, поэтому лучше
-        // применить принцип работает - не трогай, но лучше в будущем провести
-        // рефакторинг. Пока что я просто добавлю большое количество комментариев
-        // чтобы кто-то понял что здесь вообще происходит
-
+        // [HACK]
         // HACK: White_texture это текстура размером 1 на 1 пиксель которая создаётся
         // в state.rs и этот 1 пиксель полностью белого цвета. Это нужно для того
         // что сэкономить время рендеринга из-за чего приходится жертвовать чистотой
         // кода
+        
+        // expect тут полностью оправдан, так как white_texture 100% существует,
+        // в state.rs если бы при инициализации white_texture были бы проблемы
+        // то ? вернул бы Err и всё упало ещё до первого вызова рендера батча
+        let white_bg = &white_texture.get_raw().expect("White texture not inited").bind_group;
 
         for cmd in &self.commands {
-            // Хардкод нуля как отсуствия текстуры у объекта
-            if cmd.texture_id == 0 {
-                pass.set_bind_group(1, &white_texture.get_raw_result()?.bind_group);
+            let bind_group = if cmd.texture_id == 0 {
+                white_bg
             } else if cmd.texture_id == crate::textware::ATLAS_ID {
-                // Хардкод crate::textware::ATLAS_ID для текста. Дело в том
-                // что текстовый движок/обёртка над cosmic-text/swash создаёт
-                // ATLAS_ID как константу куда размещает текстуру атласа шрифтов,
-                // на момент написания комментария это u32::max
-                
-                if let Some(bg) = atlas_bind_group {
-                    pass.set_bind_group(1, bg);
-                } else {
-                    // Если атлас потерялся, рисуем белым (чтобы не крашнулось)
-                    pass.set_bind_group(1, &white_texture.get_raw_result()?.bind_group);
-                }
+                atlas_bind_group.unwrap_or(white_bg)
             } else {
-                if let Some(tex) = textures.get(&cmd.texture_id) {
-                    pass.set_bind_group(1, &tex.get_raw_result()?.bind_group);
-                } else {
-                    // Текстуры нет, а значит нужно вернуть белую текстуру
-                    pass.set_bind_group(1, &white_texture.get_raw_result()?.bind_group);
+                match textures.get(&cmd.texture_id).and_then(|t| t.get_raw()) {
+                    Some(raw) => &raw.bind_group,
+                    None => white_bg,
                 }
-            }
+            };
 
+            pass.set_bind_group(1, bind_group);
             pass.draw_indexed_instanced_extended(
-                6, 
-                cmd.count, 
-                0, 
-                0, 
+                6,
+                cmd.count,
+                0,
+                0,
                 cmd.start_index
             );
         }
