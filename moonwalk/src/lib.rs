@@ -9,10 +9,10 @@
 
 #![allow(unused_must_use)]
 
-// Этот модуль публичный так как используется в тестах
 pub mod gpu;
 
 pub mod public;
+pub mod surface;
 pub mod error;
 pub mod rendering;
 pub mod objects;

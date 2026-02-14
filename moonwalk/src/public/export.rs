@@ -4,6 +4,7 @@
 use glam::{Vec4, Vec2};
 use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
 
+use crate::surface::MoonSurface;
 use crate::{MoonWalk, MoonWalkError};
 use crate::RenderContainer;
 
@@ -94,10 +95,32 @@ impl MoonWalk {
     ///  container.draw(mw, Some(Vec4::ZERO));
     /// Только после того как была вызвана функция .draw можно делать снапшот, так
     /// как до этого момента данные ещё не готовы
+    #[deprecated(note = "Use new_surface")]
     pub fn new_render_container(&mut self, width: u32, height: u32) -> RenderContainer {
         // [HACK]
         // Удалить expect
         RenderContainer::new(&mut self.renderer.context, width, height).expect("Failed to create render container")
+    }
+
+    /// Поверхность (Surface) это холст куда рисуются объекты  в котором можно создавать
+    /// отдельные  от основного объекты (со своим айди) и единственный способ получить
+    /// изображение из него, это функция .snapshot() внутри которая позволяет
+    /// превратить в текстуру участок этой поверхности, указав x/y этого участка
+    /// и ширину/высоту участка. После создания поверхности можно использовать почти
+    /// все API функции который представлены здесь для создания, изменения и удаления
+    /// объектов в сторе поверхности.
+    /// После создания поверхности получается экземпляр структуры MoonSurface.
+    /// Чтобы делать снапшоты внутри него нужно в каждый кадр вызывать surface.render(...)
+    ///  в функцию render нужно передать экземпляр структуры MoonWalk и цвет заливки.
+    /// Прозрачный цвет принимается (Vec4::ZERO), если его указать то у текстуры
+    /// не будет фона (Она будет прозрачная). Пример:
+    ///  surface.render(mw, Some(Vec4::ZERO))?;
+    /// Только после того как была вызвана функция .render можно делать снапшот, так
+    /// как до этого момента данные ещё не готовы.
+    ///  [?] Поверхность явлется клоном рендер контейнера с заменой паники на Result,
+    /// именами методов и единообразием с публичным api
+    pub fn new_surface(&mut self, width: u32, height: u32) -> Result<MoonSurface, MoonWalkError> {
+        Ok(MoonSurface::new(&mut self.renderer.context, width, height)?)
     }
 
     /// Этот метод берёт айди текстуры (его можно получить через снапшот, билдер пути либо

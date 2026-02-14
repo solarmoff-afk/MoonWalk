@@ -1,6 +1,6 @@
 [package]
 name = "moonwalk"
-version = "0.32.2"
+version = "0.33.0"
 edition = "2021"
 
 [lib]
@@ -28,6 +28,7 @@ rayon = "1.11"
 lyon = { version = "1.0", features = ["extra"] }
 parking_lot = "0.12"
 lazy_static = "1.4"
+derive_more = { version = "1.0", features = ["deref", "deref_mut"] }
 tokio = { version = "1", features = ["fs", "io-util"], optional = true }
 moonwalk_backend = { workspace = true }
 
