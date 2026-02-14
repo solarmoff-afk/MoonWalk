@@ -44,7 +44,7 @@ pub struct PaintingSystem {
 
 impl PaintingSystem {
     pub fn new(context: &mut BackendContext) -> Result<Self, MoonWalkError> {
-        let shader_source = include_str!("brush.wgsl");
+        let shader_source = include_str!("../shaders/brush.wgsl");
 
         let uniform_layout = BindGroup::new()
             .add_uniform(0, ShaderStage::Both)

@@ -73,7 +73,7 @@ impl VectorSystem {
     pub fn new(context: &mut BackendContext) -> Result<Self, MoonWalkError> {
         use moonwalk_backend::pipeline::{BackendPipeline, bind::BindGroup, types::{BlendMode, CullMode, Format, ShaderStage, StepMode, Topology}, vertex::{VertexAttr, VertexLayout}};
 
-        let shader_source = include_str!("path.wgsl");
+        let shader_source = include_str!("../shaders/path.wgsl");
         let texture_format = context.get_format();
         
         let bind_group_layout = BindGroup::new()
