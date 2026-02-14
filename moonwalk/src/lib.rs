@@ -9,6 +9,8 @@
 //
 // Смотрите подробную документацию здесь: [ССЫЛКА]
 
+#![allow(unused_must_use)]
+
 // Этот модуль публичный так как используется в тестах
 pub mod gpu;
 
@@ -35,7 +37,7 @@ use path::PathBuilder;
 pub use crate::objects::ObjectId;
 pub use crate::public::brush::BlendMode;
 pub use crate::rendering::custom::{
-    CustomPaint, MoonRenderPass, MoonBuffer, MoonBindGroup, MoonBindGroupLayout, CustomPipeline
+    CustomPaint, MoonRenderPass, MoonBuffer, MoonBindGroup, CustomPipeline
 };
 pub use crate::r#abstract::{
     MoonPipeline, VertexLayout, VertexAttr, Format, StepMode, 
@@ -62,8 +64,8 @@ use crate::error::MoonWalkError;
 /// Совет: Вы можете получить статичное окно с помощью такого кода
 /// let window = event_loop.create_window( ... ).unwrap();
 /// let static_window: &'static Window = Box::leak(Box::new(window));
-pub struct MoonWalk<'a> {
-    pub renderer: MoonRenderer<'a>,
+pub struct MoonWalk {
+    pub renderer: MoonRenderer,
     pub resources: ResourceManager,
 }
 
@@ -88,7 +90,7 @@ pub struct GraphicsInfo {
     pub driver: String,
 }
 
-impl MoonWalk<'_> {
+impl MoonWalk {
     #[cfg(not(target_os = "android"))]
     pub fn new(
         window: &(impl HasWindowHandle + HasDisplayHandle),

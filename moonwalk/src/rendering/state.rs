@@ -31,7 +31,10 @@ use crate::gpu::MatrixStack;
 
 use crate::batching::group::BatchGroup;
 use crate::rendering::pipeline::ShaderStore;
+
+#[cfg(not(feature = "modern"))]
 use crate::rendering::texture::Texture;
+
 use crate::objects::store::ObjectStore;
 use crate::objects::ShaderId;
 use crate::error::MoonWalkError;
@@ -48,10 +51,10 @@ pub struct GlobalUniform {
 }
 
 #[cfg(feature = "modern")]
-pub struct RenderState<'a> {
+pub struct RenderState {
     pub store: ObjectStore, // Хранилище объектов
     pub batches: BatchGroup, // Группа батчинга
-    pub shaders: ShaderStore<'a>, // Хранилище шейдеров
+    pub shaders: ShaderStore, // Хранилище шейдеров
     pub matrix_stack: MatrixStack, // Матричный стэк
     pub uniform_buffer: BackendBuffer<GlobalUniform>, // Буфер дла передачи данных в шейдер
     pub proj_bind_group: RawBindGroup,
@@ -75,21 +78,25 @@ pub struct RenderState {
     next_texture_id: u32,
 }
 
-impl RenderState<'_> {
+impl RenderState {
     #[cfg(feature = "modern")]
     pub fn new(
         context: &mut BackendContext,
         width: u32,
         height: u32
     ) -> Result<Self, MoonWalkError> {
-        // Создаём хранилище для шейдеров. Каждый шейдер это отдельный
-        // конвейер для рендеринга.
-
         use moonwalk_backend::core::buffer::BackendBuffer;
+
+        let format = context.get_format();
+        
+        // Создаём хранилище для шейдеров. Каждый шейдер это отдельный
+        // конвейер для рендеринга. По факту в основном рендеринге
+        // есть только 1 шейдер, shape.wgsl, он же и используется
+        // для рендеринга текста, система досталась в наследство
         let mut shaders = ShaderStore::new(context)?;
 
         // Создаём шейдер для прямоугольника.
-        let rect_shader = shaders.create_default_rect(context, context.get_format())?;
+        let rect_shader = shaders.create_default_rect(context, format)?;
         
         // Создаём матричный стэк
         let mut matrix_stack = MatrixStack::new();
@@ -107,7 +114,7 @@ impl RenderState<'_> {
         let uniform_buffer = BackendBuffer::uniform(context, &uniform_data)?;
         
         // Обновляем проекцию в ShaderStore и получаем bind group
-        shaders.update_projection(context, &uniform_buffer.raw);
+        shaders.update_projection(context, &uniform_buffer);
         
         // Получаем bind group из ShaderStore
         let proj_bind_group = shaders.get_proj_bind_group()
@@ -120,7 +127,10 @@ impl RenderState<'_> {
         // даже когда объект просто цветной (без текстуры). Я решил сделать текстуру 1 на 1
         // пиксель с белым цветом (ВАЖНО! Чтобы цвет объекта не изменился)
         let white_pixels = vec![255, 255, 255, 255];
-        let white_texture = Texture::from_raw(context, &white_pixels, 1, 1, "White Default")?;
+
+        let mut white_texture = BackendTexture::new(1, 1);
+        white_texture.config.set_format(context.get_format());
+        white_texture.from_raw(context, &white_pixels, 1, 1)?;
         
         Ok(Self {
             store: ObjectStore::new(),
@@ -205,7 +215,7 @@ impl RenderState<'_> {
         };
         
         self.uniform_buffer.update_one(context, &uniform_data);
-        self.shaders.update_projection(context, &self.uniform_buffer.raw);
+        self.shaders.update_projection(context, &self.uniform_buffer);
 
         self.proj_bind_group = self.shaders.get_proj_bind_group()
             .expect("Projection bind group not initialized")

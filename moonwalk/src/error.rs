@@ -3,6 +3,43 @@
 
 use thiserror::Error;
 
+#[derive(Debug)]
+pub enum TypedBackendError {
+    SurfaceLost,
+    OutOfMemory,
+    SurfaceTimeout,
+    Internal(String),
+    Validation(String),
+    ContextNotFound,
+    BindGroupNotFound,
+    NoSuitableSurfaceFormat,
+    Other(String),
+}
+
+impl From<&str> for TypedBackendError {
+    fn from(s: &str) -> Self {
+        if s.contains("OutOfMemory") {
+            TypedBackendError::OutOfMemory
+        } else if s.contains("Lost") {
+            TypedBackendError::SurfaceLost
+        } else if s.contains("Timeout") {
+            TypedBackendError::SurfaceTimeout
+        } else if s.contains("Context not found") {
+            TypedBackendError::ContextNotFound
+        } else if s.contains("Bind group not found") {
+            TypedBackendError::BindGroupNotFound
+        } else if s.contains("No suitable surface format") {
+            TypedBackendError::NoSuitableSurfaceFormat
+        } else if s.contains("Internal") {
+            TypedBackendError::Internal(s.to_string())
+        } else if s.contains("Validation") {
+            TypedBackendError::Validation(s.to_string())
+        } else {
+            TypedBackendError::Other(s.to_string())
+        }
+    }
+}
+
 #[cfg(not(feature = "modern"))]
 use wgpu::{CreateSurfaceError, SurfaceError};
 

@@ -204,7 +204,7 @@ impl UberBatch {
                 let z = store.z_indices[idx];
                 let rot = store.rotations[idx];
                 
-                for (gx, gy, key) in glyphs {
+                for (gx, gy, key) in glyphs.0 {
                     if let Some((image, uv_rect)) = text_engine.glyph_cache.get_glyph(key, &mut text_engine.font_system) {
                         let w = image.placement.width as f32;
                         let h = image.placement.height as f32;
@@ -604,7 +604,16 @@ impl UberBatch {
         pass.set_vertex_buffer(0, &self.static_vbo);
         pass.set_vertex_buffer(1, &self.blit_vbo);
         pass.set_index_buffer(&self.static_ibo);
-        pass.set_bind_group(1, &texture.bind_group);
+
+        match texture.get_raw() {
+            Some(raw) => {
+                pass.set_bind_group(1, &raw.bind_group);
+            },
+
+            None => {
+                eprintln!("Texture not init!");
+            }
+        };
         
         pass.draw_indexed_instanced_extended(
             6,

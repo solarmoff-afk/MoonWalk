@@ -11,10 +11,10 @@ use moonwalk_backend::core::context::BackendContext;
 use moonwalk_backend::error::MoonBackendError;
 
 #[cfg(feature = "modern")]
-use moonwalk_backend::pipeline::RawPipeline;
+use moonwalk_backend::pipeline::{RawPipeline, BackendPipeline};
 
 #[cfg(feature = "modern")]
-use moonwalk_backend::pipeline::vertex::VertexAttr;
+use moonwalk_backend::pipeline::vertex::{VertexAttr, VertexLayout};
 
 use moonwalk_backend::pipeline::bind::{RawBindGroupLayout, BindGroup};
 
@@ -90,9 +90,9 @@ impl PaintingSystem {
 
         let mut pipelines = HashMap::new();
 
-        let create_pipeline = |mode: BlendMode| -> Result<RawPipeline, MoonWalkError> {
+        let mut create_pipeline = |mode: BlendMode| -> Result<RawPipeline, MoonWalkError> {
             let actual_format = context.get_format();
-            let p = BackendPipeline::new(shader_source)
+            let pipeline = BackendPipeline::new(shader_source)
                 .vertex_shader("vs_main")
                 .fragment_shader("fs_main")
                 .add_vertex_layout(
@@ -107,7 +107,11 @@ impl PaintingSystem {
                 .blend(mode)
                 .label(&format!("brush_pipeline_{:?}", mode))
                 .build(context, actual_format, &[&uniform_layout, &texture_layout])?;
-            Ok(p.pipeline.raw)
+            
+            match pipeline.pipeline {
+                Some(raw) => Ok(raw),
+                None => Err(MoonWalkError::ShaderError("Failed to create pipeline".to_string())),
+            }
         };
 
         pipelines.insert(BlendMode::Alpha, create_pipeline(BlendMode::Alpha)?);
@@ -117,6 +121,7 @@ impl PaintingSystem {
         pipelines.insert(BlendMode::Screen, create_pipeline(BlendMode::Screen)?);
 
         let mut default_brush = BackendTexture::new(16, 16);
+        default_brush.config.set_format(context.get_format());
 
         let white_pixels = vec![255; 4 * 16 * 16];
         default_brush.from_raw(context, &white_pixels, 16, 16)?;
@@ -210,7 +215,7 @@ impl PaintingSystem {
             params: [hardness, 0.0, 0.0, 0.0],
         };
 
-        let uniform_buffer = BackendBuffer::uniform_bytes(context, bytemuck::bytes_of(&uniform_data))?;
+        let uniform_buffer = BackendBuffer::<u8>::uniform_bytes(context, bytemuck::bytes_of(&uniform_data))?;
 
         let uniform_bg = BindGroup::create_uniform_bind_group(
             &self.uniform_layout,
@@ -229,14 +234,15 @@ impl PaintingSystem {
             Some("Filter Texture BG")
         )?;
 
-        let instance_buffer = BackendBuffer::instance(
-            context, bytemuck::cast_slice(instances)
+        let instance_buffer = BackendBuffer::<BrushVertex>::instance(
+            context, 
+            bytemuck::cast_slice(instances)
         )?;
 
         let mut encoder = BackendEncoder::new(context, "MoonWalk painting encoder")?;
 
         let mut pass = RenderPass::new(
-            &mut encoder, texture, None, "MoonWalk brush render pass".to_string()
+            &mut encoder, target, None, "MoonWalk brush render pass".to_string()
         )?;
 
         // [HACK]
@@ -251,6 +257,10 @@ impl PaintingSystem {
         pass.set_bind_group(1, &texture_bg);
         pass.set_vertex_buffer(0, &instance_buffer);
         pass.draw(instances.len() as u32);
+
+        // После pass.draw RenderPass уже не нужен, чтобы боров чекер не бил ошибку
+        // из encoder.submit_frame нужно дропнуть рендер пасс вручную
+        drop(pass);
 
         encoder.submit_frame(context)?;
 

@@ -58,10 +58,10 @@ struct BufferState {
 }
 
 /// Основная структура для этого модуля, хранит кэщ и шрифтовую систему 
-pub struct TextWare<'a> {
+pub struct TextWare {
     pub atlas_id: Option<u32>,
     pub font_system: FontSystem,
-    pub glyph_cache: GlyphCache<'a>,
+    pub glyph_cache: GlyphCache,
     buffers: HashMap<u64, (cosmic_text::Buffer, BufferState)>,
     scratch_buffer: cosmic_text::Buffer,
 }
@@ -83,7 +83,7 @@ fn hash_str(s: &str) -> u64 {
     hasher.finish()
 }
 
-impl TextWare<'_> {
+impl TextWare {
     #[cfg(feature = "modern")]
     pub fn new(context: &mut BackendContext) -> Result<Self, MoonWalkError> {
         match &mut context.get_raw() {
@@ -197,8 +197,8 @@ impl TextWare<'_> {
         self.glyph_cache.upload_pending(context);
     }
 
-    pub fn get_bind_group(&self) -> RawBindGroup {
-        self.glyph_cache.get_bind_group().clone()
+    pub fn get_bind_group(&self) -> Result<RawBindGroup, MoonWalkError> {
+        self.glyph_cache.get_bind_group().map(|bg| bg.clone())
     }
 
     pub fn generate_mesh(&mut self, text: &mut Text) -> TextMesh {

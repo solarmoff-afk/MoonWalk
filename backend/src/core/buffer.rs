@@ -8,11 +8,13 @@ use bytemuck::Pod;
 use crate::core::context::BackendContext;
 use crate::error::MoonBackendError;
 
+#[derive(Clone)]
 pub struct BufferBinding<'a> {
     pub(crate) buffer: &'a wgpu::Buffer,
     pub offset: u64,
 }
 
+#[derive(Clone)]
 pub struct BackendBuffer<T: Pod> {
     // Сырой буфер wgpu
     pub raw: wgpu::Buffer,

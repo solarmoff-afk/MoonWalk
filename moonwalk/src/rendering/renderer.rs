@@ -40,7 +40,7 @@ struct SnapshotTask {
 
 /// Структура рендерера. Она хранит контекст moonwalk_backend
 /// и состояние рендера (матричный стэк, храниоище объектов и так далее)
-pub struct MoonRenderer<'a> {
+pub struct MoonRenderer {
     #[cfg(feature = "modern")]
     pub context: BackendContext,
     surface_renderer: SurfaceRenderer,
@@ -48,10 +48,10 @@ pub struct MoonRenderer<'a> {
     #[cfg(not(feature = "modern"))]
     pub context: Context,
 
-    pub state: RenderState<'a>,
+    pub state: RenderState,
     pub scale_factor: f32,
     pub filters: FilterSystem,
-    pub text_engine: crate::textware::TextWare<'a>,
+    pub text_engine: crate::textware::TextWare,
     pub vector_system: VectorSystem,
     pub painting_system: PaintingSystem,
 
@@ -65,7 +65,7 @@ pub struct MoonRenderer<'a> {
     offscreen: Option<crate::rendering::texture::Texture>,
 }
 
-impl MoonRenderer<'_> {
+impl MoonRenderer {
     /// В конструкуторе получаем окно и ширину/высоту. Конструктор
     /// в идеале вызывается только 1 раз при инициализации MoonWalk
     /// из публичного API
@@ -208,17 +208,17 @@ impl MoonRenderer<'_> {
         let format = self.context.get_format();
 
         let need_recreate = self.offscreen.as_ref()
-            .map_or(true, |tex| tex.texture.width() != width || tex.texture.height() != height);
+            .map_or(true, |tex| tex.width != width || tex.height != height);
 
         if need_recreate {
-            let texture = BackendTexture::new(width, height);
+            let mut texture = BackendTexture::new(width, height);
+            texture.config.set_format(format);
             texture.create_render_target(&mut self.context, width, height)?;
 
             self.offscreen = Some(texture);
         }
 
         let offscreen_tex = self.offscreen.as_ref().unwrap();
-        let render_target_view = &offscreen_tex.view; 
 
         let mut encoder = BackendEncoder::new(&mut self.context, "Render encoder")?;
 
@@ -226,12 +226,15 @@ impl MoonRenderer<'_> {
         let atlas_bg = self.text_engine.get_bind_group();
 
         // Здесь рисуется текущее состояние в буфер кадра
-        self.state.draw(&mut self.context, &mut encoder, render_target_view, &mut self.text_engine, Some(&atlas_bg), clear_color);
+        self.state.draw(&mut self.context, &mut encoder, &offscreen_tex, &mut self.text_engine, Some(&atlas_bg?), clear_color);
         
         if !self.snapshot_tasks.is_empty() {
             for task in &self.snapshot_tasks {
                 if let Some(target_tex) = self.state.textures.get(&task.target_id) {
-                    encoder.copy_texture_to_texture(task.x, task.y, task.w, task.h, &offscreen_tex.texture, &target_tex.texture)?;
+                    // [HACK] [UNWRAP]
+                    encoder.copy_texture_to_texture(task.x, task.y, task.w, task.h, 
+                        offscreen_tex.get_raw().unwrap(), target_tex.get_raw().unwrap()
+                    )?;
                 }
             }
 
@@ -247,7 +250,7 @@ impl MoonRenderer<'_> {
                 &mut blit_encoder,
                 &frame,
                 Some(clear_color),
-                label
+                "Blit render pass".to_string(),
             )?;
             
             if let Some(pipeline) = self.state.shaders.get_pipeline(self.state.rect_shader) {
@@ -255,7 +258,7 @@ impl MoonRenderer<'_> {
                 pass.set_bind_group(0, &self.state.proj_bind_group);
                 
                 self.state.batches.objects.blit(
-                    &self.context,
+                    &mut self.context,
                     &mut pass,
                     &offscreen_tex,
                     (width as f32 / self.scale_factor) as u32,
@@ -397,21 +400,21 @@ impl MoonRenderer<'_> {
     }
 
     pub fn apply_blur(&mut self, texture_id: u32, radius: f32, horizontal: bool) {
-        if let Some(texture) = self.state.textures.get(&texture_id) {
+        if let Some(texture) = self.state.textures.get_mut(&texture_id) {
             debug_println!("Blur apply, texture found in state");
             self.filters.apply_blur(&mut self.context, texture, radius, horizontal);
         }
     }
 
     pub fn apply_color_matrix(&mut self, texture_id: u32, matrix: [[f32; 4]; 4], offset: [f32; 4]) {
-        if let Some(texture) = self.state.textures.get(&texture_id) {
+        if let Some(texture) = self.state.textures.get_mut(&texture_id) {
             debug_println!("Color matrix apply, texture found in state");
             self.filters.apply_color_matrix(&mut self.context, texture, matrix, offset);
         }
     }
     
     pub fn apply_chromakey(&mut self, texture_id: u32, key_color: [f32; 3], tolerance: f32) {
-        if let Some(texture) = self.state.textures.get(&texture_id) {
+        if let Some(texture) = self.state.textures.get_mut(&texture_id) {
             debug_println!("Chromakey apply, texture found in state");
             self.filters.apply_chromakey(&mut self.context, texture, key_color, tolerance);
         }

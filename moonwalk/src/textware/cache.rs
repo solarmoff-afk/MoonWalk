@@ -25,10 +25,9 @@ const ATLAS_SIZE: u32 = 2048;
 const PADDING: u32 = 1;
 
 #[cfg(feature = "modern")]
-pub struct GlyphCache<'a> {
+pub struct GlyphCache {
     swash_cache: SwashCache,
     texture: BackendTexture,
-    bind_group: &'a RawBindGroup,
     next_x: u32,
     next_y: u32,
     row_height: u32,
@@ -48,32 +47,17 @@ pub struct GlyphCache {
     pending_uploads: Vec<(CacheKey, u32, u32, SwashImage)>,
 }
 
-impl GlyphCache<'_> {
-    #[cfg(feature = "modern")]
+impl GlyphCache {
     pub fn new(context: &mut BackendContext) -> Result<Self, MoonWalkError> {
         let mut texture = BackendTexture::new(ATLAS_SIZE, ATLAS_SIZE);
         texture.config.set_format(BackendTextureFormat::R8Unorm);
         
         texture.create_render_target(context, ATLAS_SIZE, ATLAS_SIZE)?;
-        
-        // Создаем bind group layout через твою абстракцию
-        let bind_group_layout = BindGroup::new()
-            .add_texture(0, TextureType::Float)
-            .add_sampler(1, SamplerType::Linear)
-            .build(context)?;
-        
-        // Получаем bind group из текстуры
-        let bind_group = match texture.get_raw_bind_group() {
-            Some(group) => group,
-            None => {
-                return Err(MoonWalkError::BindGroupNotFoundError);
-            }
-        };
-
+    
+        // Создаём структуру с texture и None
         Ok(Self {
             swash_cache: SwashCache::new(),
             texture,
-            bind_group,
             next_x: PADDING,
             next_y: PADDING,
             row_height: 0,
@@ -162,11 +146,10 @@ impl GlyphCache<'_> {
         }
     }
 
-    #[cfg(feature = "modern")]
-    pub fn get_bind_group(&self) -> &RawBindGroup {
-        &self.bind_group
+    pub fn get_bind_group(&self) -> Result<&RawBindGroup, MoonWalkError> {
+        self.texture.get_raw_bind_group().ok_or(MoonWalkError::BindGroupNotFoundError)
     }
-
+    
     #[cfg(not(feature = "modern"))]
     pub fn get_bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group

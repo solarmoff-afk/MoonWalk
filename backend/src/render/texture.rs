@@ -71,12 +71,12 @@ impl BackendTextureConfig {
     }
 
     /// Получить формат текстуры
-    pub fn get_format(&mut self) -> BackendTextureFormat {
+    pub fn get_format(&self) -> BackendTextureFormat {
         self.format.clone()
     }
 
     /// Получить название текстуры
-    pub fn get_label(&mut self) -> String {
+    pub fn get_label(&self) -> String {
         self.label.clone()
     }
 }

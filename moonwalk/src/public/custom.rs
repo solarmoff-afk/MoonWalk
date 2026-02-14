@@ -34,7 +34,20 @@ use wgpu::util::DeviceExt;
 
 use crate::MoonWalk;
 use crate::CustomPaint;
+
+#[cfg(feature = "modern")]
+pub struct MoonBindGroupLayout {
+    pub raw: moonwalk_backend::pipeline::bind::RawBindGroupLayout,
+}
+
+#[cfg(not(feature = "modern"))]
+pub struct MoonBindGroupLayout {
+    pub raw: wgpu::BindGroupLayout,
+}
+
+#[cfg(not(feature = "modern"))]
 use crate::MoonBindGroupLayout;
+
 use crate::MoonWalkError;
 use crate::MoonBindGroup;
 use crate::CustomPipeline;
@@ -51,7 +64,7 @@ pub enum BindResource<'a> {
 }
 
 #[cfg(not(feature = "modern"))]
-impl MoonWalk<'_> {
+impl MoonWalk {
     /// CustomPaint это второй способ оффскрин рендеринга который отличается от
     /// RenderContainer тем, что не содержит в себе абстраций MoonWalk выского
     /// уровня (батчинг, текстовая система, объекты, стандартный пайплайн) и
@@ -186,7 +199,7 @@ impl MoonWalk<'_> {
 }
 
 #[cfg(feature = "modern")]
-impl MoonWalk<'_> {
+impl MoonWalk {
     pub fn new_custom_paint(&mut self, width: u32, height: u32, label: &str) -> CustomPaint {
         CustomPaint::new(&mut self.renderer.context, width, height, label)
             .expect("Failed to create CustomPaint")
@@ -196,28 +209,29 @@ impl MoonWalk<'_> {
         let buffer = BackendBuffer::vertex(&mut self.renderer.context, bytemuck::cast_slice(data))
             .expect("Failed to create vertex buffer");
 
-        MoonBuffer { raw_buffer: buffer }
+        MoonBuffer {
+            raw_buffer: buffer
+        }
     }
 
-    pub fn create_index_buffer_u16(&self, data: &[u8]) -> MoonBuffer {
-        let buffer = BackendBuffer::index(&mut self.renderer.context, bytemuck::cast_slice::<u8, u16>(data))
-            .expect("Failed to create u16 index buffer");
+    pub fn create_index_buffer_u32(&mut self, data: &[u8]) -> MoonBuffer {
+        let buffer = BackendBuffer::<u32>::index(
+            &mut self.renderer.context, 
+            bytemuck::cast_slice::<u8, u32>(data)
+        ).expect("Failed to create u32 index buffer");
 
-        MoonBuffer { raw_buffer: buffer }
-    }
-
-    pub fn create_index_buffer_u32(&self, data: &[u8]) -> MoonBuffer {
-        let buffer = BackendBuffer::index(&mut self.renderer.context, bytemuck::cast_slice::<u8, u32>(data))
-            .expect("Failed to create u32 index buffer");
-
-        MoonBuffer { raw_buffer: buffer }
+        MoonBuffer {
+            raw_buffer: buffer
+        }
     }
 
     pub fn create_uniform_buffer(&mut self, data: &[u32]) -> MoonBuffer {
         let buffer = BackendBuffer::storage(&mut self.renderer.context, data)
             .expect("Failed to create uniform buffer (using storage)");
 
-        MoonBuffer { raw_buffer: buffer }
+        MoonBuffer {
+            raw_buffer: buffer
+        }
     }
 
     pub fn update_buffer(&mut self, buffer: &mut MoonBuffer, data: &[u8]) {
@@ -226,7 +240,7 @@ impl MoonWalk<'_> {
     }
 
     pub fn create_bind_group_layout(
-        &self,
+        &mut self,
         desc: moonwalk_backend::pipeline::bind::BindGroup
     ) -> Result<MoonBindGroupLayout, MoonWalkError> {
         let layout = desc.build(&mut self.renderer.context)
@@ -236,8 +250,8 @@ impl MoonWalk<'_> {
     }
 
     pub fn compile_pipeline(
-        &self,
-        pipeline_desc: moonwalk_backend::pipeline::BackendPipeline,
+        &mut self,
+        mut pipeline_desc: moonwalk_backend::pipeline::BackendPipeline,
         layouts: &[&MoonBindGroupLayout]
     ) -> Result<CustomPipeline, MoonWalkError> {
         let format = self.renderer.context.get_format();
@@ -251,7 +265,7 @@ impl MoonWalk<'_> {
         )?;
 
         let raw_pipeline = result.pipeline
-            .ok_or(MoonWalkError::PipelineError("Pipeline creation failed".to_string()))?;
+            .ok_or(MoonWalkError::ShaderError("Pipeline creation failed".to_string()))?;
 
         Ok(CustomPipeline {
             raw_pipeline
@@ -259,7 +273,7 @@ impl MoonWalk<'_> {
     }
 
     pub fn create_bind_group(
-        &self,
+        &mut self,
         layout: &MoonBindGroupLayout,
         resources: &[BindResource]
     ) -> Result<MoonBindGroup, MoonWalkError> {

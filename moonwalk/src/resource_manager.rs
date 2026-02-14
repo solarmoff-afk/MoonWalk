@@ -6,6 +6,11 @@ use std::path::Path;
 #[cfg(target_os = "android")]
 use std::ffi::CString;
 
+#[cfg(feature = "modern")]
+use moonwalk_backend::core::context::BackendContext;
+#[cfg(feature = "modern")]
+use moonwalk_backend::render::texture::BackendTexture;
+
 #[cfg(not(feature = "modern"))]
 use crate::gpu::Context;
 
@@ -65,6 +70,21 @@ impl ResourceManager {
     }
 
     /// Загружает текстуру из файла через gpu контекст и путь к нему
+    #[cfg(feature = "modern")]
+    pub fn load_texture(&self, context: &mut BackendContext, path: &str) -> Result<BackendTexture, MoonWalkError> {
+        let bytes = self.read_bytes(path)?;
+        
+        let label = Path::new(path).file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Unknown Texture");
+
+        let mut texture = BackendTexture::new(0, 0);
+        texture.from_bytes(context, &bytes);
+
+        Ok(texture)
+    }
+
+    #[cfg(not(feature = "modern"))]
     pub fn load_texture(&self, ctx: &Context, path: &str) -> Result<Texture, MoonWalkError> {
         let bytes = self.read_bytes(path)?;
         

@@ -8,7 +8,7 @@ wgpu = "24.0"
 glam = "0.24"
 log = "0.4"
 raw-window-handle = "0.6"
-moonwalk = { workspace = true }
+moonwalk = { workspace = true, features = ["modern"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.30", features = ["android-native-activity"] }

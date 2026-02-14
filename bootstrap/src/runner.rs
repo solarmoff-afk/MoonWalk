@@ -5,7 +5,7 @@ use std::time::Instant;
 use glam::{Vec2, Vec4};
 use moonwalk::MoonWalk;
 use wgpu;
-use moonwalk::error::MoonWalkError;
+use moonwalk::error::{MoonWalkError, TypedBackendError};
 
 use winit::{
     application::ApplicationHandler,
@@ -17,6 +17,7 @@ use winit::{
 
 #[cfg(target_os = "android")]
 use winit::platform::android::EventLoopBuilderExtAndroid;
+
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
 
@@ -221,18 +222,39 @@ impl<A: Application> ApplicationHandler for AppRunner<A> {
                 
                 match state.moonwalk.render_frame(state.clear_color) {
                     Ok(_) => {},
-                    Err(MoonWalkError::SurfaceError(wgpu::SurfaceError::Lost)) => {
-                        let size = state.window.inner_size();
-                        if size.width > 0 && size.height > 0 {
-                            state.moonwalk.recreate_surface(state.window, size.width, size.height);
-                            state.moonwalk.set_viewport(size.width, size.height);
+
+                    Err(MoonWalkError::BackendError(err_string)) => {
+                        match TypedBackendError::from(err_string.as_str()) {
+                            TypedBackendError::SurfaceLost => {
+                                let size = state.window.inner_size();
+                                
+                                if size.width > 0 && size.height > 0 {
+                                    state.moonwalk.recreate_surface(state.window, size.width, size.height);
+                                    state.moonwalk.set_viewport(size.width, size.height);
+                                }
+                            },
+
+                            TypedBackendError::OutOfMemory => event_loop.exit(),
+                            
+                            TypedBackendError::SurfaceTimeout => {},
+                            
+                            TypedBackendError::Internal(msg) | TypedBackendError::Validation(msg) | TypedBackendError::Other(msg) => {
+                                eprintln!("Backend error: {}", msg);
+                            },
+
+                            TypedBackendError::ContextNotFound | TypedBackendError::BindGroupNotFound | TypedBackendError::NoSuitableSurfaceFormat => {
+                                eprintln!("Critical backend error: {:?}, recreating surface", err_string);
+                                
+                                let size = state.window.inner_size();
+                                if size.width > 0 && size.height > 0 {
+                                    state.moonwalk.recreate_surface(state.window, size.width, size.height);
+                                    state.moonwalk.set_viewport(size.width, size.height);
+                                }
+                            },
                         }
                     },
-                    Err(MoonWalkError::SurfaceError(wgpu::SurfaceError::OutOfMemory)) => {
-                        event_loop.exit();
-                    },
-                    Err(MoonWalkError::SurfaceError(wgpu::SurfaceError::Timeout)) => {},
-                    Err(_) => {},
+
+                    _ => {},
                 }
             },
 

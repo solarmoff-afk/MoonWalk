@@ -5,7 +5,7 @@ pub mod color_matrix;
 pub mod uniforms;
 pub mod factory;
 
-use bytemuck::bytes_of;
+use bytemuck::{bytes_of, Pod};
 
 #[cfg(feature = "modern")]
 use moonwalk_backend::core::context::BackendContext;
@@ -47,7 +47,7 @@ use self::uniforms::*;
 
 #[cfg(feature = "modern")]
 pub struct FilterSystem {
-    swap_texture: Option<Texture>,
+    swap_texture: Option<BackendTexture>,
 
     blur_pipeline: PipelineResult,
     color_pipeline: PipelineResult,
@@ -159,8 +159,9 @@ impl FilterSystem {
         let width = target_texture.width;
         let height = target_texture.height;
         
-        self.ensure_swap_texture(context, width, height, target_texture.texture.config.get_format());
-        let swap = self.swap_texture.as_ref()?;
+        self.ensure_swap_texture(context, width, height, target_texture.config.get_format());
+        let swap = self.swap_texture.as_ref()
+            .ok_or(MoonWalkError::TextureLoading("Failed to get filters system swap texture ref".to_string()))?;
 
         let dir = if horizontal {
             [1.0, 0.0]
@@ -180,7 +181,7 @@ impl FilterSystem {
             &self.blur_pipeline,
             target_texture,
             swap,
-            bytes_of(&uniform_data)
+            &uniform_data,
         );
 
         self.blit_back(context, target_texture, swap, width, height)?;
@@ -224,7 +225,7 @@ impl FilterSystem {
     pub fn apply_color_matrix(
         &mut self,
         context: &mut BackendContext,
-        target_texture: &BackendTexture,
+        target_texture: &mut BackendTexture,
         matrix: [[f32; 4]; 4],
         offset: [f32; 4]
     )  -> Result<(), MoonWalkError> {
@@ -243,7 +244,7 @@ impl FilterSystem {
             &self.color_pipeline,
             target_texture,
             swap,
-            bytes_of(&uniform_data)
+            &uniform_data,
         );
 
         self.blit_back(context, target_texture, swap, width, height)?;
@@ -282,14 +283,14 @@ impl FilterSystem {
     pub fn apply_chromakey(
         &mut self,
         context: &mut BackendContext,
-        target_texture: &BackendTexture,
+        target_texture: &mut BackendTexture,
         key_color: [f32; 3],
         tolerance: f32
     ) -> Result<(), MoonWalkError> {
         let width = target_texture.width;
         let height = target_texture.height;
         
-        self.ensure_swap_texture(context, width, height, target_texture.texture.config.get_format());
+        self.ensure_swap_texture(context, width, height, target_texture.config.get_format());
         let swap = self.swap_texture.as_ref().unwrap();
 
         let uniform_data = AdvancedUniform {
@@ -303,7 +304,7 @@ impl FilterSystem {
             target_texture,
             target_texture,
             swap,
-            bytes_of(&uniform_data)
+            &uniform_data,
         );
 
         self.blit_back(context, target_texture, swap, width, height)?;
@@ -371,7 +372,7 @@ impl FilterSystem {
             target_texture,
             mask_texture,
             swap,
-            bytes_of(&uniform_data)
+            &uniform_data,
         );
 
         self.blit_back(context, target_texture, swap, width, height)?;
@@ -416,7 +417,11 @@ impl FilterSystem {
             .map_or(true, |t| t.width != w || t.height != h);
 
         if need_create {
-            self.swap_texture = Some(Texture::create_render_target(context, w, h, format));
+            let mut texture = BackendTexture::new(w, h);
+            texture.config.set_format(format);
+            texture.create_render_target(context, w, h);
+
+            self.swap_texture = Some(texture);
         }
     }
 
@@ -443,7 +448,17 @@ impl FilterSystem {
             context, "MoonWalk encoder blit"
         )?;
 
-        encoder.copy_texture_to_texture(0, 0, width, height, source, target);
+        let source_raw = match source.get_raw() {
+            Some(raw) => raw,
+            None => return Err(MoonWalkError::BackendError("Texture is empty".to_string())),
+        };
+
+        let target_raw = match target.get_raw() {
+            Some(raw) => raw,
+            None => return Err(MoonWalkError::BackendError("Texture is empty".to_string())),
+        };
+        
+        encoder.copy_texture_to_texture(0, 0, width, height, source_raw, target_raw);
         encoder.submit_frame(context);
 
         Ok(())
@@ -479,15 +494,18 @@ impl FilterSystem {
     }
 
     #[cfg(feature = "modern")]
-    fn execute_pass(
+    fn execute_pass<T: Pod>(
         &self,
         context: &mut BackendContext,
         pipeline: &PipelineResult,
         source: &BackendTexture,
         dest: &BackendTexture,
-        uniform_bytes: &[u8]
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let uniform_buffer = BackendBuffer::uniform_bytes(context, uniform_bytes)?;
+        uniform_data: &T,
+    ) -> Result<(), MoonWalkError> {
+        let uniform_buffer = BackendBuffer::<T>::uniform_bytes(
+            context, 
+            bytemuck::bytes_of(uniform_data)
+        )?;
 
         let uniform_bg = BindGroup::create_uniform_bind_group(
             &self.uniform_layout,
@@ -504,7 +522,7 @@ impl FilterSystem {
             Some("Filter Texture BG")
         )?;
 
-        self.run_pipeline(context, pipeline, dest, &uniform_bg, &texture_bg);
+        self.run_pipeline(context, pipeline, dest, &uniform_bg, &texture_bg)?;
     
         Ok(())
     }
@@ -543,15 +561,18 @@ impl FilterSystem {
     }
 
     #[cfg(feature = "modern")]
-    fn execute_advanced_pass(
+    fn execute_advanced_pass<T: Pod>(
         &self,
         context: &mut BackendContext,
         source: &BackendTexture,
         mask: &BackendTexture,
         dest: &BackendTexture,
-        uniform_bytes: &[u8]
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let uniform_buffer = BackendBuffer::uniform_bytes(context, uniform_bytes)?;
+        uniform_data: &T,
+    ) -> Result<(), MoonWalkError> {
+        let uniform_buffer = BackendBuffer::<T>::uniform_bytes(
+            context, 
+            bytemuck::bytes_of(uniform_data)
+        )?;
 
         let uniform_bg = BindGroup::create_uniform_bind_group(
             &self.uniform_layout,
@@ -560,7 +581,7 @@ impl FilterSystem {
             Some("Filter Uniform BG")
         )?;
 
-        let texture_bg = create_texture_bind_group(
+        let texture_bg = BindGroup::create_texture_bind_group(
             &self.advanced_texture_layout,
             context,
             &[(source, 0), (mask, 2)],
@@ -568,7 +589,7 @@ impl FilterSystem {
             Some("Advanced Texture BG")
         )?;
 
-        self.run_pipeline(context, &self.advanced_pipeline, dest, &uniform_bg, &texture_bg);
+        self.run_pipeline(context, &self.advanced_pipeline, dest, &uniform_bg, &texture_bg)?;
     
         Ok(())
     }
@@ -615,32 +636,38 @@ impl FilterSystem {
         dest: &BackendTexture, 
         bg0: &RawBindGroup, 
         bg1: &RawBindGroup,
-    ) {
-        let mut encoder = BackendEncoder::new(context, "MoonWalk filters encoder");
-        {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Filter Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &dest.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
+    ) -> Result<(), MoonWalkError> {
+        use glam::Vec4;
+        use moonwalk_backend::render::pass::RenderPass;
 
-            pass.set_pipeline(pipeline);
-            pass.set_bind_group(0, bg0, &[]);
-            pass.set_bind_group(1, bg1, &[]);
-            pass.set_vertex_buffer(0, self.dummy_vbo.raw.slice(..));
-            pass.draw(0..3, 0..1);
-        }
+        let mut encoder = BackendEncoder::new(context, "MoonWalk filters encoder")?;
+        let mut pass = RenderPass::new(
+            &mut encoder,
+            dest,
 
-        ctx.submit(encoder);
+            // Прозрачный цвет для заливки чтобы если фильтр применился к png картинке
+            // это wgpu не перекрыл бы прозрачный фон своим каким-то цветом
+            Some(Vec4::ZERO),
+            "Filter render pass".to_string()
+        )?;
+
+        pass.set_pipeline(pipeline.get_raw()?);
+        pass.set_bind_group(0, bg0);
+        pass.set_bind_group(1, bg1);
+        pass.set_vertex_buffer(0, &self.dummy_vbo);
+        
+        // Отрисовка !!! Можно выкидывать в мусор, работа завершена
+        pass.draw(3);
+
+        // Боров чекер хочет чтобы я выкинул на свалку экземпляр прохода
+        // чтобы вызвать метод submit_frame который работает с &mut self
+        // BackendEncoder, поэтому нужно сделать дроп чтобы освободить
+        // заимствование, pass.draw вызывается выше
+        drop(pass);
+
+        encoder.submit_frame(context);
+
+        Ok(())
     }
 
     #[cfg(not(feature = "modern"))]

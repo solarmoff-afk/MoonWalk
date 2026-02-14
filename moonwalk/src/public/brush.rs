@@ -115,7 +115,7 @@ impl Default for Brush {
     }
 }
 
-impl MoonWalk<'_> {
+impl MoonWalk {
     /// Этот метод создаёт растровую кисть для рисования на текстуре
     pub fn new_brush(&self) -> Brush {
         Brush::default()

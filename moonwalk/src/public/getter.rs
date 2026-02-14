@@ -6,7 +6,7 @@ use glam::{Vec2, Vec4};
 use crate::objects::ObjectId;
 use crate::{MoonWalk, FontAsset, PathBuilder, TextAlign};
 
-impl MoonWalk<'_> {
+impl MoonWalk {
     pub fn get_position(&self, id: ObjectId) -> Vec2 {
         self.renderer.state.store.get_position(id)
     }
@@ -79,7 +79,7 @@ impl MoonWalk<'_> {
     }
 
     /// Возвращает логические размеры окна (ширина и высота)
-    pub fn get_window_size(&self) -> Vec2 {
+    pub fn get_window_size(&mut self) -> Vec2 {
         // [HACK] [UNWRAP]
         let size = self.renderer.context.get_size()
             .expect("Context not found");

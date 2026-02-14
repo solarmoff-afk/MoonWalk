@@ -5,7 +5,7 @@ use glam::{Vec3, Vec4, Mat4};
 
 use crate::MoonWalk;
 
-impl MoonWalk<'_> {
+impl MoonWalk {
     /// Эта функция перезаписывает текстуру применив к ней блюр по гаусу. Для
     /// правильного блюра обязательно применить блюр дважды, первый раз
     /// с horizontal true (горизонтальный проход), второй раз с horizontal false

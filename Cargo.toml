@@ -8,7 +8,6 @@ members = [
     "examples/example3d",
     "examples/example-custom-paint",
     "examples/example-lua",
-    "examples/example-material3",
     "moonwalk",
     "widget",
     "lunar3d",

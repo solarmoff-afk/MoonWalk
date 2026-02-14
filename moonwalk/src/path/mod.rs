@@ -97,7 +97,11 @@ impl VectorSystem {
         use moonwalk_backend::pipeline::{BackendPipeline, bind::BindGroup, types::{BlendMode, CullMode, Format, ShaderStage, StepMode, Topology}, vertex::{VertexAttr, VertexLayout}};
 
         let shader_source = include_str!("path.wgsl");
-        let actual_format = context.get_format();
+        let texture_format = context.get_format();
+        
+        let bind_group_layout = BindGroup::new()
+            .add_uniform(0, ShaderStage::Both)
+            .build(context)?;
         
         let pipeline = BackendPipeline::new(shader_source)
             .vertex_shader("vs_main")
@@ -123,7 +127,7 @@ impl VectorSystem {
             .depth_test(false)
             .depth_write(false)
             .label("vector_path")
-            .build(context, actual_format, &[])?;
+            .build(context, texture_format, &[&bind_group_layout])?;
         
         Ok(Self {
             // Паники здесь никогда не будет, так как прямо выше идёт вызов метода
@@ -194,7 +198,7 @@ impl VectorSystem {
         // [HACK]
         // Перевод u16 в u32 чтобы сохранить легаси сигнатуру
         let u32_indices: Vec<u32> = indices.iter().map(|&i| i as u32).collect();
-        let index_buffer = BackendBuffer::index(context, &u32_indices)?;
+        let index_buffer = BackendBuffer::<u32>::index(context, &u32_indices)?;
 
         let mut matrix_stack = crate::gpu::MatrixStack::new();
         matrix_stack.set_ortho(width as f32, height as f32);
@@ -250,6 +254,7 @@ impl VectorSystem {
         color: [f32; 4],
     ) -> Result<BackendTexture, MoonWalkError> {
         let mut texture = BackendTexture::new(width, height);
+        texture.config.set_format(context.get_format());
         texture.create_render_target(context, width, height)?;
 
         self.render(context, vertices, indices, width, height, color, &texture)?;
@@ -325,9 +330,11 @@ impl VectorSystem {
             });
 
             pass.set_pipeline(&self.pipeline);
+
             if let Some(bind_group) = &self.bind_group {
                 pass.set_bind_group(0, bind_group, &[]);
             }
+
             pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             pass.draw_indexed(0..indices.len() as u32, 0, 0..1);

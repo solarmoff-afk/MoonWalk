@@ -10,7 +10,7 @@ use moonwalk_backend::core::buffer::BackendBuffer;
 use moonwalk_backend::core::context::BackendContext;
 
 #[cfg(feature = "modern")]
-use moonwalk_backend::pipeline::RawPipeline;
+use moonwalk_backend::pipeline::{PipelineResult, RawPipeline};
 
 #[cfg(feature = "modern")]
 use moonwalk_backend::pipeline::bind::{RawBindGroup, BindGroup, RawBindGroupLayout};
@@ -33,13 +33,18 @@ use crate::gpu::Context;
 
 use crate::objects::ShaderId;
 use crate::error::MoonWalkError;
+
+#[cfg(not(feature = "modern"))]
 use crate::r#abstract::*;
+#[cfg(feature = "modern")]
+use crate::rendering::state::GlobalUniform;
 
 #[cfg(feature = "modern")]
-pub struct ShaderStore<'a> {
-    pipelines: HashMap<ShaderId, &'a RawPipeline>,
+pub struct ShaderStore {
+    pipelines: HashMap<ShaderId, RawPipeline>,
     proj_bind_group: Option<RawBindGroup>,
     proj_layout: RawBindGroupLayout,
+    arena: Vec<PipelineResult>,
 }
 
 #[cfg(not(feature = "modern"))]
@@ -49,8 +54,8 @@ pub struct ShaderStore {
     proj_layout: wgpu::BindGroupLayout,
 }
 
-impl ShaderStore<'_> {
-     #[cfg(feature = "modern")]
+impl ShaderStore {
+    #[cfg(feature = "modern")]
     pub fn new(context: &mut BackendContext) -> Result<Self, MoonWalkError> {
         let proj_layout = BindGroup::new()
             .add_uniform(0, ShaderStage::Vertex)
@@ -60,6 +65,7 @@ impl ShaderStore<'_> {
             pipelines: HashMap::new(),
             proj_bind_group: None,
             proj_layout,
+            arena: Vec::new(),
         })
     }
 
@@ -83,6 +89,10 @@ impl ShaderStore<'_> {
         format: BackendTextureFormat
     ) -> Result<ShaderId, MoonWalkError> {
         let shader_source = include_str!("../shaders/shape.wgsl");
+        
+        let uniform_layout = BindGroup::new()
+            .add_uniform(0, ShaderStage::Vertex)
+            .build(context)?;
         
         let texture_layout = BindGroup::new()
             .add_texture(0, TextureType::Float)
@@ -108,6 +118,11 @@ impl ShaderStore<'_> {
                 BindGroup::new()
                     .add_uniform(0, ShaderStage::Vertex)
             )
+            .add_bind_group(
+                BindGroup::new()
+                    .add_texture(0, TextureType::Float)
+                    .add_sampler(1, SamplerType::Linear) 
+            )
             .blend(BlendMode::Alpha)
             .cull(CullMode::None)
             .topology(Topology::TriangleList)
@@ -115,10 +130,20 @@ impl ShaderStore<'_> {
             .depth_write(false)
             .fallback_strategy(FallbackStrategy::Adaptive)
             .label("default_rect")
-            .build(context, format, &[&texture_layout])?;
+            .build(context, format, &[&uniform_layout, &texture_layout])?;
         
         let id = ShaderId(1);
-        self.pipelines.insert(id, pipeline.get_raw()?);
+        
+        // [MAYBE]
+        // Я понятия не имею это Arc или не Arc, я покопался в исходниках wgpu,
+        // pub struct RenderPipeline { pub(crate) inner: dispatch::DispatchRenderPipeline, }
+        // Тут вот такое есть DispatchRenderPipeline в текущей версии генерируется макросом,
+        // а макрос действительно использует Arc::new, но меня смутило что только
+        // для wgpu_core, для Webgpu и custom там уже не Arc, а Self::WebGPU(value), я так
+        // поэтому надеюсь что клонирование не супер дорогое
+        let raw = pipeline.get_raw()?.clone();
+        
+        self.pipelines.insert(id, raw);
         
         Ok(id)
     }
@@ -149,7 +174,7 @@ impl ShaderStore<'_> {
             .add_vertex_layout(MoonPipeline::create_rect_instance_layout())
             .add_bind_group(
                 BindGroup::new()
-                    .add_uniform(0, ShaderStage::Vertex)
+                    .add_uniform(0, ShaderStage::Both)
             )
             .blend(BlendMode::Alpha)
             .cull(CullMode::None)
@@ -212,7 +237,7 @@ impl ShaderStore<'_> {
             )
             .add_bind_group(
                 BindGroup::new()
-                    .add_uniform(0, ShaderStage::Vertex)
+                    .add_uniform(0, ShaderStage::Both)
             )
             .blend(BlendMode::Alpha)
             .cull(CullMode::Back)
@@ -224,7 +249,10 @@ impl ShaderStore<'_> {
             .build(context, actual_format, &[&self.proj_layout])?;
         
         let id = ShaderId(self.pipelines.len() as u32 + 100);
-        self.pipelines.insert(id, pipeline.get_raw()?);
+
+        // [MAYBE]
+        let raw = pipeline.get_raw()?.clone();
+        self.pipelines.insert(id, raw);
         
         Ok(id)
     }
@@ -276,7 +304,7 @@ impl ShaderStore<'_> {
             )
             .add_bind_group(
                 BindGroup::new()
-                    .add_uniform(0, ShaderStage::Vertex)
+                    .add_uniform(0, ShaderStage::Both)
             )
             .blend(BlendMode::Alpha)
             .cull(CullMode::Back)
@@ -295,7 +323,7 @@ impl ShaderStore<'_> {
 
     #[cfg(feature = "modern")]
     pub fn get_pipeline(&self, id: ShaderId) -> Option<&RawPipeline> {
-        self.pipelines.get(&id).map(|p| *p)
+        self.pipelines.get(&id)
     }
 
     #[cfg(not(feature = "modern"))]
@@ -304,7 +332,7 @@ impl ShaderStore<'_> {
     }
 
     #[cfg(feature = "modern")]
-    pub fn update_projection(&mut self, context: &mut BackendContext, buffer: &BackendBuffer<[u8; 64]>) {
+    pub fn update_projection(&mut self, context: &mut BackendContext, buffer: &BackendBuffer<GlobalUniform>) {
         let proj_bind_group = BindGroup::create_uniform_bind_group(
             &self.proj_layout,
             context,

@@ -4,7 +4,7 @@
 use crate::error;
 use crate::{MoonWalk, FontAsset};
 
-impl MoonWalk<'_> {
+impl MoonWalk {
     /// Эта функция агружает текстуру из файла через его путь
     ///  [!] Данная функция очень медленная, не рекомендуется подгружать всё
     ///      при старте программы
@@ -17,7 +17,7 @@ impl MoonWalk<'_> {
     ///  "test.png" - файл test.png из assets приложения
     ///  "data/data/com.example.package/file/test.png" - файл test.png из файловой системы
     pub fn load_texture(&mut self, path: &str) -> Result<u32, error::MoonWalkError> {
-        let texture = self.resources.load_texture(&self.renderer.context, path)?;
+        let texture = self.resources.load_texture(&mut self.renderer.context, path)?;
         let id = self.renderer.register_texture(texture);
         
         Ok(id)
@@ -55,6 +55,16 @@ impl MoonWalk<'_> {
 
     /// Возвращает размер текстуры в физических пикселях (ширина и высота) а если текстура
     /// не найдена то возвращает нули Vec2 [0.0, 0.0]
+    #[cfg(feature = "modern")]
+    pub fn get_texture_size(&self, texture_id: u32) -> glam::Vec2 {
+        if let Some(tex) = self.renderer.state.textures.get(&texture_id) {
+            glam::Vec2::new(tex.width as f32, tex.height as f32)
+        } else {
+            glam::Vec2::ZERO
+        }
+    }
+
+    #[cfg(not(feature = "modern"))]
     pub fn get_texture_size(&self, texture_id: u32) -> glam::Vec2 {
         if let Some(tex) = self.renderer.state.textures.get(&texture_id) {
             glam::Vec2::new(tex.texture.width() as f32, tex.texture.height() as f32)

@@ -28,6 +28,7 @@ pub fn create_blur_pipeline(
     uniform_layout: &RawBindGroupLayout,
     texture_layout: &RawBindGroupLayout,
 ) -> Result<PipelineResult, MoonWalkError> {
+    let format = context.get_format();
     let result = BackendPipeline::new(include_str!("shaders/blur.wgsl"))
         .vertex_shader("vs_main")
         .fragment_shader("fs_main")
@@ -36,7 +37,7 @@ pub fn create_blur_pipeline(
         .step_mode(StepMode::Vertex))
         .blend(BlendMode::None)
         .label("blur_filter")
-        .build(context, BackendTextureFormat::Rgba8UnormSrgb, &[uniform_layout, texture_layout])?;
+        .build(context, format, &[uniform_layout, texture_layout])?;
 
     Ok(result)
 }
@@ -65,6 +66,7 @@ pub fn create_color_pipeline(
     uniform_layout: &RawBindGroupLayout,
     texture_layout: &RawBindGroupLayout,
 ) -> Result<PipelineResult, MoonWalkError> {
+    let format = context.get_format();
     let result = BackendPipeline::new(include_str!("shaders/color_matrix.wgsl"))
         .vertex_shader("vs_main")
         .fragment_shader("fs_main")
@@ -73,7 +75,7 @@ pub fn create_color_pipeline(
         .step_mode(StepMode::Vertex))
         .blend(BlendMode::None)
         .label("color_filter")
-        .build(context, BackendTextureFormat::Rgba8UnormSrgb, &[uniform_layout, texture_layout])?;
+        .build(context, format, &[uniform_layout, texture_layout])?;
 
     Ok(result)
 }
@@ -102,6 +104,7 @@ pub fn create_advanced_pipeline(
     uniform_layout: &RawBindGroupLayout,
     texture_layout: &RawBindGroupLayout,
 ) -> Result<PipelineResult, MoonWalkError> {
+    let format = context.get_format();
     let result = BackendPipeline::new(include_str!("shaders/advanced.wgsl"))
         .vertex_shader("vs_main")
         .fragment_shader("fs_main")
@@ -110,7 +113,7 @@ pub fn create_advanced_pipeline(
         .step_mode(StepMode::Vertex))
         .blend(BlendMode::None)
         .label("advanced_filter")
-        .build(context, BackendTextureFormat::Rgba8UnormSrgb, &[uniform_layout, texture_layout])?;
+        .build(context, format, &[uniform_layout, texture_layout])?;
 
     Ok(result)
 }

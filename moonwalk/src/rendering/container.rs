@@ -6,7 +6,12 @@ use glam::{Vec2, Vec4};
 #[cfg(feature = "modern")]
 use moonwalk_backend::core::context::BackendContext;
 
+#[cfg(feature = "modern")]
 use moonwalk_backend::core::encoder::BackendEncoder;
+
+#[cfg(feature = "modern")]
+use moonwalk_backend::core::buffer::BackendBuffer;
+
 #[cfg(feature = "modern")]
 use moonwalk_backend::pipeline::bind::RawBindGroup;
 
@@ -14,10 +19,14 @@ use moonwalk_backend::pipeline::bind::RawBindGroup;
 use moonwalk_backend::render::texture::BackendTexture;
 
 #[cfg(feature = "modern")]
+use moonwalk_backend::render::pass::RenderPass;
+
+#[cfg(feature = "modern")]
 use moonwalk_backend::error::MoonBackendError;
 
 #[cfg(feature = "modern")]
 use crate::error::MoonWalkError;
+
 #[cfg(not(feature = "modern"))]
 use crate::gpu::context::Context;
 
@@ -116,10 +125,14 @@ impl RenderContainer {
 
 #[cfg(feature = "modern")]
 impl RenderContainer {
-    pub fn new(context: &mut BackendContext, width: u32, height: u32) -> Result<Self, MoonBackendError> {
-        use moonwalk_backend::pipeline::bind::{BindGroup, ShaderStage};
+    pub fn new(context: &mut BackendContext, width: u32, height: u32) -> Result<Self, MoonWalkError> {
+        use moonwalk_backend::pipeline::bind::BindGroup;
+        use moonwalk_backend::pipeline::types::ShaderStage;
 
-        let target = BackendTexture::new(width, height);
+        let format = context.get_format(); 
+
+        let mut target = BackendTexture::new(width, height);
+        target.config.set_format(format);
         target.create_render_target(context, width, height)?;
 
         let mut matrix_stack = MatrixStack::new();
@@ -381,7 +394,7 @@ impl RenderContainer {
         self.batch.prepare(context, &self.store, text_engine);
 
         text_engine.prepare(context);
-        let atlas_bg = text_engine.get_bind_group();
+        let atlas_bg = text_engine.get_bind_group()?;
         
         let clear_color = clear_color.map(|c| Vec4::new(c.x, c.y, c.z, c.w));
 
@@ -395,7 +408,7 @@ impl RenderContainer {
         )?;
 
         if let Some(pipeline) = renderer.state.shaders.get_pipeline(renderer.state.rect_shader) {
-            pass.set_pipeline(&pipeline.pipeline);
+            pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &self.proj_bind_group);
             
             self.batch.render(
@@ -406,14 +419,22 @@ impl RenderContainer {
             );
         }
 
+        drop(pass);
+
         encoder.submit_frame(context)?;
 
         Ok(())
     }
 
     #[cfg(feature = "modern")]
-    pub fn snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32) -> Result<u32, MoonWalkError> {
+    pub fn snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32) -> u32 {
+        // [HACK] [UNWRAP]
+        // Для того чтобы не ломать api тут используется expect и unwrap везде,
+        // потом желательно заменить на Result
+        // Result<u32, MoonWalkError>
+
         let renderer = &mut mw.renderer;
+        let format = renderer.context.get_format();
 
         let mut snapshot_region = ClippedSnapshot::new(
             Vec2::new(x as f32, y as f32),
@@ -426,12 +447,15 @@ impl RenderContainer {
         ));
         
         let mut snapshot_texture = BackendTexture::new(snapshot_region.size.x as u32, snapshot_region.size.y as u32);
-        snapshot_texture.create_render_target(&mut renderer.context, snapshot_region.size.x as u32, snapshot_region.size.y as u32)?;
+        snapshot_texture.config.set_format(format);
+        snapshot_texture.create_render_target(&mut renderer.context, snapshot_region.size.x as u32, snapshot_region.size.y as u32)
+            .expect("DELETE THIS PLEASE");
 
         let id = renderer.state.add_texture(snapshot_texture);
         let target_tex = renderer.state.textures.get(&id).unwrap();
         
-        let mut encoder = BackendEncoder::new(&mut renderer.context, "Snapshot Encoder")?;
+        let mut encoder = BackendEncoder::new(&mut renderer.context, "Snapshot Encoder")
+            .expect("DELETE THIS PLEASE");
 
         encoder.copy_texture_to_texture(
             snapshot_region.position.x as u32,
@@ -440,11 +464,12 @@ impl RenderContainer {
             snapshot_region.size.y as u32,
             &self.target.get_raw().unwrap(),
             &target_tex.get_raw().unwrap()
-        )?;
+        ).expect("DELETE THIS PLEASE");
 
-        encoder.submit_frame(&mut renderer.context)?;
+        encoder.submit_frame(&mut renderer.context).expect("DELETE THIS PLEASE");
 
-        Ok(id)
+        // Ok(id)
+        id
     }
 
     #[cfg(feature = "modern")]
@@ -456,7 +481,12 @@ impl RenderContainer {
         w: u32,
         h: u32,
         id: u32
-    ) -> Result<(), MoonWalkError> {
+    ) {
+        // [HACK] [UNWRAP]
+        // Для того чтобы не ломать api тут используется expect и unwrap везде,
+        // потом желательно заменить на Result
+        // Result<(), MoonWalkError>
+
         let renderer = &mut mw.renderer;
         
         let mut snapshot_region = ClippedSnapshot::new(
@@ -471,7 +501,8 @@ impl RenderContainer {
 
         let target_tex = renderer.state.textures.get(&id).unwrap();
         
-        let mut encoder = BackendEncoder::new(&mut renderer.context, "Update Snapshot Encoder")?;
+        let mut encoder = BackendEncoder::new(&mut renderer.context, "Update Snapshot Encoder")
+            .expect("DELETE THIS PLEASE");
 
         encoder.copy_texture_to_texture(
             snapshot_region.position.x as u32,
@@ -480,11 +511,11 @@ impl RenderContainer {
             snapshot_region.size.y as u32,
             &self.target.get_raw().unwrap(),
             &target_tex.get_raw().unwrap()
-        )?;
+        ).expect("DELETE THIS PLEASE");
 
-        encoder.submit_frame(&mut renderer.context)?;
+        encoder.submit_frame(&mut renderer.context).expect("DELETE THIS PLEASE");
 
-        Ok(())
+        // Ok(())
     }
 
     #[cfg(not(feature = "modern"))]
