@@ -17,6 +17,10 @@ pub enum TypedBackendError {
 }
 
 impl From<&str> for TypedBackendError {
+    /// Этот блок кода используется в moonwalk_bootstrap для преобразования
+    /// строки в тип из удобного перечисления. Это нужно на случай смены
+    /// бэкенда в moonwalk_backend и для удобства чтобы не плодить хардкод
+    /// в moonwalk_bootstrap
     fn from(s: &str) -> Self {
         if s.contains("OutOfMemory") {
             TypedBackendError::OutOfMemory

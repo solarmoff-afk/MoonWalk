@@ -8,6 +8,7 @@ thread_local! {
     static PERF_STACK: RefCell<Vec<(&'static str, Instant)>> = RefCell::new(Vec::new());
 }
 
+/// Выводит сообщение в консоль только если это debug сборка
 #[macro_export]
 macro_rules! debug_println {
     ($($arg:tt)*) => {
@@ -18,6 +19,8 @@ macro_rules! debug_println {
     }
 }
 
+/// Выводит сообщение в консоль только если это debug сборка и в добавок
+/// крейт был собран с фичей verbose
 #[macro_export]
 macro_rules! verbose_println {
     ($($arg:tt)*) => {
@@ -28,6 +31,12 @@ macro_rules! verbose_println {
     }
 }
 
+/// Эти два макроса позволяют изменить производительность. Делается
+/// perf_start!("сообщение");
+///  // Блок кода
+/// perf_end!("сообщение"); // Выводит время в консоль с меткой [PERF]
+/// Работает только в debug (dev) сборке и только если крейт был собран с
+/// фичей verbose
 #[macro_export]
 macro_rules! perf_start {
     ($name:expr) => {

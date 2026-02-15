@@ -1,50 +1,46 @@
-// MoonWalk это высокопроизводительный движок основанный на WGPU и предназначенный для
-// рендеринга пользовательского интерфейса и игровых 2D сцен. MoonWalk распространяется
-// свободно под лицензией EPL 2.0 (Eclipse public license). Подробнее про лицензию
-// сказано в файле LICENSE (Корень репозитория). Copyright (с) 2025 MoonWalk
-//
-// Данный файл предоставляет публичный API рендер движка (В том числе и FFI) для
-// использования в других проектах. В этом файле не должна содержаться какая-либо
-// логика кроме подключения модулей и объявления публичных функций.
+// Часть проекта MoonWalk с открытым исходным кодом.
+// Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
 #![allow(unused_must_use)]
 
-pub mod gpu;
-
-pub mod public;
-pub mod surface;
 pub mod error;
-pub mod rendering;
 pub mod objects;
 pub mod resource_manager;
+pub mod surface;
 pub mod path;
+pub mod prelude;
 
 mod batching;
+mod rendering;
 mod textware;
 mod debug;
-mod filters;
 mod painting;
+mod public;
+mod gpu;
+mod filters;
+
+// Реэкспорт из glam для удобства
+pub use glam::{Vec2, Vec3, Vec4, Mat4};
+
+pub use public::brush::{Brush, BlendMode};
+pub use public::custom::BindResource;
+
+#[cfg(feature = "video")]
+pub use public::video::{MoonVideo, VideoFormat, VideoPreset};
+
+pub use crate::error::MoonWalkError;
+pub use crate::objects::ObjectId;
+pub use crate::surface::MoonSurface;
+pub use crate::textware::FontId;
+pub use crate::path::{PathBuilder, LineCap, LineJoin, FillRule};
+pub use crate::rendering::container::RenderContainer;
+pub use crate::rendering::custom::{
+    CustomPaint, MoonRenderPass, MoonBuffer, MoonBindGroup, CustomPipeline,
+};
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use resource_manager::ResourceManager;
-use path::PathBuilder;
-
-pub use crate::objects::ObjectId;
-pub use crate::public::brush::BlendMode;
-pub use crate::rendering::custom::{
-    CustomPaint, MoonRenderPass, MoonBuffer, MoonBindGroup, CustomPipeline
-};
-pub use crate::public::custom::BindResource;
-
-#[cfg(feature = "video")]
-pub use crate::rendering::video::MoonVideo;
-
-#[cfg(feature = "video")]
-pub use crate::public::{VideoFormat, VideoPreset};
-
-use crate::rendering::container::RenderContainer;
-use crate::rendering::renderer::MoonRenderer;
-use crate::error::MoonWalkError;
+use rendering::renderer::MoonRenderer;
 
 /// Основная структура движка которая содержит рендерер. Конструктор new
 /// принимает окно (Которое можно получить через winit), ширину окна и

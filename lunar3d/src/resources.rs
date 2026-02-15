@@ -5,6 +5,7 @@ use std::io::Cursor;
 use glam::{Vec2, Vec3, Vec4};
 use moonwalk::{MoonWalk, VertexLayout, StepMode, VertexAttr, Format};
 use moonwalk::rendering::custom::MoonBuffer;
+
 use crate::core::types::Vertex3D;
 
 pub struct MeshData {
