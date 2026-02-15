@@ -127,8 +127,6 @@ impl MoonRenderer {
     /// Регистрирует пустую текстуру, возвращает её, добавляет в очередь 
     /// и запекает (Снапшотит/скриншотит) туда экран когда приходит время
     pub fn request_snapshot(&mut self, x: u32, y: u32, w: u32, h: u32) -> u32 {
-        let format = self.context.get_format();
-        
         let mut texture = BackendTexture::new(w, h);
         texture.create_render_target(&mut self.context, w, h);
 

@@ -1,8 +1,6 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
-use std::path::Path;
-
 #[cfg(target_os = "android")]
 use std::ffi::CString;
 
@@ -65,9 +63,9 @@ impl ResourceManager {
     pub fn load_texture(&self, context: &mut BackendContext, path: &str) -> Result<BackendTexture, MoonWalkError> {
         let bytes = self.read_bytes(path)?;
         
-        let label = Path::new(path).file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("Unknown Texture");
+        // let label = Path::new(path).file_name()
+        //     .and_then(|s| s.to_str())
+        //     .unwrap_or("Unknown Texture");
 
         let mut texture = BackendTexture::new(0, 0);
         texture.from_bytes(context, &bytes);
@@ -99,13 +97,16 @@ impl ResourceManager {
     /// Асинхронно грузит байты и создает текстуру. Сама распаковка png/jpg всё ещё нагружает
     /// поток, но чтение с диска не блокирует всё
     #[cfg(feature = "async")]
-    pub async fn load_texture_async(&self, ctx: &Context, path: &str) -> Result<Texture, MoonWalkError> {
+    pub async fn load_texture_async(&self, ctx: &mut BackendContext, path: &str) -> Result<Texture, MoonWalkError> {
         let bytes = self.read_bytes_async(path).await?;
         
-        let label = Path::new(path).file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("Unknown Texture");
-            
-        Texture::from_bytes(ctx, &bytes, label)
+        // let label = Path::new(path).file_name()
+        //     .and_then(|s| s.to_str())
+        //     .unwrap_or("Unknown Texture");
+        
+        let texture = BackendTexture::new(0, 0);
+        texture.from_bytes(ctx, &bytes);
+        
+        texture
     }
 }

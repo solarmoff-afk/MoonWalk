@@ -76,15 +76,15 @@ impl<'a> ActiveMoonRenderPass<'a> {
         self.pass.set_bind_group(index, &bind_group.raw_bind_group);
     }
 
-    pub fn set_vertex_buffer(&mut self, slot: u32, buffer: &'a MoonBuffer, offset: u64, size: Option<u64>) {
+    pub fn set_vertex_buffer(&mut self, slot: u32, buffer: &'a MoonBuffer, _offset: u64, _size: Option<u64>) {
         self.pass.set_vertex_buffer(slot, &buffer.raw_buffer);
     }
 
-    pub fn set_index_buffer(&mut self, buffer: &'a MoonBuffer, offset: u64, size: Option<u64>) {
+    pub fn set_index_buffer(&mut self, buffer: &'a MoonBuffer, _offset: u64, _size: Option<u64>) {
         self.pass.set_index_buffer(&buffer.raw_buffer);
     }
 
-    pub fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
+    pub fn draw_indexed(&mut self, indices: Range<u32>, _base_vertex: i32, _instances: Range<u32>) {
         self.pass.draw_indexed(indices.end - indices.start);
     }
 

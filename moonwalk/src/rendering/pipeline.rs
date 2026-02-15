@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use moonwalk_backend::core::buffer::BackendBuffer;
 use moonwalk_backend::core::context::BackendContext;
-use moonwalk_backend::pipeline::{PipelineResult, RawPipeline};
+use moonwalk_backend::pipeline::RawPipeline;
 use moonwalk_backend::pipeline::bind::{RawBindGroup, BindGroup, RawBindGroupLayout};
 use moonwalk_backend::pipeline::types::ShaderStage;
 use moonwalk_backend::pipeline::{
@@ -23,7 +23,6 @@ pub struct ShaderStore {
     pipelines: HashMap<ShaderId, RawPipeline>,
     proj_bind_group: Option<RawBindGroup>,
     proj_layout: RawBindGroupLayout,
-    arena: Vec<PipelineResult>,
 }
 
 impl ShaderStore {
@@ -36,7 +35,6 @@ impl ShaderStore {
             pipelines: HashMap::new(),
             proj_bind_group: None,
             proj_layout,
-            arena: Vec::new(),
         })
     }
 

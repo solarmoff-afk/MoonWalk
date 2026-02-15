@@ -9,7 +9,6 @@ use moonwalk_backend::core::buffer::BackendBuffer;
 use moonwalk_backend::pipeline::bind::RawBindGroup;
 use moonwalk_backend::render::texture::BackendTexture;
 use moonwalk_backend::render::pass::RenderPass;
-use moonwalk_backend::error::MoonBackendError;
 
 use crate::error::MoonWalkError;
 

@@ -4,7 +4,6 @@
 use std::collections::HashMap;
 
 use moonwalk_backend::core::context::BackendContext;
-use moonwalk_backend::pipeline::bind::BindGroup;
 use moonwalk_backend::pipeline::bind::RawBindGroup;
 use moonwalk_backend::render::pass::RenderPass;
 use moonwalk_backend::render::texture::BackendTexture;

@@ -5,7 +5,6 @@ use bytemuck::{Pod, Zeroable};
 use glam::Vec4;
 
 use moonwalk_backend::core::context::BackendContext;
-use moonwalk_backend::error::MoonBackendError;
 use moonwalk_backend::pipeline::{RawPipeline, BackendPipeline};
 use moonwalk_backend::pipeline::vertex::{VertexAttr, VertexLayout};
 use moonwalk_backend::pipeline::bind::{RawBindGroupLayout, BindGroup};

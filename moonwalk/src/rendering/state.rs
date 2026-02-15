@@ -177,7 +177,7 @@ impl RenderState {
     } 
 
     /// Загрузка текстуры в хэш карту (Передаются байты)
-    pub fn load_texture(&mut self, context: &mut BackendContext, bytes: &[u8], label: &str) -> Result<u32, MoonWalkError> {
+    pub fn load_texture(&mut self, context: &mut BackendContext, bytes: &[u8], _label: &str) -> Result<u32, MoonWalkError> {
         // [HACK]
         // Тут создаётся текстура пиксель на пиксель так как from_bytes должен
         // создать текстуру нужного размера, но для его использлвания

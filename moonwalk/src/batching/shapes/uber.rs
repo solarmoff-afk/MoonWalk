@@ -3,8 +3,7 @@
 
 use moonwalk_backend::core::buffer::BackendBuffer;
 use moonwalk_backend::core::context::BackendContext;
-use moonwalk_backend::error::MoonBackendError;
-use moonwalk_backend::pipeline::bind::{BindGroup, RawBindGroup};
+use moonwalk_backend::pipeline::bind::RawBindGroup;
 use moonwalk_backend::render::pass::RenderPass;
 use moonwalk_backend::render::texture::BackendTexture;
 

@@ -2,7 +2,7 @@
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
 use moonwalk_backend::core::context::BackendContext;
-use moonwalk_backend::pipeline::bind::{BindGroup, RawBindGroupLayout};
+use moonwalk_backend::pipeline::bind::RawBindGroupLayout;
 
 use moonwalk_backend::pipeline::{
     BackendPipeline,
@@ -13,7 +13,6 @@ use moonwalk_backend::pipeline::{
     }
 };
 use moonwalk_backend::pipeline::vertex::VertexLayout;
-use moonwalk_backend::render::texture::BackendTextureFormat;
 
 use crate::error::MoonWalkError;
 

@@ -12,7 +12,6 @@ use moonwalk_backend::render::pass::RenderPass;
 use moonwalk_backend::render::texture::BackendTexture;
 use moonwalk_backend::pipeline::bind::{BindGroup, RawBindGroup};
 use moonwalk_backend::pipeline::types::ShaderStage;
-use moonwalk_backend::error::MoonBackendError;
 
 use crate::gpu::MatrixStack;
 use crate::rendering::state::GlobalUniform;

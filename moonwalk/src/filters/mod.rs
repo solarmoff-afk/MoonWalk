@@ -5,7 +5,7 @@ pub mod color_matrix;
 pub mod uniforms;
 pub mod factory;
 
-use bytemuck::{bytes_of, Pod};
+use bytemuck::Pod;
 
 use moonwalk_backend::core::context::BackendContext;
 use moonwalk_backend::render::texture::BackendTexture;

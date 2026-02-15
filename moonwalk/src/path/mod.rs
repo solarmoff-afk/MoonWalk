@@ -1,6 +1,8 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
+#![allow(dead_code)]
+
 pub mod svg;
 
 use moonwalk_backend::core::context::BackendContext;

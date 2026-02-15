@@ -85,7 +85,7 @@ fn hash_str(s: &str) -> u64 {
 impl TextWare {
     pub fn new(context: &mut BackendContext) -> Result<Self, MoonWalkError> {
         match &mut context.get_raw() {
-            Some(raw_context) => {
+            Some(_raw_context) => {
                 let mut font_system = FontSystem::new();
 
                 let scratch_buffer = cosmic_text::Buffer::new(
