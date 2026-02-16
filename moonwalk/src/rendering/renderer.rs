@@ -17,7 +17,7 @@ use crate::rendering::state::RenderState;
 use crate::objects::ObjectId;
 use crate::filters::FilterSystem;
 use crate::path::VectorSystem;
-use crate::debug_println;
+use crate::{MoonSurface, debug_println};
 use crate::painting::PaintingSystem;
 
 /// Wgpu работает асинхронно поэтому нам нужно при вызове публичного api для
@@ -174,7 +174,7 @@ impl MoonRenderer {
     }
 
     /// Функция для отправки всего на рендер
-    pub fn render(&mut self, clear_color: Vec4) -> Result<(), MoonWalkError> {
+    pub fn render(&mut self, clear_color: Vec4, surface: &MoonSurface) -> Result<(), MoonWalkError> {
         let size = self.context.get_size()?;
         let width = size.x;
         let height = size.y;
@@ -200,7 +200,15 @@ impl MoonRenderer {
         let atlas_bg = self.text_engine.get_bind_group();
 
         // Здесь рисуется текущее состояние в буфер кадра
-        self.state.draw(&mut self.context, &mut encoder, &offscreen_tex, &mut self.text_engine, Some(&atlas_bg?), clear_color);
+        self.state.draw(
+            &mut self.context,
+            &mut encoder, 
+            &offscreen_tex,
+            &mut self.text_engine, 
+            Some(&atlas_bg?),
+            clear_color,
+            surface,
+        );
         
         if !self.snapshot_tasks.is_empty() {
             for task in &self.snapshot_tasks {

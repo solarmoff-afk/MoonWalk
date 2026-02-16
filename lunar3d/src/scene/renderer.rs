@@ -65,7 +65,7 @@ impl SceneRenderer {
 
     pub fn update_instances(
         &mut self, 
-        mw: &MoonWalk, 
+        mw: &mut MoonWalk, 
         store: &mut ObjectStore
     ) -> usize {
         self.instance_data_cache.clear();

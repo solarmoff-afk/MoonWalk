@@ -1,4 +1,96 @@
 --------------------------------------------------------------------------------
+## MoonWalk Performance Audit [2026-02-16 14:10:22]
+
+## System Configuration
+* **Build:** DEBUG
+* **OS:** Arch Linux 
+* **CPU:** AMD A8-6410 APU with AMD Radeon R5 Graphics
+* **RAM:** 3 GB
+* **GPU:**  ()
+* **Driver:** 
+
+## Benchmark Results
+
+| Category | Test Scenario | Avg FPS | 1% Low | Frame Time | RAM Usage |
+| :--- | :--- | ---: | ---: | ---: | ---: |
+| **Geometry** | Rects Solid x10000 | 60.0 | 57.8 | 16.66 ms | 110 MB |
+| **Geometry** | Rects Solid x50000 | 19.3 | 17.5 | 51.72 ms | 127 MB |
+| **Geometry** | Rects Solid x100000 | 10.1 | 9.8 | 98.87 ms | 144 MB |
+| **Geometry** | Rects Solid x200000 | 5.2 | 5.0 | 191.84 ms | 174 MB |
+| **Geometry** | Rects Solid x5000 | 46.0 | 40.1 | 21.75 ms | 174 MB |
+| **Geometry** | Rects Rounded x5000 | 46.1 | 39.9 | 21.70 ms | 174 MB |
+| **Geometry** | Rects Border x5000 | 46.3 | 41.7 | 21.60 ms | 174 MB |
+| **Geometry** | Rects Textured x5000 | 26.2 | 22.2 | 38.24 ms | 174 MB |
+| **Geometry** | Rects GradientLinear x5000 | 40.1 | 35.4 | 24.95 ms | 174 MB |
+| **Geometry** | Rects GradientRadial x5000 | 38.9 | 35.4 | 25.69 ms | 174 MB |
+| **Fill Rate** | Fullscreen Layers x10 | 40.9 | 35.0 | 24.47 ms | 174 MB |
+| **Fill Rate** | Fullscreen Layers x50 | 16.4 | 16.0 | 60.89 ms | 174 MB |
+| **Fill Rate** | Fullscreen Layers x100 | 8.8 | 8.6 | 114.15 ms | 174 MB |
+| **Text** | Text Short x1000 | 10.5 | 8.8 | 94.95 ms | 187 MB |
+| **Text** | Text Short x10000 | 1.3 | 1.2 | 789.55 ms | 222 MB |
+| **Text** | Text Paragraph x500 | 3.6 | 3.5 | 275.11 ms | 232 MB |
+| **Text** | Text Justified x500 | 3.6 | 3.5 | 274.63 ms | 232 MB |
+| **Dynamics** | Moving Rects x10000 | 26.5 | 23.9 | 37.72 ms | 232 MB |
+| **Dynamics** | Moving Rects x50000 | 12.0 | 11.4 | 83.28 ms | 233 MB |
+| **Dynamics** | Moving Text x2000 | 3.1 | 3.0 | 324.03 ms | 233 MB |
+| **Vector** | Static x5000 | 35.0 | 32.4 | 28.61 ms | 233 MB |
+| **Vector** | Dynamic (10 pts) | 47.9 | 41.8 | 20.87 ms | 233 MB |
+| **Vector** | Dynamic (100 pts) | 42.4 | 39.8 | 23.57 ms | 233 MB |
+| **Vector** | Dynamic (300 pts) | 28.3 | 17.3 | 35.39 ms | 233 MB |
+| **Effects** | Color Matrix | 40.9 | 26.5 | 24.44 ms | 233 MB |
+| **Effects** | Blur (r=5) | 28.9 | 25.8 | 34.64 ms | 233 MB |
+| **Effects** | Blur (r=15) | 20.9 | 18.7 | 47.84 ms | 233 MB |
+| **Effects** | Blur (r=30) | 1.5 | 0.4 | 655.56 ms | 233 MB |
+| **Simulation** | Real Scene (200 Rects + 50 Text) | 1.0 | 1.0 | 999.99 ms | 233 MB |
+
+
+--------------------------------------------------------------------------------
+## MoonWalk Performance Audit [2026-02-16 13:32:51]
+
+## System Configuration
+* **Build:** DEBUG
+* **OS:** Arch Linux 
+* **CPU:** AMD A8-6410 APU with AMD Radeon R5 Graphics
+* **RAM:** 3 GB
+* **GPU:**  ()
+* **Driver:** 
+
+## Benchmark Results
+
+| Category | Test Scenario | Avg FPS | 1% Low | Frame Time | RAM Usage |
+| :--- | :--- | ---: | ---: | ---: | ---: |
+| **Geometry** | Rects Solid x10000 | 60.0 | 56.9 | 16.66 ms | 110 MB |
+| **Geometry** | Rects Solid x50000 | 60.0 | 56.0 | 16.67 ms | 120 MB |
+| **Geometry** | Rects Solid x100000 | 60.0 | 56.3 | 16.66 ms | 135 MB |
+| **Geometry** | Rects Solid x200000 | 60.0 | 57.0 | 16.66 ms | 161 MB |
+| **Geometry** | Rects Solid x5000 | 60.0 | 56.5 | 16.66 ms | 162 MB |
+| **Geometry** | Rects Rounded x5000 | 60.0 | 55.5 | 16.66 ms | 162 MB |
+| **Geometry** | Rects Border x5000 | 60.0 | 55.0 | 16.66 ms | 162 MB |
+| **Geometry** | Rects Textured x5000 | 60.0 | 57.0 | 16.66 ms | 162 MB |
+| **Geometry** | Rects GradientLinear x5000 | 60.0 | 57.4 | 16.66 ms | 162 MB |
+| **Geometry** | Rects GradientRadial x5000 | 60.0 | 55.8 | 16.66 ms | 162 MB |
+| **Fill Rate** | Fullscreen Layers x10 | 60.0 | 55.5 | 16.67 ms | 162 MB |
+| **Fill Rate** | Fullscreen Layers x50 | 60.0 | 54.7 | 16.66 ms | 162 MB |
+| **Fill Rate** | Fullscreen Layers x100 | 60.0 | 57.7 | 16.67 ms | 162 MB |
+| **Text** | Text Short x1000 | 60.0 | 57.7 | 16.66 ms | 162 MB |
+| **Text** | Text Short x10000 | 60.0 | 57.5 | 16.66 ms | 162 MB |
+| **Text** | Text Paragraph x500 | 60.0 | 54.9 | 16.67 ms | 162 MB |
+| **Text** | Text Justified x500 | 60.0 | 57.1 | 16.66 ms | 162 MB |
+| **Dynamics** | Moving Rects x10000 | 60.0 | 56.7 | 16.66 ms | 163 MB |
+| **Dynamics** | Moving Rects x50000 | 60.7 | 54.0 | 16.48 ms | 163 MB |
+| **Dynamics** | Moving Text x2000 | 60.0 | 49.0 | 16.66 ms | 163 MB |
+| **Vector** | Static x5000 | 60.0 | 57.1 | 16.67 ms | 163 MB |
+| **Vector** | Dynamic (10 pts) | 60.0 | 57.2 | 16.66 ms | 163 MB |
+| **Vector** | Dynamic (100 pts) | 60.0 | 57.3 | 16.66 ms | 163 MB |
+| **Vector** | Dynamic (300 pts) | 47.5 | 40.4 | 21.05 ms | 163 MB |
+| **Effects** | Color Matrix | 60.0 | 56.5 | 16.66 ms | 163 MB |
+| **Effects** | Blur (r=5) | 48.2 | 40.2 | 20.73 ms | 163 MB |
+| **Effects** | Blur (r=15) | 23.1 | 17.7 | 43.29 ms | 163 MB |
+| **Effects** | Blur (r=30) | 23.4 | 16.6 | 42.76 ms | 163 MB |
+| **Simulation** | Real Scene (200 Rects + 50 Text) | 60.0 | 57.2 | 16.66 ms | 163 MB |
+
+
+--------------------------------------------------------------------------------
 ## MoonWalk Performance Audit [2026-02-14 17:17:32]
 
 ## System Configuration

@@ -86,7 +86,7 @@ impl LunarFactory {
         }
     }
 
-    pub(crate) fn create_shadow_pipeline(&self, mw: &MoonWalk, src: &str) -> CustomPipeline { 
+    pub(crate) fn create_shadow_pipeline(&self, mw: &mut MoonWalk, src: &str) -> CustomPipeline { 
         let desc = MoonPipeline::new(src)
             .vertex_shader("vs_main")
             .fragment_shader("fs_main")
@@ -104,7 +104,7 @@ impl LunarFactory {
         LunarScene::new(mw, width, height, self)
     }
 
-    pub fn load_obj(&mut self, mw: &MoonWalk, bytes: &[u8]) -> Vec<MeshId> {
+    pub fn load_obj(&mut self, mw: &mut MoonWalk, bytes: &[u8]) -> Vec<MeshId> {
         let loaded = crate::resources::load_obj(mw, bytes);
         let start_id = self.meshes.len();
         

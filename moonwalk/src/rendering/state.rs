@@ -22,7 +22,7 @@ use crate::objects::store::ObjectStore;
 use crate::objects::ShaderId;
 use crate::error::MoonWalkError;
 use crate::textware::TextWare;
-use crate::{perf_start, perf_end};
+use crate::{MoonSurface, perf_end, perf_start};
 
 /// Структура для единой юниформы под все шейдеры. Не передаём
 /// матрицу модели для экономии передачи данных через шину.
@@ -139,12 +139,13 @@ impl RenderState {
         target: &BackendTexture,
         text_engine: &mut TextWare,
         atlas_bg: Option<&RawBindGroup>,
-        clear_color: Vec4
+        clear_color: Vec4,
+        surface: &MoonSurface,
     ) -> Result<(), MoonWalkError> {
         // Подготавливаем батчи
 
         use moonwalk_backend::render::pass::RenderPass;
-        self.batches.objects.prepare(context, &self.store, text_engine);
+        self.batches.objects.prepare(context, &surface.store, text_engine);
         
         // Если объекты грязные (dirty) - снимаем флаг 
         // (так как изменения уже отрисованы)

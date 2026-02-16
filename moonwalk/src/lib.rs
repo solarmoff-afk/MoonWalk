@@ -9,9 +9,9 @@ pub mod resource_manager;
 pub mod surface;
 pub mod path;
 pub mod prelude;
+pub mod rendering;
 
 mod batching;
-mod rendering;
 mod textware;
 mod debug;
 mod painting;
@@ -41,6 +41,7 @@ pub use crate::rendering::custom::{
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use resource_manager::ResourceManager;
 use rendering::renderer::MoonRenderer;
+use derive_more::derive::{Deref, DerefMut};
 
 /// Основная структура движка которая содержит рендерер. Конструктор new
 /// принимает окно (Которое можно получить через winit), ширину окна и
@@ -51,9 +52,15 @@ use rendering::renderer::MoonRenderer;
 /// Совет: Вы можете получить статичное окно с помощью такого кода
 /// let window = event_loop.create_window( ... ).unwrap();
 /// let static_window: &'static Window = Box::leak(Box::new(window));
+
+#[derive(Deref, DerefMut)]
 pub struct MoonWalk {
     pub renderer: MoonRenderer,
     pub resources: ResourceManager,
+
+    #[deref]
+    #[deref_mut]
+    surface: MoonSurface,
 }
 
 /// Обёртка над u64 для хранения айди шрифта (FontId из модуля textware)
@@ -84,12 +91,14 @@ impl MoonWalk {
         width: u32,
         height: u32,
     ) -> Result<Self, error::MoonWalkError> {
-        let renderer = MoonRenderer::new(window, width, height)?;
+        let mut renderer = MoonRenderer::new(window, width, height)?;
         let resources = ResourceManager::new();
+        let surface = MoonSurface::new(&mut renderer.context, width, height)?;
 
         Ok(Self {
             renderer,
             resources,
+            surface,
         })
     }
 

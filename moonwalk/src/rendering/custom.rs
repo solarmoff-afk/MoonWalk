@@ -153,7 +153,7 @@ impl CustomPaint {
         Ok(())
     }
 
-    pub fn begin_render_pass(&mut self, config: MoonRenderPass) -> Option<ActiveMoonRenderPass<'_>> {
+    pub fn render_pass(&mut self, config: MoonRenderPass) -> Option<ActiveMoonRenderPass<'_>> {
         let command_encoder = self.active_command_encoder.as_mut()?;
 
         let clear_color = config.clear_color;
@@ -216,7 +216,7 @@ impl CustomPaint {
         let vertex_buffer = self.current_vertex_buffer_slot_zero.clone();
         let index_buffer = self.current_index_buffer.clone();
 
-        if let Some(mut active_pass) = self.begin_render_pass(config) {
+        if let Some(mut active_pass) = self.render_pass(config) {
             if let Some(ref pipeline) = pipeline {
                 active_pass.set_pipeline(pipeline);
             }
@@ -239,7 +239,7 @@ impl CustomPaint {
         let _ = self.submit_frame(context);
     }
 
-    pub fn create_snapshot(&mut self, moonwalk: &mut MoonWalk) -> u32 {
+    pub fn snapshot(&mut self, moonwalk: &mut MoonWalk) -> u32 {
         let context = &mut moonwalk.renderer.context;
         let mut snapshot_texture = BackendTexture::new(self.width, self.height);
         let _ = snapshot_texture.create_render_target(context, self.width, self.height);
