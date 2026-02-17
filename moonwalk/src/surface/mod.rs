@@ -3,6 +3,7 @@
 
 pub mod objects;
 pub mod getter;
+pub mod effects;
 
 use glam::{Vec2, Vec4};
 use moonwalk_backend::core::context::BackendContext;

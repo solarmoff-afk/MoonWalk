@@ -10,6 +10,7 @@ pub mod surface;
 pub mod path;
 pub mod prelude;
 pub mod rendering;
+pub mod effects;
 
 mod batching;
 mod textware;
@@ -37,6 +38,7 @@ pub use crate::rendering::container::RenderContainer;
 pub use crate::rendering::custom::{
     CustomPaint, MoonRenderPass, MoonBuffer, MoonBindGroup, CustomPipeline,
 };
+pub use crate::effects::material::elevation::MoonMaterialLevel;
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use resource_manager::ResourceManager;

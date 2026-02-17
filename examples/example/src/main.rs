@@ -247,6 +247,10 @@ impl Application for TextureApp {
         self.angle += dt * 1.0;
     }
 
+    fn on_pre_render(&mut self) -> Option<Vec4> {
+        Some(Vec4::new(1.0, 1.0, 1.0, 1.0))
+    } 
+
     fn on_draw(&mut self, mw: &mut MoonWalk) {
         if let Some(id) = self.sprite_id {
             mw.set_rotation(id, self.angle);
