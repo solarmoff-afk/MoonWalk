@@ -13,6 +13,7 @@ use crate::batching::common::BatchBuffer;
 use crate::textware::TextWare;
 use crate::MoonWalkError;
 use crate::{perf_start, perf_end};
+use crate::ObjectId;
 
 #[derive(Debug, Clone, Copy)]
 pub struct DrawCommand {
@@ -64,7 +65,13 @@ impl UberBatch {
         })
     }
 
-    pub fn prepare(&mut self, context: &mut BackendContext, store: &ObjectStore, text_engine: &mut TextWare) {
+    pub fn prepare(
+        &mut self,
+        context: &mut BackendContext,
+        store: &ObjectStore,
+        text_engine: &mut TextWare,
+        objects_filter: Option<&Vec<ObjectId>>,
+    ) {
         if !store.dirty {
             return;
         }
@@ -72,11 +79,20 @@ impl UberBatch {
         self.batch.clear();
         self.commands.clear();
         
+        // Сборка объектов для батча, сюда не попадают мёртвые объекты
+        // либо объекты которых нет в фильтре объектов. Если фильтр
+        // объектов пустой то в батч попадают все живые объекты
         for &global_id in store.rect_ids.iter() {
             let idx = global_id.index();
 
             if !store.alive[idx] {
                 continue;
+            }
+
+            if let Some(objects) = objects_filter {
+                if objects.contains(&ObjectId(idx)) {
+                    continue;
+                }
             }
 
             let tex_id = store.texture_ids[idx];

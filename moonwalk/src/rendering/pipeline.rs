@@ -41,7 +41,8 @@ impl ShaderStore {
     pub fn create_default_rect(
         &mut self,
         context: &mut BackendContext,
-        format: BackendTextureFormat
+        format: BackendTextureFormat,
+        blend_mode: BlendMode,
     ) -> Result<ShaderId, MoonWalkError> {
         let shader_source = include_str!("../shaders/shape.wgsl");
         
@@ -78,7 +79,7 @@ impl ShaderStore {
                     .add_texture(0, TextureType::Float)
                     .add_sampler(1, SamplerType::Linear) 
             )
-            .blend(BlendMode::Alpha)
+            .blend(blend_mode)
             .cull(CullMode::None)
             .topology(Topology::TriangleList)
             .depth_test(false)

@@ -11,18 +11,32 @@ use moonwalk_backend::core::buffer::BackendBuffer;
 use moonwalk_backend::render::pass::RenderPass;
 use moonwalk_backend::render::texture::BackendTexture;
 use moonwalk_backend::pipeline::bind::{BindGroup, RawBindGroup};
-use moonwalk_backend::pipeline::types::ShaderStage;
+use moonwalk_backend::pipeline::types::{BlendMode, ShaderStage};
 
 use crate::gpu::MatrixStack;
-use crate::rendering::state::GlobalUniform;
+use crate::rendering::state::{GlobalUniform, RenderState};
 use crate::batching::shapes::uber::UberBatch;
 use crate::rendering::snapshot::ClippedSnapshot;
 use crate::objects::store::ObjectStore;
-use crate::MoonWalk;
+use crate::{MoonWalk, perf_end, perf_start};
 use crate::ObjectId;
 use crate::FontAsset;
 use crate::textware::FontId;
 use crate::error::MoonWalkError;
+use crate::objects::ShaderId;
+
+struct RenderPassDescriptor {
+    pub color: Vec4,
+    
+    // Для своего пайлпайна есть CustomPaint, вместо этого даём возможность
+    // выбрать из 5 пайлпайнов для бленд мода. Это защищает от переусложения
+    // основного api методами для своих пайлпайнов
+    pub blend_mode: BlendMode,
+
+    pub objects: Vec<ObjectId>,
+
+    pub is_empty: bool,
+}
 
 /// Структура поверхности рендера, определяет общий api для главного рендера
 /// и рендер контейнеров
@@ -32,7 +46,9 @@ pub struct MoonSurface {
     pub proj_bind_group: RawBindGroup,
     pub target: BackendTexture,
     pub width: u32,
-    pub height: u32, 
+    pub height: u32,
+    pub blend_mode: BlendMode,
+    render_passes: Vec<RenderPassDescriptor>,
 }
 
 impl MoonSurface {
@@ -69,6 +85,8 @@ impl MoonSurface {
             target,
             width,
             height,
+            blend_mode: BlendMode::Alpha,
+            render_passes: Vec::new(),
         })
     }
 
@@ -92,41 +110,152 @@ impl MoonSurface {
         self.store.new_text(content.to_string(), internal_id, size)
     }
 
+    /// Установить режим смешивания поверхности
+    pub fn set_blend_mode(&mut self, blend_mode: BlendMode) {
+        self.blend_mode = blend_mode;
+    }
+
+    /// Этот метод позволяет создать новый проход рендера в поверхности.
+    /// Базовое использование: несколько режимов смешивания (blend mode)
+    /// для объектов. Не позволяет создавать свой пайплайн, так как
+    /// это очент опасная фишка для основного рендера на поверхностях.
+    /// Для своих пайлпайнов можно использовать CustomPaint. Работает просто,
+    /// вызывается push_render_pass чтобы добавить проход рендера. Обычно
+    /// это делается на какой-то отдельной поверхности для небольшого
+    /// количнства объектов. Передаётся режим смешивания, цвет заливки
+    /// (можно Vec4::ZERO) и объекты. Это Option куда можно завернуть вектор
+    /// (Vec) через Some.
+    /// Если не передать вообще (None) то будут использованы все объекты
+    /// в ObjectStore этой поверхности
+    /// 
+    /// Пример:
+    /// ```rust
+    /// // Поверхность
+    /// let surface = mw.new_surface(1024, 1024);
+    ///
+    /// let rect1 = surface.new_rect();
+    /// surface.set_size(Vec2::new(50.0, 50.0));
+    /// surface.set_color(Vec4::new(1.0, 0.0, 0.0, 0.5));
+    ///
+    /// let rect2 = surface.new_rect();
+    /// surface.set_size(Vec2::new(60.0, 60.0));
+    /// surface.set_color(Vec4::new(0.0, 0.0, 1.0, 0.5));
+    ///
+    /// // Создаём первый проход, прозрачный фон, сюда только rect1
+    /// surface.push_render_pass(BlendMode::Alpha, Vec4::ZERO, Some(vec![rect1]));
+    ///
+    /// // Второй проход рендера, тоже прозрачный фон, другой режим смешивания и rect2
+    /// surface.push_render_pass(BlendMode::Additive, Vec4::ZERO, Some(vec![rect2]));
+    /// ```
+    pub fn push_render_pass(&mut self, blend_mode: BlendMode, color: Vec4, objects: Option<Vec<ObjectId>>) {
+        let objects_vec = objects.unwrap_or(vec![]);
+        let is_empty = objects_vec.is_empty();
+
+        self.render_passes.push(RenderPassDescriptor {
+            color,
+            blend_mode,
+            objects: objects_vec,
+            is_empty,
+        });
+    }
+
+    /// Очищает все созданные в поверхности проходы рендера
+    pub fn clear_render_passes(&mut self) {
+        self.render_passes.clear();
+    }
+
     /// Отрисовать все объекты на surface
     pub fn render(&mut self, mw: &mut MoonWalk, clear_color: Option<Vec4>) -> Result<(), MoonWalkError> {
         let renderer = &mut mw.renderer;
         let context = &mut renderer.context;
         let text_engine = &mut renderer.text_engine;
         
-        self.batch.prepare(context, &self.store, text_engine);
+        self.batch.prepare(context, &self.store, text_engine, None);
 
         text_engine.prepare(context);
         let atlas_bg = text_engine.get_bind_group()?;
         
         let clear_color = clear_color.map(|c| Vec4::new(c.x, c.y, c.z, c.w));
 
-        let mut encoder = BackendEncoder::new(context, "Render Container Encoder")?;
+        let mut encoder = BackendEncoder::new(context, "MoonSurface encoder")?;
 
         let mut pass = RenderPass::new(
             &mut encoder,
             &self.target,
             clear_color,
-            "Render Container Pass"
+            "MoonSurface render pass"
         )?;
 
-        if let Some(pipeline) = renderer.state.shaders.get_pipeline(renderer.state.rect_shader) {
+        let pipeline_id = Self::map_blend_mode(&renderer.state, self.blend_mode);
+        
+        if let Some(pipeline) = renderer.state.shaders.get_pipeline(pipeline_id) {
             pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &self.proj_bind_group);
             
             self.batch.render(
                 &mut pass, 
-                &renderer.state.white_texture, 
+                &renderer.state.white_texture,
                 &renderer.state.textures,
                 Some(&atlas_bg),
             );
         }
 
         drop(pass);
+
+        encoder.submit_frame(context)?;
+
+        Ok(())
+    }
+
+    ///
+    pub fn multi_pass_render(&mut self, mw: &mut MoonWalk) -> Result<(), MoonWalkError> {
+        let renderer = &mut mw.renderer;
+        let context = &mut renderer.context;
+        let text_engine = &mut renderer.text_engine;
+        
+        text_engine.prepare(context);
+        let atlas_bg = text_engine.get_bind_group()?;
+        
+        let mut encoder = BackendEncoder::new(context, "MoonSurface encoder")?;
+
+        // В цикле проходимся по всем дескрипторам проходам рендера которые добавлены в
+        // поверхность, создаём реальный RenderPass, устанавливаем ему нужный пайлайн
+        // и рендерим в общую текстуру 
+
+        let mut _debug_pass_index = 0;
+        for pass in &self.render_passes{
+            perf_start!(format!("Render pass: {}", _debug_pass_index));
+                let mut objects_filter = Some(&pass.objects);
+                if pass.is_empty {
+                    objects_filter = None;
+                }
+
+                self.batch.prepare(context, &self.store, text_engine, objects_filter);
+
+                let mut render_pass = RenderPass::new(
+                    &mut encoder,
+                    &self.target,
+                    Some(pass.color),
+                    "MoonWalk render pass (multipass surface render)",
+                )?;
+
+                let pipeline_id = Self::map_blend_mode(&renderer.state, pass.blend_mode);
+                
+                if let Some(pipeline) = renderer.state.shaders.get_pipeline(pipeline_id) {
+                    render_pass.set_pipeline(pipeline);
+                    render_pass.set_bind_group(0, &self.proj_bind_group);
+                    
+                    self.batch.render(
+                        &mut render_pass,
+                        &renderer.state.white_texture,
+                        &renderer.state.textures,
+                        Some(&atlas_bg),
+                    );
+                }
+            perf_end!(format!("Render pass: {}", _debug_pass_index));
+
+            _debug_pass_index += 1;           
+        }
 
         encoder.submit_frame(context)?;
 
@@ -208,5 +337,20 @@ impl MoonSurface {
         encoder.submit_frame(&mut renderer.context)?;
 
         Ok(())
+    }
+
+    /// Принимает ссылку на состояние рендера и режим смешивания, после
+    /// чего матчит режим смешивания в ShaderId который берёт из состояния
+    /// рендера. Если пайплайн для этого режима не создан то возвращает
+    /// дефолтное значение (Alpha blend mode)
+    fn map_blend_mode(state: &RenderState, blend_mode: BlendMode) -> ShaderId {
+        match blend_mode {
+            BlendMode::Alpha => state.rect_shader,
+            BlendMode::Additive => state.rect_shader_additive,
+            BlendMode::Multiply => state.rect_shader_multiply,
+            BlendMode::Screen => state.rect_shader_screen,
+            BlendMode::Subtract => state.rect_shader_subtract,
+            _ => state.rect_shader,
+        }
     }
 }

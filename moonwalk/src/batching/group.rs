@@ -10,6 +10,7 @@ use moonwalk_backend::render::texture::BackendTexture;
 
 use crate::batching::shapes::uber::UberBatch;
 use crate::objects::store::ObjectStore;
+use crate::ObjectId;
 
 pub struct BatchGroup {
     pub objects: UberBatch,
@@ -24,8 +25,8 @@ impl BatchGroup {
         }
     }
 
-    pub fn prepare(&mut self, context: &mut BackendContext, store: &ObjectStore, text_engine: &mut crate::textware::TextWare) {
-        self.objects.prepare(context, store, text_engine);
+    pub fn prepare(&mut self, context: &mut BackendContext, store: &ObjectStore, text_engine: &mut crate::textware::TextWare, objects_filter: Option<&Vec<ObjectId>>) {
+        self.objects.prepare(context, store, text_engine, objects_filter);
     }
     
     pub fn render<'a>(

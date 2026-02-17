@@ -1,6 +1,7 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
+use moonwalk_backend::pipeline::types::BlendMode;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use glam::{Vec2, Vec4};
 
@@ -14,7 +15,6 @@ use crate::error::MoonWalkError;
 
 use crate::rendering::snapshot::ClippedSnapshot;
 use crate::rendering::state::RenderState;
-use crate::objects::ObjectId;
 use crate::filters::FilterSystem;
 use crate::path::VectorSystem;
 use crate::{MoonSurface, debug_println};
@@ -174,7 +174,12 @@ impl MoonRenderer {
     }
 
     /// Функция для отправки всего на рендер
-    pub fn render(&mut self, clear_color: Vec4, surface: &MoonSurface) -> Result<(), MoonWalkError> {
+    pub fn render(
+        &mut self,
+        clear_color: Vec4,
+        surface: &MoonSurface,
+        blend_mode: BlendMode,
+    ) -> Result<(), MoonWalkError> {
         let size = self.context.get_size()?;
         let width = size.x;
         let height = size.y;
@@ -208,6 +213,7 @@ impl MoonRenderer {
             Some(&atlas_bg?),
             clear_color,
             surface,
+            blend_mode,
         );
         
         if !self.snapshot_tasks.is_empty() {
@@ -313,53 +319,6 @@ impl MoonRenderer {
         }
     }
 
-    /// Прокси методы
-
-    #[inline]
-    pub fn new_rect(&mut self) -> ObjectId {
-        self.state.store.new_rect()
-    }
-
-    #[inline]
-    pub fn config_position(&mut self, id: ObjectId, pos: Vec2) {
-        self.state.store.config_position(id, pos);
-    }
-
-    #[inline]
-    pub fn config_size(&mut self, id: ObjectId, size: Vec2) {
-        self.state.store.config_size(id, size);
-    }
-
-    #[inline]
-    pub fn config_color(&mut self, id: ObjectId, color: Vec4) {
-        self.state.store.config_color(id, color);
-    }
-
-    #[inline]
-    pub fn config_color2(&mut self, id: ObjectId, color2: Vec4) {
-        self.state.store.config_color2(id, color2);
-    }
-
-    #[inline]
-    pub fn config_rotation(&mut self, id: ObjectId, radians: f32) {
-        self.state.store.config_rotation(id, radians);
-    }
-
-    #[inline]
-    pub fn set_z_index(&mut self, id: ObjectId, z: f32) {
-        self.state.store.config_z_index(id, z);
-    }
-
-    #[inline]
-    pub fn set_uv(&mut self, id: ObjectId, uv: [f32; 4]) {
-        self.state.store.config_uv(id, uv);
-    }
-
-    #[inline]
-    pub fn set_effect(&mut self, id: ObjectId, effect_data: [f32; 2]) {
-        self.state.store.config_effect_data(id, effect_data);
-    }
-
     #[inline]
     pub fn register_texture(&mut self, texture: BackendTexture) -> u32 {
         self.state.add_texture(texture)
@@ -369,15 +328,4 @@ impl MoonRenderer {
     pub fn remove_texture(&mut self, texture_id: u32) {
         self.state.remove_texture(texture_id)
     }
-
-    #[inline]
-    pub fn config_gradient_data(&mut self, id: ObjectId, gradient_data: [f32; 4]) {
-        self.state.store.config_gradient_data(id, gradient_data);
-    }
-
-    // Специфично для прямоугольника
-    #[inline]
-    pub fn set_rounded(&mut self, id: ObjectId, radii: Vec4) {
-        self.state.store.set_rounded(id, radii);
-    } 
 }

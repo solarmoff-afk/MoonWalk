@@ -34,7 +34,9 @@ impl MoonWalk {
     /// передать цвет которым будет заливаться экран.
     pub fn render_frame(&mut self, clear_color: Vec4) -> Result<(), MoonWalkError> {
         let surface = &self.surface;
-        self.renderer.render(clear_color, surface)
+        let blend_mode = surface.blend_mode;
+
+        self.renderer.render(clear_color, surface, blend_mode)
     }
 
     /// Этот метод позволяет включить или выключить вертикальную синхронизацию

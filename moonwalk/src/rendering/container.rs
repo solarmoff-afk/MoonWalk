@@ -300,7 +300,7 @@ impl RenderContainer {
         let context = &mut renderer.context;
         let text_engine = &mut renderer.text_engine;
         
-        self.batch.prepare(context, &self.store, text_engine);
+        self.batch.prepare(context, &self.store, text_engine, None);
 
         text_engine.prepare(context);
         let atlas_bg = text_engine.get_bind_group()?;

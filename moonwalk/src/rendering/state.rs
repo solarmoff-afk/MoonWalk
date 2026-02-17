@@ -7,6 +7,7 @@ use moonwalk_backend::core::buffer::BackendBuffer;
 use moonwalk_backend::core::context::BackendContext;
 use moonwalk_backend::core::encoder::BackendEncoder;
 use moonwalk_backend::pipeline::bind::RawBindGroup;
+use moonwalk_backend::pipeline::types::BlendMode;
 use moonwalk_backend::render::pass::RenderPass;
 use moonwalk_backend::render::texture::BackendTexture;
 
@@ -41,7 +42,14 @@ pub struct RenderState {
     pub matrix_stack: MatrixStack, // Матричный стэк
     pub uniform_buffer: BackendBuffer<GlobalUniform>, // Буфер дла передачи данных в шейдер
     pub proj_bind_group: RawBindGroup,
-    pub rect_shader: ShaderId, // Пайплайн для прямоугольника
+    
+    // Пайплайны для разных бленд модов
+    pub rect_shader: ShaderId, // Стандартный пайплайн, alpha
+    pub rect_shader_additive: ShaderId, // Аддитивное смешивание, идеально для теней
+    pub rect_shader_multiply: ShaderId, // Умножение, затемняет фон пропорционально яркости источника
+    pub rect_shader_screen: ShaderId, // Делает изображение светлее в отличии от rect_shader_multiply
+    pub rect_shader_subtract: ShaderId, // Вычитание, уменьшает яркость фона на значение источника
+    
     pub white_texture: BackendTexture,
     pub textures: HashMap<u32, BackendTexture>,
     next_texture_id: u32, 
@@ -64,8 +72,12 @@ impl RenderState {
         let mut shaders = ShaderStore::new(context)?;
 
         // Создаём шейдер для прямоугольника.
-        let rect_shader = shaders.create_default_rect(context, format)?;
-        
+        let alpha_pipeline = shaders.create_default_rect(context, format, BlendMode::Alpha)?;
+        let additive_pipeline = shaders.create_default_rect(context, format, BlendMode::Additive)?;
+        let multiply_pipeline = shaders.create_default_rect(context, format, BlendMode::Multiply)?;
+        let screen_pipeline = shaders.create_default_rect(context, format, BlendMode::Screen)?;
+        let subtract_pipeline = shaders.create_default_rect(context, format, BlendMode::Subtract)?;
+
         // Создаём матричный стэк
         let mut matrix_stack = MatrixStack::new();
         
@@ -107,7 +119,13 @@ impl RenderState {
             matrix_stack,
             uniform_buffer,
             proj_bind_group,
-            rect_shader,
+            
+            rect_shader: alpha_pipeline,
+            rect_shader_additive: additive_pipeline,
+            rect_shader_multiply: multiply_pipeline,
+            rect_shader_screen: screen_pipeline,
+            rect_shader_subtract: subtract_pipeline,
+
             white_texture,
             textures: HashMap::new(),
             next_texture_id: 1, // 0 занят под white_texture 
@@ -141,11 +159,12 @@ impl RenderState {
         atlas_bg: Option<&RawBindGroup>,
         clear_color: Vec4,
         surface: &MoonSurface,
+        blend_mode: BlendMode,
     ) -> Result<(), MoonWalkError> {
         // Подготавливаем батчи
 
         use moonwalk_backend::render::pass::RenderPass;
-        self.batches.objects.prepare(context, &surface.store, text_engine);
+        self.batches.objects.prepare(context, &surface.store, text_engine, None);
         
         // Если объекты грязные (dirty) - снимаем флаг 
         // (так как изменения уже отрисованы)
@@ -165,8 +184,17 @@ impl RenderState {
 
         pass.set_bind_group(0, &self.proj_bind_group);
 
-        // Проверяем конвейер рендера (Хардкод для прямоугольников)
-        if let Some(pipeline) = self.shaders.get_pipeline(self.rect_shader) {
+        // Проверяем конвейер рендера по режиму смешивания
+        let pipeline = match blend_mode {
+            BlendMode::Alpha => self.rect_shader,
+            BlendMode::Additive => self.rect_shader_additive,
+            BlendMode::Multiply => self.rect_shader_multiply,
+            BlendMode::Screen => self.rect_shader_screen,
+            BlendMode::Subtract => self.rect_shader_subtract,
+            _ => self.rect_shader,
+        };
+
+        if let Some(pipeline) = self.shaders.get_pipeline(pipeline) {
             // Устаналиваем пайплайн
             pass.set_pipeline(pipeline);
             
