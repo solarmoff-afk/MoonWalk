@@ -88,7 +88,7 @@ impl ShaderStore {
             .label("default_rect")
             .build(context, format, &[&uniform_layout, &texture_layout])?;
         
-        let id = ShaderId(1);
+        let id = ShaderId(self.pipelines.len() as u32 + 1);
         
         // [MAYBE]
         // Я понятия не имею это Arc или не Arc, я покопался в исходниках wgpu,
