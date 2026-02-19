@@ -63,7 +63,7 @@ impl UberBatch {
             batch: BatchBuffer::new(),
             commands: Vec::with_capacity(32),
         })
-    }
+    }    
 
     pub fn prepare(
         &mut self,

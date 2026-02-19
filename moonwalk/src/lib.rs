@@ -38,7 +38,8 @@ pub use crate::rendering::container::RenderContainer;
 pub use crate::rendering::custom::{
     CustomPaint, MoonRenderPass, MoonBuffer, MoonBindGroup, CustomPipeline,
 };
-pub use crate::effects::material::elevation::MoonMaterialLevel;
+pub use crate::effects::material::elevation::{MoonMaterialLevel, ShadowLayer};
+pub use crate::effects::EffectFactory;
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use resource_manager::ResourceManager;
@@ -112,12 +113,15 @@ impl MoonWalk {
         width: u32, height: u32,
         asset_manager: ndk::asset::AssetManager,
     ) -> Result<Self, error::MoonWalkError> {
-        let renderer = MoonRenderer::new(window, width, height)?;
+        let mut renderer = MoonRenderer::new(window, width, height)?;
         let resources = ResourceManager::new(asset_manager);
+
+        let surface = MoonSurface::new(&mut renderer.context, width, height)?;
 
         Ok(Self {
             renderer,
             resources,
+            surface,
         })
     }
 

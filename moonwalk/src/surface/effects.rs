@@ -1,57 +1,58 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
-use crate::effects::material::elevation::{MoonMaterialLevel, draw_shadow};
+use glam::{Vec2, Vec4};
+
+use crate::effects::EffectFactory;
+use crate::effects::material::elevation::MoonMaterialLevel;
 use crate::surface::MoonSurface;
 use crate::{MoonWalk, MoonWalkError, ObjectId};
 
 impl MoonSurface {
-    pub fn get_elevation(&self, level: u8) -> MoonMaterialLevel {
-        match level {
-            // Уровень ноль. В материал 3 он используется когда нужны фоновые
-            // поверхности, которые не должны казаться поднятными. Например
-            // базовый фон (цвет фона экрана), карточки без тени (такие бывают),
-            // поля ввода текста также используют нулевой уровень, так как
-            // находятся внутри страницы, а не над ней (По канонам)
-            0 => MoonMaterialLevel { dp: 0.0,  tonal_alpha: 0.0,  opacity: 0.0  },
-
-            // Первый уровень элевации. Минимальное отделение от фона, используется
-            // для компонентов которые должны быть немного приподняты, чтобы
-            // показать интерактивность. Используется для карточек, пунктов меню
-            1 => MoonMaterialLevel { dp: 1.0,  tonal_alpha: 0.05, opacity: 0.25 },
-
-            // Второй уровень. Элементы, которые находятся над первым уровнем.
-            // Это FAB при нажатии, строка поиска, панель навигации снизу, а
-            // также чипсы (chips если что) в нажатом состоянии
-            2 => MoonMaterialLevel { dp: 3.0,  tonal_alpha: 0.08, opacity: 0.30 },
-
-            // Третий уровень. Компоненты, которые временно перекрывают контент
-            // или требуют внимания. Используется в боковом меню, всплывающем
-            // уведомлени внизу экрана, плавающей панели (bottom sheet)
-            3 => MoonMaterialLevel { dp: 6.0,  tonal_alpha: 0.11, opacity: 0.35 },
-
-            // Четвёртый уровень. Диалоговые окна и модальные компоненты. Используется
-            // в диалоговом окне и в других модальных компонентах типа modal
-            // bottom sheet
-            4 => MoonMaterialLevel { dp: 8.0,  tonal_alpha: 0.12, opacity: 0.38 },
-
-            // Пятый уровень. Самые важные временные элементы которые должны
-            // доминировать над всем интерфейсом. К нему относятся пикер даты,
-            // меню, FAB при фокусе и так далее
-            5 => MoonMaterialLevel { dp: 12.0, tonal_alpha: 0.14, opacity: 0.42 },
-
-            // Ноль по умолчанию
-            _ => MoonMaterialLevel { dp: 0.0,  tonal_alpha: 0.0,  opacity: 0.0  },
-        }
+    pub fn new_effect_factory(&self) -> EffectFactory {
+        EffectFactory::new()
     }
 
-    pub fn new_shadow(&self, mw: &mut MoonWalk, base: ObjectId, level: MoonMaterialLevel) -> Result<ObjectId, MoonWalkError> {
-        let position = self.store.positions[base.0];
-        let size = self.store.sizes[base.0];
-        let radii = self.store.rect_radii[base.0];
+    pub fn new_shadow_object(
+        &mut self,
+        base: ObjectId,
+        level: MoonMaterialLevel,
+        umbra_tex: u32,
+        penumbra_tex: u32,
+        ambient_tex: u32,
+        density: f32,
+    ) -> Result<(ObjectId, ObjectId, ObjectId), MoonWalkError> {
+        let position = self.store.get_position(base);
+        let size = self.store.get_size(base);
+        let base_z = self.store.get_z_index(base);
 
-        let shadow = draw_shadow(mw, level, position, size, radii)?;
-        
-        Ok(shadow)
+        let tex_array = [umbra_tex, penumbra_tex, ambient_tex];
+        let mut obj_ids = [ObjectId(0); 3];
+
+        for i in 0..3 {
+            let layer = &level.layers[i];
+            
+            let sigma = layer.blur * 0.5 * density;
+            let spread = layer.spread * density;
+            let margin = (sigma * 3.5).ceil();
+            
+            let layer_size = size + Vec2::splat(spread * 2.0);
+            let offset = layer.offset * density;
+
+            let rect = self.new_rect();
+            
+            let final_pos = position - Vec2::splat(margin + spread) + offset;
+            
+            self.set_position(rect, final_pos);
+            self.set_size(rect, layer_size + Vec2::splat(margin * 2.0));
+            self.set_texture(rect, tex_array[i]);
+            self.set_color(rect, Vec4::new(0.0, 0.0, 0.0, layer.alpha));
+            
+            self.set_z_index(rect, base_z - 0.1 - (i as f32 * 0.1));
+            
+            obj_ids[i] = rect;
+        }
+
+        Ok((obj_ids[0], obj_ids[1], obj_ids[2]))
     }
 }

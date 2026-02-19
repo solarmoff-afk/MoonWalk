@@ -117,130 +117,165 @@ impl Application for TextureApp {
     //     mw.save_texture(mars_texture_id, "assets/output.png").unwrap();
     // }
  
-    fn on_start(&mut self, mw: &mut MoonWalk, viewport: Vec2) {
-        let scale = mw.get_scale_factor();
+    // fn on_start(&mut self, mw: &mut MoonWalk, viewport: Vec2) {
+    //     let scale = mw.get_scale_factor();
 
-        let width = (800.0 * scale) as u32;
-        let height = (600.0 * scale) as u32;
+    //     let width = (800.0 * scale) as u32;
+    //     let height = (600.0 * scale) as u32;
         
-        let mut canvas = mw.new_render_container(width, height);
-        canvas.draw(mw, Some(Vec4::ONE));
+    //     let mut canvas = mw.new_render_container(width, height);
+    //     canvas.draw(mw, Some(Vec4::ONE));
 
-        let canvas_id = canvas.snapshot(mw, 0, 0, width, height);
+    //     let canvas_id = canvas.snapshot(mw, 0, 0, width, height);
 
-        let mut basic_brush = mw.new_brush();
-        basic_brush.color = Vec4::new(0.0, 0.0, 0.0, 1.0);
-        basic_brush.size = 20.0 * scale;
-        basic_brush.spacing = 2.0 * scale;
-        basic_brush.hardness = 0.9;
+    //     let mut basic_brush = mw.new_brush();
+    //     basic_brush.color = Vec4::new(0.0, 0.0, 0.0, 1.0);
+    //     basic_brush.size = 20.0 * scale;
+    //     basic_brush.spacing = 2.0 * scale;
+    //     basic_brush.hardness = 0.9;
 
-        mw.draw_stroke(
-            canvas_id, 
-            &basic_brush, 
-            Vec2::new(50.0 * scale, 100.0 * scale), 
-            Vec2::new(750.0 * scale, 100.0 * scale)
-        );
+    //     mw.draw_stroke(
+    //         canvas_id, 
+    //         &basic_brush, 
+    //         Vec2::new(50.0 * scale, 100.0 * scale), 
+    //         Vec2::new(750.0 * scale, 100.0 * scale)
+    //     );
 
-        let mut callig_brush = mw.new_brush();
-        callig_brush.color = Vec4::new(0.8, 0.0, 0.0, 1.0);
-        callig_brush.size = 40.0 * scale;
-        callig_brush.spacing = 1.0 * scale;
-        callig_brush.roundness = 0.2;
-        callig_brush.angle = 45.0f32.to_radians();
-        callig_brush.hardness = 1.0;
+    //     let mut callig_brush = mw.new_brush();
+    //     callig_brush.color = Vec4::new(0.8, 0.0, 0.0, 1.0);
+    //     callig_brush.size = 40.0 * scale;
+    //     callig_brush.spacing = 1.0 * scale;
+    //     callig_brush.roundness = 0.2;
+    //     callig_brush.angle = 45.0f32.to_radians();
+    //     callig_brush.hardness = 1.0;
 
-        for i in 0..10 {
-            let x1 = 50.0 + (i as f32 * 70.0);
-            let y1 = 250.0 + (if i % 2 == 0 { -50.0 } else { 50.0 });
-            let x2 = 50.0 + ((i + 1) as f32 * 70.0);
-            let y2 = 250.0 + (if (i + 1) % 2 == 0 { -50.0 } else { 50.0 });
+    //     for i in 0..10 {
+    //         let x1 = 50.0 + (i as f32 * 70.0);
+    //         let y1 = 250.0 + (if i % 2 == 0 { -50.0 } else { 50.0 });
+    //         let x2 = 50.0 + ((i + 1) as f32 * 70.0);
+    //         let y2 = 250.0 + (if (i + 1) % 2 == 0 { -50.0 } else { 50.0 });
             
-            mw.draw_stroke(
-                canvas_id, 
-                &callig_brush, 
-                Vec2::new(x1 * scale, y1 * scale), 
-                Vec2::new(x2 * scale, y2 * scale)
-            );
+    //         mw.draw_stroke(
+    //             canvas_id, 
+    //             &callig_brush, 
+    //             Vec2::new(x1 * scale, y1 * scale), 
+    //             Vec2::new(x2 * scale, y2 * scale)
+    //         );
+    //     }
+
+    //     let mut grass_brush = mw.new_brush();
+    //     grass_brush.color = Vec4::new(0.0, 0.6, 0.0, 0.5);
+    //     grass_brush.size = 30.0 * scale;
+    //     grass_brush.spacing = 15.0 * scale;
+    //     grass_brush.roundness = 0.5;
+    //     grass_brush.hardness = 0.5;
+    //     grass_brush.follow_direction = true;
+        
+    //     grass_brush.jitter_position = 0.5;
+    //     grass_brush.jitter_angle = 0.5;
+    //     grass_brush.jitter_size = 0.5;
+    //     grass_brush.jitter_opacity = 0.3;
+
+    //     mw.draw_stroke(
+    //         canvas_id, 
+    //         &grass_brush, 
+    //         Vec2::new(50.0 * scale, 450.0 * scale), 
+    //         Vec2::new(750.0 * scale, 450.0 * scale)
+    //     );
+
+    //     let mut eraser = mw.new_brush();
+    //     eraser.is_eraser = true;
+    //     eraser.size = 60.0 * scale;
+    //     eraser.hardness = 0.5;
+    //     eraser.spacing = 5.0 * scale;
+
+    //     mw.draw_stroke(
+    //         canvas_id,
+    //         &eraser,
+    //         Vec2::new(400.0 * scale, 50.0 * scale),
+    //         Vec2::new(400.0 * scale, 550.0 * scale)
+    //     );
+
+    //     let mut dark_bg_brush = mw.new_brush();
+    //     dark_bg_brush.color = Vec4::new(0.1, 0.1, 0.3, 1.0);
+    //     dark_bg_brush.size = 150.0 * scale;
+    //     dark_bg_brush.hardness = 1.0;
+    //     mw.draw_stroke(canvas_id, &dark_bg_brush, Vec2::new(600.0 * scale, 300.0 * scale), Vec2::new(750.0 * scale, 300.0 * scale));
+
+    //     let mut fire_brush = mw.new_brush();
+    //     fire_brush.blend_mode = moonwalk::BlendMode::Add;
+    //     fire_brush.color = Vec4::new(1.0, 0.5, 0.0, 0.1);
+    //     fire_brush.size = 50.0 * scale;
+    //     fire_brush.hardness = 0.0;
+    //     fire_brush.spacing = 5.0 * scale;
+        
+    //     mw.draw_stroke(canvas_id, &fire_brush, Vec2::new(620.0 * scale, 300.0 * scale), Vec2::new(620.0 * scale, 250.0 * scale));
+    //     mw.draw_stroke(canvas_id, &fire_brush, Vec2::new(620.0 * scale, 300.0 * scale), Vec2::new(640.0 * scale, 260.0 * scale));
+
+    //     let mut light_brush = mw.new_brush();
+    //     light_brush.blend_mode = moonwalk::BlendMode::Screen;
+    //     light_brush.color = Vec4::new(0.0, 1.0, 1.0, 0.2);
+    //     light_brush.size = 60.0 * scale;
+    //     light_brush.hardness = 0.2;
+    //     mw.draw_stamp(canvas_id, &light_brush, Vec2::new(700.0 * scale, 300.0 * scale));
+
+    //     let mut marker_brush = mw.new_brush();
+    //     marker_brush.blend_mode = moonwalk::BlendMode::Multiply;
+    //     marker_brush.size = 60.0 * scale;
+    //     marker_brush.hardness = 0.8;
+        
+    //     marker_brush.color = Vec4::new(0.0, 1.0, 1.0, 0.5); 
+    //     mw.draw_stamp(canvas_id, &marker_brush, Vec2::new(100.0 * scale, 50.0 * scale));
+        
+    //     marker_brush.color = Vec4::new(1.0, 0.0, 1.0, 0.5); 
+    //     mw.draw_stamp(canvas_id, &marker_brush, Vec2::new(140.0 * scale, 50.0 * scale));
+
+    //     let mut sub_brush = mw.new_brush();
+    //     sub_brush.blend_mode = moonwalk::BlendMode::Subtract;
+    //     sub_brush.color = Vec4::new(0.0, 0.0, 1.0, 1.0);
+    //     sub_brush.size = 40.0 * scale;
+    //     mw.draw_stroke(canvas_id, &sub_brush, Vec2::new(200.0 * scale, 50.0 * scale), Vec2::new(300.0 * scale, 50.0 * scale));
+
+    //     let display = mw.new_rect();
+    //     mw.set_texture(display, canvas_id);
+
+    //     mw.set_size(display, Vec2::new(800.0, 600.0));
+    //     mw.set_position(display, Vec2::ZERO);
+    // }
+
+    fn on_start(&mut self, mw: &mut MoonWalk, _viewport: Vec2) {
+        let start_x = 100.0;
+        let y_pos = 50.0;
+        let card_size = Vec2::new(180.0, 120.0);
+        let gap = 40.0;
+        let radius = 20.0;
+        let scale_factor = mw.get_scale_factor();
+
+        let primary = Vec4::new(0.42, 0.18, 0.92, 1.0);
+        let surface = Vec4::new(0.98, 0.98, 1.0, 1.0);
+
+        let effect_factory = mw.new_effect_factory();
+
+        for level in 1..=5 {
+            let card_id = mw.new_rect();
+            let x_pos = start_x + ((level - 1) as f32 * (card_size.x + gap));
+            let position = Vec2::new(x_pos, y_pos);
+
+            mw.set_position(card_id, position);
+            mw.set_size(card_id, card_size);
+            mw.set_rounded(card_id, Vec4::splat(radius));
+            mw.set_z_index(card_id, 1.0); 
+
+            let el_data = effect_factory.get_elevation(level);
+
+            let t = el_data.tonal_alpha;
+            let color_mix = surface * (1.0 - t) + primary * t;
+            mw.set_color(card_id, Vec4::new(color_mix.x, color_mix.y, color_mix.z, 1.0));
+
+            let (shadow1, shadow2, shadow3) = effect_factory.new_shadow(mw, None, card_id, el_data)
+                .unwrap();
+            mw.new_shadow_object(card_id, el_data, shadow1, shadow2, shadow3, scale_factor).unwrap();
         }
-
-        let mut grass_brush = mw.new_brush();
-        grass_brush.color = Vec4::new(0.0, 0.6, 0.0, 0.5);
-        grass_brush.size = 30.0 * scale;
-        grass_brush.spacing = 15.0 * scale;
-        grass_brush.roundness = 0.5;
-        grass_brush.hardness = 0.5;
-        grass_brush.follow_direction = true;
-        
-        grass_brush.jitter_position = 0.5;
-        grass_brush.jitter_angle = 0.5;
-        grass_brush.jitter_size = 0.5;
-        grass_brush.jitter_opacity = 0.3;
-
-        mw.draw_stroke(
-            canvas_id, 
-            &grass_brush, 
-            Vec2::new(50.0 * scale, 450.0 * scale), 
-            Vec2::new(750.0 * scale, 450.0 * scale)
-        );
-
-        let mut eraser = mw.new_brush();
-        eraser.is_eraser = true;
-        eraser.size = 60.0 * scale;
-        eraser.hardness = 0.5;
-        eraser.spacing = 5.0 * scale;
-
-        mw.draw_stroke(
-            canvas_id,
-            &eraser,
-            Vec2::new(400.0 * scale, 50.0 * scale),
-            Vec2::new(400.0 * scale, 550.0 * scale)
-        );
-
-        let mut dark_bg_brush = mw.new_brush();
-        dark_bg_brush.color = Vec4::new(0.1, 0.1, 0.3, 1.0);
-        dark_bg_brush.size = 150.0 * scale;
-        dark_bg_brush.hardness = 1.0;
-        mw.draw_stroke(canvas_id, &dark_bg_brush, Vec2::new(600.0 * scale, 300.0 * scale), Vec2::new(750.0 * scale, 300.0 * scale));
-
-        let mut fire_brush = mw.new_brush();
-        fire_brush.blend_mode = moonwalk::BlendMode::Add;
-        fire_brush.color = Vec4::new(1.0, 0.5, 0.0, 0.1);
-        fire_brush.size = 50.0 * scale;
-        fire_brush.hardness = 0.0;
-        fire_brush.spacing = 5.0 * scale;
-        
-        mw.draw_stroke(canvas_id, &fire_brush, Vec2::new(620.0 * scale, 300.0 * scale), Vec2::new(620.0 * scale, 250.0 * scale));
-        mw.draw_stroke(canvas_id, &fire_brush, Vec2::new(620.0 * scale, 300.0 * scale), Vec2::new(640.0 * scale, 260.0 * scale));
-
-        let mut light_brush = mw.new_brush();
-        light_brush.blend_mode = moonwalk::BlendMode::Screen;
-        light_brush.color = Vec4::new(0.0, 1.0, 1.0, 0.2);
-        light_brush.size = 60.0 * scale;
-        light_brush.hardness = 0.2;
-        mw.draw_stamp(canvas_id, &light_brush, Vec2::new(700.0 * scale, 300.0 * scale));
-
-        let mut marker_brush = mw.new_brush();
-        marker_brush.blend_mode = moonwalk::BlendMode::Multiply;
-        marker_brush.size = 60.0 * scale;
-        marker_brush.hardness = 0.8;
-        
-        marker_brush.color = Vec4::new(0.0, 1.0, 1.0, 0.5); 
-        mw.draw_stamp(canvas_id, &marker_brush, Vec2::new(100.0 * scale, 50.0 * scale));
-        
-        marker_brush.color = Vec4::new(1.0, 0.0, 1.0, 0.5); 
-        mw.draw_stamp(canvas_id, &marker_brush, Vec2::new(140.0 * scale, 50.0 * scale));
-
-        let mut sub_brush = mw.new_brush();
-        sub_brush.blend_mode = moonwalk::BlendMode::Subtract;
-        sub_brush.color = Vec4::new(0.0, 0.0, 1.0, 1.0);
-        sub_brush.size = 40.0 * scale;
-        mw.draw_stroke(canvas_id, &sub_brush, Vec2::new(200.0 * scale, 50.0 * scale), Vec2::new(300.0 * scale, 50.0 * scale));
-
-        let display = mw.new_rect();
-        mw.set_texture(display, canvas_id);
-
-        mw.set_size(display, Vec2::new(800.0, 600.0));
-        mw.set_position(display, Vec2::ZERO);
     }
 
     fn on_update(&mut self, dt: f32) {
@@ -252,9 +287,7 @@ impl Application for TextureApp {
     } 
 
     fn on_draw(&mut self, mw: &mut MoonWalk) {
-        if let Some(id) = self.sprite_id {
-            mw.set_rotation(id, self.angle);
-        }
+        
     }
 
     fn on_resize(&mut self, mw: &mut MoonWalk, viewport: Vec2) {
