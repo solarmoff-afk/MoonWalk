@@ -6,6 +6,7 @@ pub mod uniforms;
 pub mod factory;
 
 use bytemuck::Pod;
+use crevice::std430::{Vec2, Vec4, AsStd430};
 
 use moonwalk_backend::core::context::BackendContext;
 use moonwalk_backend::render::texture::BackendTexture;
@@ -26,6 +27,7 @@ pub struct FilterSystem {
     blur_pipeline: PipelineResult,
     color_pipeline: PipelineResult,
     advanced_pipeline: PipelineResult,
+    liquid_glass_pipeline: PipelineResult,
     
     uniform_layout: RawBindGroupLayout,
     texture_layout: RawBindGroupLayout,
@@ -51,6 +53,8 @@ impl FilterSystem {
             .add_sampler(1, SamplerType::Linear)
             .build(context)?;
 
+        // Нужна отдельная бинд группа так как для маски требуется две текстуры,
+        // основная и сама маска
         let advanced_texture_layout = BindGroup::new()
             .add_texture(0, TextureType::Float)
             .add_sampler(1, SamplerType::Linear)
@@ -60,12 +64,15 @@ impl FilterSystem {
         let blur_pipeline = factory::create_blur_pipeline(context, &uniform_layout, &texture_layout)?;
         let color_pipeline = factory::create_color_pipeline(context, &uniform_layout, &texture_layout)?;
         let advanced_pipeline = factory::create_advanced_pipeline(context, &uniform_layout, &advanced_texture_layout)?;
+
+        let liquid_glass_pipeline = factory::create_liquid_glass_pipeline(context, &uniform_layout, &texture_layout)?;
         
         Ok(Self {
             swap_texture: None,
             blur_pipeline,
             color_pipeline,
             advanced_pipeline,
+            liquid_glass_pipeline,
             uniform_layout,
             texture_layout,
             advanced_texture_layout,
@@ -109,6 +116,55 @@ impl FilterSystem {
         );
 
         self.blit_back(context, target_texture, swap, width, height)?;
+
+        Ok(())
+    }
+
+    pub fn apply_liquid_glass(
+        &mut self,
+        context: &mut BackendContext,
+        target_texture: &BackendTexture,
+        output_texture: &BackendTexture,
+        size: [f32; 2],
+        offset: [f32; 2],
+        corner_radius: [f32; 4],
+        refraction_height: f32,
+        refraction_amount: f32,
+        depth_effect: f32,
+        chromatic_aberration: f32,
+        rotation: f32, 
+        gamma: f32,
+        color: [f32; 4],
+    ) -> Result<(), MoonWalkError> {
+        let width = target_texture.width;
+        let height = target_texture.height; 
+        
+        let uniform_data = LiquidGlassUniform {
+            size: Vec2 { x: size[0], y: size[1] },
+            offset: Vec2 { x: offset[0], y: offset[1] },
+            corner_radius: Vec4 { 
+                x: corner_radius[0], 
+                y: corner_radius[1], 
+                z: corner_radius[2], 
+                w: corner_radius[3] 
+            },
+            resolution: Vec2 { x: width as f32, y: height as f32 },
+            refraction_height,
+            refraction_amount,
+            depth_effect,
+            chromatic_aberration,
+            rotation,
+            gamma,
+            unused_color: Vec4 { x: color[0], y: color[1], z: color[2], w: color[3] },
+        };
+
+        self.execute_pass_liquid(
+            context,
+            &self.liquid_glass_pipeline,
+            target_texture,
+            output_texture,
+            &uniform_data,
+        );
 
         Ok(())
     }
@@ -282,6 +338,44 @@ impl FilterSystem {
 
         self.run_pipeline(context, pipeline, dest, &uniform_bg, &texture_bg)?;
     
+        Ok(())
+    }
+
+    fn execute_pass_liquid<T: AsStd430>(
+        &self,
+        context: &mut BackendContext,
+        pipeline: &PipelineResult,
+        source: &BackendTexture,
+        dest: &BackendTexture,
+        uniform_data: &T,
+    ) -> Result<(), MoonWalkError> {
+        use crevice::std430::Std430;
+    
+        let std430 = uniform_data.as_std430();
+        let uniform_bytes = std430.as_bytes();
+    
+        let uniform_buffer = BackendBuffer::<u8>::uniform_bytes(
+            context, 
+            uniform_bytes
+        )?;
+
+        let uniform_bg = BindGroup::create_uniform_bind_group(
+            &self.uniform_layout,
+            context,
+            &uniform_buffer,
+            Some("Filter Uniform BG")
+        )?;
+
+        let texture_bg = BindGroup::create_texture_bind_group(
+            &self.texture_layout,
+            context,
+            &[(source, 0)],
+            &[(source, 1)],
+            Some("Filter Texture BG")
+        )?;
+
+        self.run_pipeline(context, pipeline, dest, &uniform_bg, &texture_bg)?;
+
         Ok(())
     }
 

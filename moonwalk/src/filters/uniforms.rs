@@ -2,6 +2,7 @@
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
 use bytemuck::{Pod, Zeroable};
+use crevice::std430::{AsStd430, Vec2, Vec4};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -31,4 +32,24 @@ pub struct AdvancedUniform {
     pub key_color: [f32; 3],
     pub tolerance: f32,
     pub params: [f32; 4],
+}
+
+#[derive(Clone, Copy, Debug, AsStd430)]
+pub struct LiquidGlassUniform {
+    // Геометрия
+    pub size: Vec2,
+    pub offset: Vec2,
+    pub corner_radius: Vec4,
+    pub resolution: Vec2,
+
+    // Параметры жидкого стекла
+    pub refraction_height: f32,
+    pub refraction_amount: f32,
+    pub depth_effect: f32,
+    pub chromatic_aberration: f32,
+
+    pub rotation: f32,
+    pub gamma: f32,
+
+    pub unused_color: Vec4,
 }

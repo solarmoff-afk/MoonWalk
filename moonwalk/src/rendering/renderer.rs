@@ -291,21 +291,54 @@ impl MoonRenderer {
 
     pub fn apply_blur(&mut self, texture_id: u32, radius: f32, horizontal: bool) {
         if let Some(texture) = self.state.textures.get_mut(&texture_id) {
-            debug_println!("Blur apply, texture found in state");
             self.filters.apply_blur(&mut self.context, texture, radius, horizontal);
+        }
+    }
+
+    pub fn apply_liquid_glass(
+        &mut self,
+        texture_id: u32,
+        output_texture_id: u32,
+        size: Vec2,
+        offset: Vec2,
+        corner_radius: Vec4,
+        refraction_height: f32,
+        refraction_amount: f32,
+        depth_effect: f32,
+        chromatic_aberration: f32,
+        rotation: f32,
+        gamma: f32,
+        color: Vec4,
+    ) {
+        if let Some(target) = self.state.textures.get(&texture_id) {
+            if let Some(output) = self.state.textures.get(&output_texture_id) {
+                self.filters.apply_liquid_glass(
+                    &mut self.context,
+                    target,
+                    output,
+                    [size.x, size.y],
+                    [offset.x, offset.y],
+                    [corner_radius.x, corner_radius.y, corner_radius.z, corner_radius.w],
+                    refraction_height,
+                    refraction_amount,
+                    depth_effect,
+                    chromatic_aberration,
+                    rotation, 
+                    gamma,
+                    [color.x, color.y, color.z, color.w],
+                );
+            }
         }
     }
 
     pub fn apply_color_matrix(&mut self, texture_id: u32, matrix: [[f32; 4]; 4], offset: [f32; 4]) {
         if let Some(texture) = self.state.textures.get_mut(&texture_id) {
-            debug_println!("Color matrix apply, texture found in state");
             self.filters.apply_color_matrix(&mut self.context, texture, matrix, offset);
         }
     }
     
     pub fn apply_chromakey(&mut self, texture_id: u32, key_color: [f32; 3], tolerance: f32) {
         if let Some(texture) = self.state.textures.get_mut(&texture_id) {
-            debug_println!("Chromakey apply, texture found in state");
             self.filters.apply_chromakey(&mut self.context, texture, key_color, tolerance);
         }
     }
@@ -313,7 +346,6 @@ impl MoonRenderer {
     pub fn apply_stencil(&mut self, target_id: u32, mask_id: u32, invert: bool) {
         if let Some(target) = self.state.textures.get(&target_id) {
             if let Some(mask) = self.state.textures.get(&mask_id) {
-                debug_println!("Stencil apply, textures found in state");
                 self.filters.apply_stencil(&mut self.context, target, mask, invert);
             }
         }

@@ -1,7 +1,7 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
-use glam::{Vec3, Vec4, Mat4};
+use glam::{Vec2, Vec3, Vec4, Mat4};
 
 use crate::MoonWalk;
 
@@ -75,5 +75,45 @@ impl MoonWalk {
         let off_arr = offset.to_array();
 
         self.renderer.apply_color_matrix(texture_id, mat_arr, off_arr);
+    }
+
+    /// 
+    pub fn liquid_glass(
+        &mut self,
+        texture_id: u32,
+        output_texture_id: u32,
+        size: Vec2,
+        offset: Vec2,
+        corner_radius: Vec4,
+        refraction_height: f32,
+        refraction_amount: f32,
+        depth_effect: f32,
+        chromatic_aberration: f32,
+        rotation: f32,
+        gamma: f32,
+        color: Vec4,
+    ) {
+        let scale = self.get_scale_factor();
+
+        let physical_size = size * scale;
+        let physical_offset = offset * scale;
+        let physical_radii = corner_radius * scale;
+        let physical_height = refraction_height * scale;
+        let physical_amount = refraction_amount * scale;
+
+        self.renderer.apply_liquid_glass(
+            texture_id,
+            output_texture_id,
+            physical_size,
+            physical_offset,
+            physical_radii,
+            physical_height,
+            physical_amount,
+            depth_effect,
+            chromatic_aberration,
+            rotation, 
+            gamma,
+            color,
+        )
     }
 }
