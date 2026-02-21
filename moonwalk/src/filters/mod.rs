@@ -28,6 +28,7 @@ pub struct FilterSystem {
     color_pipeline: PipelineResult,
     advanced_pipeline: PipelineResult,
     liquid_glass_pipeline: PipelineResult,
+    mesh_gradient_pipeline: PipelineResult,
     
     uniform_layout: RawBindGroupLayout,
     texture_layout: RawBindGroupLayout,
@@ -66,13 +67,15 @@ impl FilterSystem {
         let advanced_pipeline = factory::create_advanced_pipeline(context, &uniform_layout, &advanced_texture_layout)?;
 
         let liquid_glass_pipeline = factory::create_liquid_glass_pipeline(context, &uniform_layout, &texture_layout)?;
-        
+        let mesh_gradient_pipeline = factory::create_mesh_gradient_pipeline(context, &uniform_layout, &texture_layout)?;
+
         Ok(Self {
             swap_texture: None,
             blur_pipeline,
             color_pipeline,
             advanced_pipeline,
             liquid_glass_pipeline,
+            mesh_gradient_pipeline,
             uniform_layout,
             texture_layout,
             advanced_texture_layout,
@@ -169,6 +172,56 @@ impl FilterSystem {
         Ok(())
     }
 
+    pub fn apply_mesh_gradient(
+        &mut self,
+        context: &mut BackendContext,
+        target_texture: &BackendTexture,
+        colors_glam: [glam::Vec4; 9],
+        pos_glam: [glam::Vec4; 9],
+        noise_intensity: f32,
+        warp_strength: f32,
+        warp_phase: f32,
+        gamma: f32,
+        normal_blend_mode: bool,
+    ) -> Result<(), MoonWalkError> {
+        let width = target_texture.width;
+        let height = target_texture.height;
+
+        let blend_mode: u32 = if normal_blend_mode {
+            0
+        } else {
+            1
+        };
+
+        self.ensure_swap_texture(context, width, height, target_texture.config.get_format());
+        let swap = self.swap_texture.as_ref()
+             .ok_or(MoonWalkError::TextureLoading("Failed to get filters system swap texture ref".to_string()))?;
+
+        let uniform_data = MeshGradientUniform {
+            colors: colors_glam.map(|c| c.to_array()),
+            positions: pos_glam.map(|p| p.to_array()),
+            resolution: [width as f32, height as f32],
+            noise_intensity,
+            warp_strength,
+            warp_phase,
+            gamma,
+            blend_mode,
+            pad0: 0.0,
+        };
+
+        self.execute_pass(
+            context,
+            &self.mesh_gradient_pipeline,
+            target_texture,
+            swap,
+            &uniform_data,
+        );
+
+        self.blit_back(context, target_texture, swap, width, height)?;
+
+        Ok(())
+    }
+
     pub fn apply_color_matrix(
         &mut self,
         context: &mut BackendContext,
@@ -180,7 +233,8 @@ impl FilterSystem {
         let height = target_texture.height;
         
         self.ensure_swap_texture(context, width, height, target_texture.config.get_format());
-        let swap = self.swap_texture.as_ref().unwrap();
+        let swap = self.swap_texture.as_ref()
+             .ok_or(MoonWalkError::TextureLoading("Failed to get filters system swap texture ref".to_string()))?;
 
         let uniform_data = ColorMatrixUniform {
             matrix, offset
@@ -210,7 +264,8 @@ impl FilterSystem {
         let height = target_texture.height;
         
         self.ensure_swap_texture(context, width, height, target_texture.config.get_format());
-        let swap = self.swap_texture.as_ref().unwrap();
+        let swap = self.swap_texture.as_ref()
+             .ok_or(MoonWalkError::TextureLoading("Failed to get filters system swap texture ref".to_string()))?;
 
         let uniform_data = AdvancedUniform {
             key_color,
@@ -242,7 +297,8 @@ impl FilterSystem {
         let height = target_texture.height;
         
         self.ensure_swap_texture(context, width, height, target_texture.config.get_format());
-        let swap = self.swap_texture.as_ref().unwrap();
+        let swap = self.swap_texture.as_ref()
+            .ok_or(MoonWalkError::TextureLoading("Failed to get filters system swap texture ref".to_string()))?;
 
         let uniform_data = AdvancedUniform {
             key_color: [0.0; 3],

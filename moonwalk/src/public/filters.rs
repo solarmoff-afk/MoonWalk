@@ -116,4 +116,22 @@ impl MoonWalk {
             color,
         )
     }
+
+    ///
+    pub fn mesh_gradient(
+        &mut self,
+        texture_id: u32,
+        colors: [Vec4; 9],
+        pos: [Vec4; 9],
+        noise_intensity: f32,
+        warp_strength: f32,
+        warp_phase: f32,
+        gamma: f32,
+        normal_blend_mode: bool,
+    ) {
+        self.renderer.apply_mesh_gradient(
+            texture_id, colors, pos, noise_intensity, warp_strength,
+            warp_phase, gamma, normal_blend_mode
+        );
+    }
 }

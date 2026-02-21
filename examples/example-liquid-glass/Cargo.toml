@@ -9,7 +9,7 @@ edition = "2024"
 # path = "src/main.rs"
 
 [[bin]]
-name = "example"
+name = "example-liquid-glass"
 path = "src/main.rs"
 
 [dependencies]

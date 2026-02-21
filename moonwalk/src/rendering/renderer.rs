@@ -308,7 +308,7 @@ impl MoonRenderer {
         chromatic_aberration: f32,
         rotation: f32,
         gamma: f32,
-        color: Vec4,
+        color: Vec4, // TODO
     ) {
         if let Some(target) = self.state.textures.get(&texture_id) {
             if let Some(output) = self.state.textures.get(&output_texture_id) {
@@ -328,6 +328,32 @@ impl MoonRenderer {
                     [color.x, color.y, color.z, color.w],
                 );
             }
+        }
+    }
+
+    pub fn apply_mesh_gradient(
+        &mut self,
+        texture_id: u32,
+        colors: [Vec4; 9],
+        pos: [Vec4; 9],
+        noise_intensity: f32,
+        warp_strength: f32,
+        warp_phase: f32,
+        gamma: f32,
+        normal_blend_mode: bool,
+    ) {
+        if let Some(target) = self.state.textures.get(&texture_id) {
+            self.filters.apply_mesh_gradient(
+                &mut self.context,
+                target,
+                colors,
+                pos,
+                noise_intensity,
+                warp_strength,
+                warp_phase,
+                gamma,
+                normal_blend_mode,
+            );
         }
     }
 

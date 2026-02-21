@@ -53,3 +53,17 @@ pub struct LiquidGlassUniform {
 
     pub unused_color: Vec4,
 }
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct MeshGradientUniform {
+    pub colors: [[f32; 4]; 9],
+    pub positions: [[f32; 4]; 9],
+    pub resolution: [f32; 2],
+    pub noise_intensity: f32,
+    pub warp_strength: f32,
+    pub warp_phase: f32,
+    pub gamma: f32,
+    pub blend_mode: u32,
+    pub pad0: f32,
+}

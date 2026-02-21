@@ -91,3 +91,22 @@ pub fn create_liquid_glass_pipeline(
 
     Ok(result)
 }
+
+pub fn create_mesh_gradient_pipeline(
+    context: &mut BackendContext,
+    uniform_layout: &RawBindGroupLayout,
+    texture_layout: &RawBindGroupLayout,
+) -> Result<PipelineResult, MoonWalkError> {
+    let format = context.get_format();
+    let result = BackendPipeline::new(include_str!("shaders/mesh_gradient.wgsl"))
+        .vertex_shader("vs_main")
+        .fragment_shader("fs_main")
+        .add_vertex_layout(VertexLayout::new()
+        .stride(0)
+        .step_mode(StepMode::Vertex))
+        .blend(BlendMode::None)
+        .label("mesh_gradient_filter")
+        .build(context, format, &[uniform_layout, texture_layout])?;
+
+    Ok(result)
+}
