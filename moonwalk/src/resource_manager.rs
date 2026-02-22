@@ -68,6 +68,7 @@ impl ResourceManager {
         //     .unwrap_or("Unknown Texture");
 
         let mut texture = BackendTexture::new(0, 0);
+        texture.config.set_format(context.get_format());
         texture.from_bytes(context, &bytes);
 
         Ok(texture)
@@ -105,6 +106,7 @@ impl ResourceManager {
         //     .unwrap_or("Unknown Texture");
         
         let texture = BackendTexture::new(0, 0);
+        texture.config.set_format(context.get_format());
         texture.from_bytes(ctx, &bytes);
         
         texture

@@ -115,9 +115,11 @@ impl CustomPaint {
         _label: &str,
     ) -> Result<Self, MoonBackendError> {
         let mut render_target_texture = BackendTexture::new(width, height);
+        render_target_texture.config.set_format(backend_context.get_format());
         render_target_texture.create_render_target(backend_context, width, height)?;
 
         let mut depth_texture = BackendTexture::new(width, height);
+        depth_texture.config.set_format(backend_context.get_format());
         depth_texture.create_depth_texture(backend_context, width, height)?;
 
         Ok(Self {
@@ -242,6 +244,7 @@ impl CustomPaint {
     pub fn snapshot(&mut self, moonwalk: &mut MoonWalk) -> u32 {
         let context = &mut moonwalk.renderer.context;
         let mut snapshot_texture = BackendTexture::new(self.width, self.height);
+        snapshot_texture.config.set_format(context.get_format());
         let _ = snapshot_texture.create_render_target(context, self.width, self.height);
 
         let id = moonwalk.renderer.state.add_texture(snapshot_texture);

@@ -128,6 +128,7 @@ impl MoonRenderer {
     /// и запекает (Снапшотит/скриншотит) туда экран когда приходит время
     pub fn request_snapshot(&mut self, x: u32, y: u32, w: u32, h: u32) -> u32 {
         let mut texture = BackendTexture::new(w, h);
+        texture.config.set_format(self.context.get_format());
         texture.create_render_target(&mut self.context, w, h);
 
         // Регистрируем текстуру в состоянии чтобы добавить в очередь на снапшот
@@ -327,6 +328,42 @@ impl MoonRenderer {
                     gamma,
                     [color.x, color.y, color.z, color.w],
                 );
+            }
+        }
+    }
+
+    pub fn apply_liquid_glass_mask(
+        &mut self,
+        texture_id: u32,
+        mask_texture_id: u32,
+        output_texture_id: u32,
+        size: Vec2,
+        offset: Vec2, 
+        refraction_amount: f32,
+        refraction_height: f32, 
+        depth_effect: f32,
+        chromatic_aberration: f32,
+        tolerance: f32,
+        gamma: f32,
+    ) {
+        if let Some(target) = self.state.textures.get(&texture_id) {
+            if let Some(mask) = self.state.textures.get(&mask_texture_id) {
+                if let Some(output) = self.state.textures.get(&output_texture_id) {
+                    self.filters.apply_liquid_glass_mask(
+                        &mut self.context,
+                        target,
+                        mask,
+                        output,
+                        [size.x, size.y],
+                        [offset.x, offset.y],
+                        refraction_height,
+                        refraction_amount,
+                        depth_effect,
+                        chromatic_aberration,
+                        tolerance,
+                        gamma,
+                    );
+                }
             }
         }
     }

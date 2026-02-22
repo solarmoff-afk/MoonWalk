@@ -1,5 +1,5 @@
-// Часть проекта MoonWalk. Copyright (c) 2026 MoonWalk
-// Фильтр "Liquid Silk Mesh" (Gaussian IDW + Fractal Warping)
+// Часть проекта MoonWalk с открытым исходным кодом.
+// Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
 struct MeshUniforms {
     colors: array<vec4<f32>, 9>,

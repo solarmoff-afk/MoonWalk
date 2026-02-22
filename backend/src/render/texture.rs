@@ -1,14 +1,21 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
+use std::cell::RefCell;
+use std::thread_local;
+use image::GenericImageView;
+
 use crate::core::context::{BackendContext, RawContext};
 use crate::error::MoonBackendError;
 use crate::pipeline::bind::RawBindGroup;
-use image::GenericImageView;
+
+thread_local! {
+    static CONVERT_BUFFER: RefCell<Vec<u8>> = RefCell::new(Vec::new());
+}
 
 // Абстрация над wgpu, добавить другие типы по необходимости, но этих двух должно
 // хватить для кейсов использования MoonWalk
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum BackendTextureFormat {
     // Стандарт
     Rgba8UnormSrgb = 1,
@@ -147,17 +154,42 @@ impl BackendTexture {
             .map_err(|e| MoonBackendError::IOError(e.to_string()))?;
             
         self.from_image(context, &img)
-    }
+    } 
 
     pub fn from_image(
         &mut self,
         context: &mut BackendContext,
         img: &image::DynamicImage,
     ) -> Result<(), MoonBackendError> {
+        let format = self.config.get_format();
+        
         let rgba = img.to_rgba8();
-        let dimensions = img.dimensions();
-
-        self.from_raw(context, &rgba, dimensions.0, dimensions.1)
+        let width = img.width();
+        let height = img.height();
+       
+        // Для того чтобы спокойно копировать текстуры при создании
+        // в качестве формата текстуры используется формат контекста,
+        // но из-за этого каналы могу сдвигаться, так как некоторые
+        // драйверы устанавливают Bgra для поверхности, что приводит
+        // к неправильному отображению текстур. Решаем это конвертацией
+        // в RGBA, для других форматов возвращаем данные в исходном
+        // формате так как драйвер может установить для поверхности
+        // только RGBA или BGRA, так что если формат другой то
+        // это сознательный выбор пользователя
+        if matches!(format, BackendTextureFormat::Bgra8UnormSrgb) {
+            CONVERT_BUFFER.with(|buffer_cell| {
+                let mut buffer = buffer_cell.borrow_mut();
+                buffer.clear();
+                buffer.reserve(rgba.len());
+                
+                let chunks = rgba.chunks_exact(4);
+                buffer.extend(chunks.flat_map(|p| [p[2], p[1], p[0], p[3]]));
+                
+                self.from_raw(context, buffer.as_slice(), width, height)
+            })
+        } else {
+            self.from_raw(context, rgba.as_ref(), width, height)
+        }
     }
 
     pub fn from_raw(

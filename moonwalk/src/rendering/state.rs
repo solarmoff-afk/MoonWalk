@@ -212,6 +212,8 @@ impl RenderState {
         // создать текстуру нужного размера, но для его использлвания
         // нужен уже существующий экземлпляр
         let mut texture = BackendTexture::new(1, 1);
+        let format = context.get_format();
+        texture.config.set_format(format);
         texture.from_bytes(context, bytes);
         
         let id = self.next_texture_id;

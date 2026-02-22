@@ -117,6 +117,44 @@ impl MoonWalk {
         )
     }
 
+    /// 
+    pub fn liquid_glass_mask(
+        &mut self,
+        texture_id: u32,
+        mask_id: u32,
+        output_texture_id: u32,
+        size: Vec2,
+        offset: Vec2,
+        refraction_height: f32,
+        refraction_amount: f32,
+        depth_effect: f32,
+        chromatic_aberration: f32,
+        gamma: f32,
+        tolerance: f32,
+        _color: Vec4, // TODO        
+    ) {
+        let scale = self.get_scale_factor();
+
+        let physical_size = size * scale;
+        let physical_offset = offset * scale;
+        let physical_height = refraction_height * scale;
+        let physical_amount = refraction_amount * scale;
+
+        self.renderer.apply_liquid_glass_mask(
+            texture_id,
+            mask_id,
+            output_texture_id,
+            physical_size,
+            physical_offset,
+            physical_height,
+            physical_amount,
+            depth_effect,
+            chromatic_aberration,
+            tolerance,
+            gamma,
+        )
+    }
+
     ///
     pub fn mesh_gradient(
         &mut self,

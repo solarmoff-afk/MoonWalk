@@ -29,6 +29,7 @@ pub struct FilterSystem {
     advanced_pipeline: PipelineResult,
     liquid_glass_pipeline: PipelineResult,
     mesh_gradient_pipeline: PipelineResult,
+    liquid_glass_mask_pipeline: PipelineResult,
     
     uniform_layout: RawBindGroupLayout,
     texture_layout: RawBindGroupLayout,
@@ -68,6 +69,7 @@ impl FilterSystem {
 
         let liquid_glass_pipeline = factory::create_liquid_glass_pipeline(context, &uniform_layout, &texture_layout)?;
         let mesh_gradient_pipeline = factory::create_mesh_gradient_pipeline(context, &uniform_layout, &texture_layout)?;
+        let liquid_glass_mask_pipeline = factory::create_liquid_glass_mask_pipeline(context, &uniform_layout, &advanced_texture_layout)?;
 
         Ok(Self {
             swap_texture: None,
@@ -76,6 +78,7 @@ impl FilterSystem {
             advanced_pipeline,
             liquid_glass_pipeline,
             mesh_gradient_pipeline,
+            liquid_glass_mask_pipeline,
             uniform_layout,
             texture_layout,
             advanced_texture_layout,
@@ -262,8 +265,9 @@ impl FilterSystem {
     ) -> Result<(), MoonWalkError> {
         let width = target_texture.width;
         let height = target_texture.height;
+        let format = context.get_format();
         
-        self.ensure_swap_texture(context, width, height, target_texture.config.get_format());
+        self.ensure_swap_texture(context, width, height, format);
         let swap = self.swap_texture.as_ref()
              .ok_or(MoonWalkError::TextureLoading("Failed to get filters system swap texture ref".to_string()))?;
 
@@ -275,6 +279,7 @@ impl FilterSystem {
 
         self.execute_advanced_pass(
             context,
+            &self.advanced_pipeline,
             target_texture,
             target_texture,
             swap,
@@ -295,8 +300,9 @@ impl FilterSystem {
     ) -> Result<(), MoonWalkError> {
         let width = target_texture.width;
         let height = target_texture.height;
+        let format = context.get_format();
         
-        self.ensure_swap_texture(context, width, height, target_texture.config.get_format());
+        self.ensure_swap_texture(context, width, height, format);
         let swap = self.swap_texture.as_ref()
             .ok_or(MoonWalkError::TextureLoading("Failed to get filters system swap texture ref".to_string()))?;
 
@@ -312,6 +318,7 @@ impl FilterSystem {
 
         self.execute_advanced_pass(
             context,
+            &self.advanced_pipeline,
             target_texture,
             mask_texture,
             swap,
@@ -320,6 +327,49 @@ impl FilterSystem {
 
         self.blit_back(context, target_texture, swap, width, height)?;
     
+        Ok(())
+    }
+
+    pub fn apply_liquid_glass_mask(
+        &mut self,
+        context: &mut BackendContext,
+        target_texture: &BackendTexture,
+        mask_texture: &BackendTexture,
+        output_texture: &BackendTexture,
+        size: [f32; 2],
+        offset: [f32; 2],
+        refraction_amount: f32,
+        refraction_height: f32, 
+        depth_effect: f32,
+        chromatic_aberration: f32,
+        tolerance: f32,
+        gamma: f32,
+    ) -> Result<(), MoonWalkError> {
+        let width = target_texture.width;
+        let height = target_texture.height; 
+
+        let uniform_data = LiquidGlassMaskUniform {
+            size,
+            offset,
+            resolution: [width as f32, height as f32],
+            refraction_amount,
+            refraction_height, 
+            depth_effect,
+            chromatic_aberration,
+            tolerance,
+            gamma,
+            _pad: [0.0, 0.0, 0.0, 0.0],
+        };
+
+        self.execute_advanced_pass(
+            context,
+            &self.liquid_glass_mask_pipeline,
+            target_texture,
+            mask_texture,
+            output_texture,
+            &uniform_data,
+        );
+
         Ok(())
     }
 
@@ -438,6 +488,7 @@ impl FilterSystem {
     fn execute_advanced_pass<T: Pod>(
         &self,
         context: &mut BackendContext,
+        pipeline: &PipelineResult,
         source: &BackendTexture,
         mask: &BackendTexture,
         dest: &BackendTexture,
@@ -463,7 +514,7 @@ impl FilterSystem {
             Some("Advanced Texture BG")
         )?;
 
-        self.run_pipeline(context, &self.advanced_pipeline, dest, &uniform_bg, &texture_bg)?;
+        self.run_pipeline(context, pipeline, dest, &uniform_bg, &texture_bg)?;
     
         Ok(())
     }

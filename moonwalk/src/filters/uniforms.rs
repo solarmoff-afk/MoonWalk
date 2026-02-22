@@ -67,3 +67,18 @@ pub struct MeshGradientUniform {
     pub blend_mode: u32,
     pub pad0: f32,
 }
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct LiquidGlassMaskUniform {
+    pub size: [f32; 2],
+    pub offset: [f32; 2],
+    pub resolution: [f32; 2],
+    pub refraction_amount: f32,
+    pub refraction_height: f32, 
+    pub depth_effect: f32,
+    pub chromatic_aberration: f32,
+    pub tolerance: f32,
+    pub gamma: f32,
+    pub _pad: [f32; 4],
+}

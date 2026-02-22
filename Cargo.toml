@@ -14,6 +14,7 @@ members = [
     "lua",
     "backend",
     "examples/example-liquid-glass",
+    "examples/example-liquid-mask",
 ]
 
 [profile.release]
