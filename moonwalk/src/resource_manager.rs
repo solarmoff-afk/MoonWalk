@@ -59,6 +59,34 @@ impl ResourceManager {
         }
     }
 
+    /// Дополнительный загрузчик для текстовых файлов в utf8. Работает так же как и
+    /// read_bytes, но возвращает String
+    pub fn read_text(&self, path: &str) -> Result<String, MoonWalkError> {
+        #[cfg(target_os = "android")]
+        {
+            if path.starts_with('/') {
+                std::fs::read_to_string(path).map_err(|e| MoonWalkError::IOError(e.to_string()))
+            } else {
+                let c_path = CString::new(path)
+                    .map_err(|e| MoonWalkError::IOError(format!("Invalid path string: {}", e)))?;
+                
+                let mut asset = self.asset_manager.open(&c_path)
+                    .ok_or_else(|| MoonWalkError::IOError(format!("Asset not found: {}", path)))?;
+                
+                let data = asset.buffer().map(|b| b.to_vec())
+                    .map_err(|e| MoonWalkError::IOError(e.to_string()))?;
+
+                String::from_utf8(data.to_vec())
+                    .map_err(|e| MoonWalkError::Utf8Error(e.to_string()))
+            }
+        }
+
+        #[cfg(not(target_os = "android"))]
+        {
+            std::fs::read_to_string(path).map_err(|e| MoonWalkError::IOError(e.to_string()))
+        }
+    }
+
     /// Загружает текстуру из файла через gpu контекст и путь к нему
     pub fn load_texture(&self, context: &mut BackendContext, path: &str) -> Result<BackendTexture, MoonWalkError> {
         let bytes = self.read_bytes(path)?;

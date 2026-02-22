@@ -5,7 +5,7 @@ use crate::error;
 use crate::{MoonWalk, FontAsset};
 
 impl MoonWalk {
-    /// Эта функция агружает текстуру из файла через его путь
+    /// Этот метод агружает текстуру из файла через его путь
     ///  [!] Данная функция очень медленная, не рекомендуется подгружать всё
     ///      при старте программы
     /// На windows, linux, macos, bsd и android указывается путь в файловой системе
@@ -21,6 +21,16 @@ impl MoonWalk {
         let id = self.renderer.register_texture(texture);
         
         Ok(id)
+    }
+
+    /// Этот метод читает utf8 файл и возвращает его содержимое в String 
+    /// который обёрнут в Result. Работает на android
+    ///
+    /// [?] Android примеры:
+    ///  "test.txt" - файл test.txt из assets приложения
+    ///  "data/data/com.example.package/file/test.txt" - файл test.txt из файловой системы
+    pub fn load_utf8(&self, path: &str) -> Result<String, error::MoonWalkError> {
+        Ok(self.resources.read_text(path)?)
     }
 
     /// Эта функция очищает текстуру из памяти. Текстура после очищения просто
