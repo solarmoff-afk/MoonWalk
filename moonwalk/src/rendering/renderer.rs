@@ -394,6 +394,12 @@ impl MoonRenderer {
         }
     }
 
+    pub fn apply_sdf_mask(&mut self, texture_id: u32, radius: f32, hardness: f32) {
+        if let Some(texture) = self.state.textures.get_mut(&texture_id) {
+            self.filters.apply_sdf_mask(&mut self.context, texture, radius, hardness);
+        }
+    }
+
     pub fn apply_color_matrix(&mut self, texture_id: u32, matrix: [[f32; 4]; 4], offset: [f32; 4]) {
         if let Some(texture) = self.state.textures.get_mut(&texture_id) {
             self.filters.apply_color_matrix(&mut self.context, texture, matrix, offset);

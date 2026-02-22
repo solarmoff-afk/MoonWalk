@@ -172,4 +172,9 @@ impl MoonWalk {
             warp_phase, gamma, normal_blend_mode
         );
     }
+
+    /// 
+    pub fn sdf_mask(&mut self, texture_id: u32, radius: f32, hardness: f32) {
+        self.renderer.apply_sdf_mask(texture_id, radius, hardness);
+    }
 }

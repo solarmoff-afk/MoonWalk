@@ -82,3 +82,13 @@ pub struct LiquidGlassMaskUniform {
     pub gamma: f32,
     pub _pad: [f32; 4],
 }
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct SdfUniform {
+    pub size: [f32; 2],
+    pub radius: f32,
+    pub hardness: f32,
+    pub threshold: f32,
+    pub _pad: [f32; 3],
+}

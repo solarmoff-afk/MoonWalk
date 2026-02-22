@@ -129,3 +129,22 @@ pub fn create_liquid_glass_mask_pipeline(
 
     Ok(result)
 }
+
+pub fn create_sdf_mask_pipeline(
+    context: &mut BackendContext,
+    uniform_layout: &RawBindGroupLayout,
+    texture_layout: &RawBindGroupLayout,
+) -> Result<PipelineResult, MoonWalkError> {
+    let format = context.get_format();
+    let result = BackendPipeline::new(include_str!("shaders/sdf_mask.wgsl"))
+        .vertex_shader("vs_main")
+        .fragment_shader("fs_main")
+        .add_vertex_layout(VertexLayout::new()
+        .stride(0)
+        .step_mode(StepMode::Vertex))
+        .blend(BlendMode::None)
+        .label("sdf_mask_filter")
+        .build(context, format, &[uniform_layout, texture_layout])?;
+
+    Ok(result)
+}

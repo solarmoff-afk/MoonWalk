@@ -30,6 +30,7 @@ pub struct FilterSystem {
     liquid_glass_pipeline: PipelineResult,
     mesh_gradient_pipeline: PipelineResult,
     liquid_glass_mask_pipeline: PipelineResult,
+    sdf_mask_pipeline: PipelineResult,
     
     uniform_layout: RawBindGroupLayout,
     texture_layout: RawBindGroupLayout,
@@ -70,6 +71,7 @@ impl FilterSystem {
         let liquid_glass_pipeline = factory::create_liquid_glass_pipeline(context, &uniform_layout, &texture_layout)?;
         let mesh_gradient_pipeline = factory::create_mesh_gradient_pipeline(context, &uniform_layout, &texture_layout)?;
         let liquid_glass_mask_pipeline = factory::create_liquid_glass_mask_pipeline(context, &uniform_layout, &advanced_texture_layout)?;
+        let sdf_mask_pipeline = factory::create_sdf_mask_pipeline(context, &uniform_layout, &texture_layout)?;
 
         Ok(Self {
             swap_texture: None,
@@ -79,6 +81,7 @@ impl FilterSystem {
             liquid_glass_pipeline,
             mesh_gradient_pipeline,
             liquid_glass_mask_pipeline,
+            sdf_mask_pipeline,
             uniform_layout,
             texture_layout,
             advanced_texture_layout,
@@ -116,6 +119,44 @@ impl FilterSystem {
         self.execute_pass(
             context,
             &self.blur_pipeline,
+            target_texture,
+            swap,
+            &uniform_data,
+        );
+
+        self.blit_back(context, target_texture, swap, width, height)?;
+
+        Ok(())
+    }
+
+    pub fn apply_sdf_mask(
+        &mut self,
+        context: &mut BackendContext,
+        target_texture: &BackendTexture,
+        radius: f32,
+        hardness: f32,
+    ) -> Result<(), MoonWalkError> {
+        let width = target_texture.width;
+        let height = target_texture.height;
+        
+        self.ensure_swap_texture(context, width, height, target_texture.config.get_format());
+        let swap = self.swap_texture.as_ref()
+            .ok_or(MoonWalkError::TextureLoading("Failed to get filters system swap texture ref".to_string()))?;
+        
+        let uniform_data = SdfUniform {
+            size: [width as f32, height as f32],
+            radius,
+            hardness,
+            
+            // [MAYBE]
+            threshold: 0.5,
+
+            _pad: [0.0, 0.0, 0.0],
+        };
+
+        self.execute_pass(
+            context,
+            &self.sdf_mask_pipeline,
             target_texture,
             swap,
             &uniform_data,

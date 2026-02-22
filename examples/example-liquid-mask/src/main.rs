@@ -85,8 +85,9 @@ impl Application for LiquidGlassApp {
 
         self.mask_texture = mask_container.snapshot(mw, 0, 0, mask_width, mask_height);
 
-        mw.blur_texture(self.mask_texture, 0.35, true);
-        mw.blur_texture(self.mask_texture, 0.35, false);
+        mw.sdf_mask(self.mask_texture, 20.0, 1.0);
+
+        mw.save_texture(self.mask_texture, "assets/mask_debug.png");
 
         let screen_rect = mw.new_rect();
         mw.set_position(screen_rect, Vec2::ZERO);
@@ -160,4 +161,3 @@ fn android_main(app: AndroidApp) {
 
 #[cfg(target_os = "android")]
 fn main() {}
-
