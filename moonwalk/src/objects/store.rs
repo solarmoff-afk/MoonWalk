@@ -385,9 +385,8 @@ impl ObjectStore {
 
     #[inline(always)]
     pub fn resolve_hit(&self, position: Vec2, size: Vec2, target_group: u16) -> Option<ObjectId> {
-        let half_size = size * 0.5;
-        let test_min = position - half_size;
-        let test_max = position + half_size;
+        let test_min = position;
+        let test_max = position + size;
 
         let mut best_candidate: Option<(usize, f32)> = None;
 
@@ -519,5 +518,121 @@ impl ObjectStore {
         } else {
             false
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Этот тест тестирует создание и удаление объектов в ObjectSotre
+    #[test]
+    fn object_pool() {
+        let mut store = ObjectStore::new();
+
+        // Создадим 3 объекта
+        let rect = store.new_rect();
+        store.new_rect();
+        store.new_rect();
+
+        // Длина должна быть 3, так как тут три объекта
+        assert_eq!(store.rect_ids.len(), 3);
+
+        // Далее удаляем один объект
+        store.remove(rect);
+
+        // Должен быть один свободный слот
+        assert_eq!(store.free_slots.len(), 1);
+
+        // Создаём новый объект
+        let rect2 = store.new_rect();
+
+        // Rect2 должен занять айди старого rect
+        assert_eq!(rect, rect2);
+    }
+
+    /// Этот тест тестирует хит тесты для объектов
+    #[test]
+    fn object_hit_test() {
+        let mut store = ObjectStore::new();
+
+        // Объект для теста
+        let rect = store.new_rect();
+
+        store.config_position(rect, Vec2::new(150.0, 150.0));
+        store.config_size(rect, Vec2::new(50.0, 50.0));
+
+        // Первая хит группа для теста
+        store.set_hit_group(rect, 1);
+
+        // Первая проверка, объекты сталкиваются
+        assert_eq!(store.resolve_hit(Vec2::new(125.0, 125.0), Vec2::new(50.0, 50.0), 1), Some(rect));
+
+        // Тут объекты не сталкиваются
+        assert_eq!(store.resolve_hit(Vec2::new(0.0, 0.0), Vec2::new(50.0, 50.0), 1), None);
+
+        // Тут сталкиваются
+        assert_eq!(store.resolve_hit(Vec2::new(0.0, 0.0), Vec2::new(5000.0, 5000.0), 1), Some(rect));
+    }
+
+    /// Этот тест тестирует хит тесты для объектов с учётом z индекса
+    #[test]
+    fn object_hit_test_z_index() {
+        let mut store = ObjectStore::new();
+
+        // Объект пустышка
+        let rect = store.new_rect();
+
+        // Объект для теста
+        let rect2 = store.new_rect();
+
+        store.config_position(rect, Vec2::new(150.0, 150.0));
+        store.config_size(rect, Vec2::new(50.0, 50.0));
+        store.config_z_index(rect, 0.1);
+
+        store.config_position(rect2, Vec2::new(150.0, 150.0));
+        store.config_size(rect2, Vec2::new(50.0, 50.0));
+        store.config_z_index(rect2, 0.5);
+
+        // Первая хит группа для теста для обоих объектов
+        store.set_hit_group(rect, 1);
+        store.set_hit_group(rect2, 1);
+
+        // Тесты должны пройти для второго объекта, так как он выше по z индексу
+
+        // Первая проверка, объекты сталкиваются
+        assert_eq!(store.resolve_hit(Vec2::new(125.0, 125.0), Vec2::new(50.0, 50.0), 1), Some(rect2));
+
+        // Тут объекты не сталкиваются
+        assert_eq!(store.resolve_hit(Vec2::new(0.0, 0.0), Vec2::new(50.0, 50.0), 1), None);
+
+        // Тут сталкиваются
+        assert_eq!(store.resolve_hit(Vec2::new(0.0, 0.0), Vec2::new(5000.0, 5000.0), 1), Some(rect2));
+    }
+
+    /// Этот тест тестирует геттеры
+    #[test]
+    fn object_getter_test() {
+        let mut store = ObjectStore::new();
+
+        // Объект для теста
+        let rect = store.new_rect();
+
+        // Тут задаются тестовые поля 
+        store.config_position(rect, Vec2::new(150.0, 150.0));
+        store.config_size(rect, Vec2::new(150.0, 150.0));
+
+        // Объект должен быть живым
+        assert!(store.is_alive(rect));
+
+        // Геттеры должны вернуть эти поля
+        assert_eq!(store.get_position(rect), Vec2::new(150.0, 150.0));
+        assert_eq!(store.get_size(rect), Vec2::new(150.0, 150.0));
+
+        // Удаление
+        store.remove(rect);
+
+        // Объект должен умереть
+        assert_eq!(store.is_alive(rect), false);
     }
 }
