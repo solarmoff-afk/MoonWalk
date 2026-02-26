@@ -63,3 +63,115 @@ impl<T: SortableInstance> BatchBuffer<T> {
         Ok(true)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytemuck::{Pod, Zeroable};
+
+    // Тестовая структура для инстансов
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy, Pod, Zeroable)]
+    struct TestInstance {
+        z: f32,
+        _padding: [u8; 12],
+    }
+
+    impl SortableInstance for TestInstance {
+        fn get_z_index(&self) -> f32 {
+            self.z
+        }
+    }
+
+    impl TestInstance {
+        fn new(z: f32) -> Self {
+            Self {
+                z,
+                _padding: [0; 12],
+            }
+        }
+    }
+
+    /// Тест создания и очистки буфера
+    #[test]
+    fn test_buffer_clear() {
+        let mut buffer = BatchBuffer::<TestInstance>::new();
+        
+        // Изначально буфер пустой
+        assert!(buffer.cpu_buffer.is_empty());
+        assert!(buffer.gpu_buffer.is_none());
+        
+        // Добавляем инстансы
+        buffer.cpu_buffer.push(TestInstance::new(1.0));
+        buffer.cpu_buffer.push(TestInstance::new(2.0));
+        assert_eq!(buffer.cpu_buffer.len(), 2);
+        
+        // Очищаем
+        buffer.clear();
+        assert!(buffer.cpu_buffer.is_empty());
+
+        // Gpu буфер не должен измениться при clear
+        assert!(buffer.gpu_buffer.is_none());
+    }
+
+    /// Тест создания с капасити
+    #[test]
+    fn test_buffer_creation() {
+        let buffer = BatchBuffer::<TestInstance>::new();
+        
+        // Проверяем что капасити установлен
+        assert!(buffer.cpu_buffer.capacity() >= 1024);
+        assert!(buffer.cpu_buffer.is_empty());
+    }
+
+    /// Тест что инстансы правильно хранят z индексом
+    #[test]
+    fn test_z_index_storage() {
+        let mut buffer = BatchBuffer::<TestInstance>::new();
+        
+        buffer.cpu_buffer.push(TestInstance::new(42.0));
+        buffer.cpu_buffer.push(TestInstance::new(24.0));
+        
+        assert_eq!(buffer.cpu_buffer[0].get_z_index(), 42.0);
+        assert_eq!(buffer.cpu_buffer[1].get_z_index(), 24.0);
+    }
+
+    /// Тест множественных операций
+    #[test]
+    fn test_multiple_clear_cycles() {
+        let mut buffer = BatchBuffer::<TestInstance>::new();
+        
+        for cycle in 0..3 {
+            // Добавляем инстансы в этом цикле
+            for i in 0..10 {
+                buffer.cpu_buffer.push(TestInstance::new(i as f32));
+            }
+
+            assert_eq!(buffer.cpu_buffer.len(), 10);
+            
+            // Очищаем для следующего кадра
+            buffer.clear();
+            assert!(buffer.cpu_buffer.is_empty());
+        }
+    }
+
+    /// Тест работы с большим количеством инстансов
+    #[test]
+    fn test_large_batch() {
+        let mut buffer = BatchBuffer::<TestInstance>::new();
+        
+        // Добавляем 10 тысяч инстансов
+        for i in 0..10_000 {
+            buffer.cpu_buffer.push(TestInstance::new(i as f32));
+        }
+        
+        assert_eq!(buffer.cpu_buffer.len(), 10_000);
+        assert_eq!(buffer.cpu_buffer[5000].get_z_index(), 5000.0);
+        
+        buffer.clear();
+        assert!(buffer.cpu_buffer.is_empty());
+
+        // Проверяем что капасити сохранилось (не переаллоцировалось)
+        assert!(buffer.cpu_buffer.capacity() >= 10_000);
+    }
+}

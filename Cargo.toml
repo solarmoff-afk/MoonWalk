@@ -1,20 +1,18 @@
 [workspace]
 resolver = "2"
 members = [
-    "benchmark",
+    "dev/benchmark",
     "bootstrap",
     "examples/example",
     "examples/example-video",
     "examples/example3d",
     "examples/example-custom-paint",
-    "examples/example-lua",
-    "moonwalk",
-    "widget",
-    "lunar3d",
-    "lua",
-    "backend",
     "examples/example-liquid-glass",
     "examples/example-liquid-mask",
+    "moonwalk",
+    "widget",
+    "crates/lunar3d",
+    "crates/backend", 
 ]
 
 [profile.release]
@@ -28,7 +26,6 @@ strip = true
 
 [workspace.dependencies]
 moonwalk = { path = "./moonwalk" }
-lunar3d = { path = "./lunar3d" }
+lunar3d = { path = "./crates/lunar3d" }
 moonwalk_bootstrap = { path = "./bootstrap" }
-moonwalk_lua = { path = "./lua" }
-moonwalk_backend = { path = "./backend" }
+moonwalk_backend = { path = "./crates/backend" }
