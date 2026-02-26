@@ -141,7 +141,7 @@ mod tests {
     fn test_multiple_clear_cycles() {
         let mut buffer = BatchBuffer::<TestInstance>::new();
         
-        for cycle in 0..3 {
+        for _cycle in 0..3 {
             // Добавляем инстансы в этом цикле
             for i in 0..10 {
                 buffer.cpu_buffer.push(TestInstance::new(i as f32));
