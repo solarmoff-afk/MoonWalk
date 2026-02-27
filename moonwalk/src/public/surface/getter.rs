@@ -3,7 +3,7 @@
 
 use glam::{Vec2, Vec4};
 
-use crate::surface::MoonSurface;
+use crate::public::surface::MoonSurface;
 use crate::ObjectId;
 use crate::TextAlign;
 

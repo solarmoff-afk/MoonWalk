@@ -4,7 +4,7 @@
 use glam::{Vec4, Vec2};
 use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
 
-use crate::surface::MoonSurface;
+use crate::public::surface::MoonSurface;
 use crate::{MoonWalk, MoonWalkError};
 use crate::RenderContainer;
 

@@ -5,7 +5,7 @@ use glam::{Vec2, Vec4};
 
 use crate::effects::EffectFactory;
 use crate::effects::material::elevation::MoonMaterialLevel;
-use crate::surface::MoonSurface;
+use crate::public::surface::MoonSurface;
 use crate::{MoonWalkError, ObjectId};
 
 impl MoonSurface {

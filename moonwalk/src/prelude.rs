@@ -4,6 +4,7 @@
 pub use crate::{
     MoonWalk,
     MoonWalkError,
+    MoonSurface,
     ObjectId,
     FontAsset,
     TextAlign,

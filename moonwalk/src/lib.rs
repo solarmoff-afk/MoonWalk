@@ -6,7 +6,6 @@
 pub mod error;
 pub mod objects;
 pub mod resource_manager;
-pub mod surface;
 pub mod path;
 pub mod prelude;
 pub mod rendering;
@@ -31,7 +30,7 @@ pub use public::video::{MoonVideo, VideoFormat, VideoPreset};
 
 pub use crate::error::MoonWalkError;
 pub use crate::objects::ObjectId;
-pub use crate::surface::MoonSurface;
+pub use crate::public::surface::MoonSurface;
 pub use crate::textware::FontId;
 pub use crate::path::{PathBuilder, LineCap, LineJoin, FillRule};
 pub use crate::rendering::container::RenderContainer;
