@@ -34,6 +34,9 @@ use crate::MoonWalk;
 use crate::public::{VideoFormat, VideoPreset};
 
 #[cfg(feature = "video")]
+use crate::objects::TextureId;
+
+#[cfg(feature = "video")]
 enum VideoMessage {
     Frame {
         pixels: image::RgbaImage,
@@ -117,8 +120,8 @@ impl MoonVideo {
         })
     }
 
-    pub fn add_frame(&mut self, mw: &MoonWalk, texture_id: u32) -> Result<(), MoonWalkError> {
-        let texture = mw.renderer.state.textures.get(&texture_id)
+    pub fn add_frame(&mut self, mw: &MoonWalk, texture_id: TextureId) -> Result<(), MoonWalkError> {
+        let texture = mw.renderer.state.textures.get(&texture_id.0)
             .ok_or(MoonWalkError::IOError("Texture not found".to_string()))?;
 
         let rgba_image = texture.download(&mut mw.renderer.context)?;

@@ -5,6 +5,7 @@ use glam::{Vec2, Vec4};
 
 use crate::MoonWalk;
 use crate::painting::BrushVertex;
+use crate::objects::TextureId;
 
 // use crate::r#abstract::BlendMode as InternalBlendMode;
 use moonwalk_backend::pipeline::types::BlendMode as InternalBlendMode;
@@ -63,7 +64,7 @@ pub struct Brush {
     pub hardness: f32,
     pub opacity: f32,
     pub spacing: f32,
-    pub texture_id: u32,
+    pub texture_id: TextureId,
      
     /// Угол поворота кисти в радианах
     pub angle: f32,
@@ -101,7 +102,7 @@ impl Default for Brush {
             hardness: 0.8,
             opacity: 1.0,
             spacing: 5.0,
-            texture_id: 0, 
+            texture_id: TextureId::new(0), 
             angle: 0.0,
             follow_direction: false,
             roundness: 1.0,
@@ -122,14 +123,14 @@ impl MoonWalk {
     }
 
     /// [WAIT DOC]
-    pub fn draw_stroke(&mut self, target_id: u32, brush: &Brush, from: Vec2, to: Vec2) {
-        let texture_res = self.renderer.state.textures.get(&target_id);
+    pub fn draw_stroke(&mut self, target_id: TextureId, brush: &Brush, from: Vec2, to: Vec2) {
+        let texture_res = self.renderer.state.textures.get(&target_id.0);
         if texture_res.is_none() {
             return;
         }
         
-        let tip_texture = if brush.texture_id > 0 {
-            self.renderer.state.textures.get(&brush.texture_id)
+        let tip_texture = if brush.texture_id.0 > 0 {
+            self.renderer.state.textures.get(&brush.texture_id.0)
         } else {
             None
         };
@@ -198,7 +199,7 @@ impl MoonWalk {
             brush.blend_mode.to_internal()
         };
 
-        if let Some(target) = self.renderer.state.textures.get(&target_id) {
+        if let Some(target) = self.renderer.state.textures.get(&target_id.0) {
             self.renderer.painting_system.draw_strokes(
                 &mut self.renderer.context,
                 target,
@@ -211,7 +212,7 @@ impl MoonWalk {
         }
     }
     
-    pub fn draw_stamp(&mut self, target_id: u32, brush: &Brush, pos: Vec2) {
+    pub fn draw_stamp(&mut self, target_id: TextureId, brush: &Brush, pos: Vec2) {
         self.draw_stroke(target_id, brush, pos, pos);
     }
 }

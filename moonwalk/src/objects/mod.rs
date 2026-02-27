@@ -7,6 +7,10 @@ pub mod store;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ObjectId(pub usize);
 
+/// Айди текстуры
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TextureId(pub u32);
+
 /// Айди шейдера
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct ShaderId(pub u32);
@@ -25,6 +29,13 @@ impl ObjectType {
             1 => Some(Self::Rect),
             _ => None,
         }
+    }
+}
+
+impl TextureId {
+    #[inline(always)]
+    pub fn new(id: u32) -> Self {
+        Self(id)
     }
 }
 

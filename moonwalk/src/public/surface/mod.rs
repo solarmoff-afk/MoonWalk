@@ -25,6 +25,7 @@ use crate::FontAsset;
 use crate::textware::FontId;
 use crate::error::MoonWalkError;
 use crate::objects::ShaderId;
+use crate::objects::TextureId;
 
 struct RenderPassDescriptor {
     pub color: Vec4,
@@ -263,7 +264,7 @@ impl MoonSurface {
         Ok(())
     }
 
-    pub fn snapshot(&mut self, mw: &mut MoonWalk, position: Vec2, size: Vec2) -> Result<u32, MoonWalkError> {
+    pub fn snapshot(&mut self, mw: &mut MoonWalk, position: Vec2, size: Vec2) -> Result<TextureId, MoonWalkError> {
         let renderer = &mut mw.renderer;
         let format = renderer.context.get_format();
 
@@ -300,7 +301,7 @@ impl MoonSurface {
 
         encoder.submit_frame(&mut renderer.context)?;
 
-        Ok(id)
+        Ok(TextureId::new(id))
     }
 
     pub fn update_snapshot(
@@ -308,7 +309,7 @@ impl MoonSurface {
         mw: &mut MoonWalk,
         position: Vec2,
         size: Vec2,
-        id: u32
+        id: TextureId
     ) -> Result<(), MoonWalkError> {
         let renderer = &mut mw.renderer;
         
@@ -322,7 +323,7 @@ impl MoonSurface {
             self.height as f32
         ));
 
-        let target_tex = renderer.state.textures.get(&id).unwrap();
+        let target_tex = renderer.state.textures.get(&id.0).unwrap();
         
         let mut encoder = BackendEncoder::new(&mut renderer.context, "Update Snapshot Encoder")?;
 

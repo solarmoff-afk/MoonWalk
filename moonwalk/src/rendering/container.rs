@@ -15,7 +15,7 @@ use crate::error::MoonWalkError;
 use crate::gpu::MatrixStack;
 
 use crate::objects::store::ObjectStore;
-use crate::objects::ObjectId;
+use crate::objects::{ObjectId, TextureId};
 use crate::batching::shapes::uber::UberBatch;
 use crate::rendering::snapshot::ClippedSnapshot;
 use crate::rendering::state::GlobalUniform;
@@ -204,8 +204,8 @@ impl RenderContainer {
     }
 
     #[inline]
-    pub fn set_texture(&mut self, id: ObjectId, texture_id: u32) {
-        self.store.config_texture(id, texture_id);
+    pub fn set_texture(&mut self, id: ObjectId, texture_id: TextureId) {
+        self.store.config_texture(id, texture_id.0);
     }
 
     #[inline]
@@ -335,7 +335,7 @@ impl RenderContainer {
         Ok(())
     }
 
-    pub fn snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32) -> u32 {
+    pub fn snapshot(&mut self, mw: &mut MoonWalk, x: u32, y: u32, w: u32, h: u32) -> TextureId {
         // [HACK] [UNWRAP]
         // Для того чтобы не ломать api тут используется expect и unwrap везде,
         // потом желательно заменить на Result
@@ -377,7 +377,7 @@ impl RenderContainer {
         encoder.submit_frame(&mut renderer.context).expect("DELETE THIS PLEASE");
 
         // Ok(id)
-        id
+        TextureId::new(id)
     }
 
     pub fn update_snapshot(
@@ -387,7 +387,7 @@ impl RenderContainer {
         y: u32,
         w: u32,
         h: u32,
-        id: u32
+        id: TextureId
     ) {
         // [HACK] [UNWRAP]
         // Для того чтобы не ломать api тут используется expect и unwrap везде,
@@ -406,7 +406,7 @@ impl RenderContainer {
             self.height as f32
         ));
 
-        let target_tex = renderer.state.textures.get(&id).unwrap();
+        let target_tex = renderer.state.textures.get(&id.0).unwrap();
         
         let mut encoder = BackendEncoder::new(&mut renderer.context, "Update Snapshot Encoder")
             .expect("DELETE THIS PLEASE");

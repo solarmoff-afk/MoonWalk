@@ -3,6 +3,7 @@
 
 use crate::error;
 use crate::{MoonWalk, FontAsset};
+use crate::objects::TextureId;
 
 impl MoonWalk {
     /// Этот метод агружает текстуру из файла через его путь
@@ -16,11 +17,11 @@ impl MoonWalk {
     /// [?] Android примеры:
     ///  "test.png" - файл test.png из assets приложения
     ///  "data/data/com.example.package/file/test.png" - файл test.png из файловой системы
-    pub fn load_texture(&mut self, path: &str) -> Result<u32, error::MoonWalkError> {
+    pub fn load_texture(&mut self, path: &str) -> Result<TextureId, error::MoonWalkError> {
         let texture = self.resources.load_texture(&mut self.renderer.context, path)?;
         let id = self.renderer.register_texture(texture);
         
-        Ok(id)
+        Ok(TextureId::new(id))
     }
 
     /// Этот метод читает utf8 файл и возвращает его содержимое в String 
@@ -35,8 +36,8 @@ impl MoonWalk {
 
     /// Эта функция очищает текстуру из памяти. Текстура после очищения просто
     /// перестанет отобразиться на объекте
-    pub fn remove_texture(&mut self, texture_id: u32) {
-        self.renderer.remove_texture(texture_id);
+    pub fn remove_texture(&mut self, texture_id: TextureId) {
+        self.renderer.remove_texture(texture_id.0);
     }
 
     /// Эта функция загружает шрифт во время выполнения программы (Этот шрифт обязательно
@@ -65,8 +66,8 @@ impl MoonWalk {
 
     /// Возвращает размер текстуры в физических пикселях (ширина и высота) а если текстура
     /// не найдена то возвращает нули Vec2 [0.0, 0.0]
-    pub fn get_texture_size(&self, texture_id: u32) -> glam::Vec2 {
-        if let Some(tex) = self.renderer.state.textures.get(&texture_id) {
+    pub fn get_texture_size(&self, texture_id: TextureId) -> glam::Vec2 {
+        if let Some(tex) = self.renderer.state.textures.get(&texture_id.0) {
             glam::Vec2::new(tex.width as f32, tex.height as f32)
         } else {
             glam::Vec2::ZERO
@@ -80,8 +81,8 @@ impl MoonWalk {
     /// (для единобразия апи). Если координаты выходят за размер текстуры то
     /// возвращает None. Паники в таком случае не будет
     /// - [!] Эта операция медленная, не рекомендуется использовать каждый кадр
-    pub fn get_texture_pixel(&mut self, texture_id: u32, x: u32, y: u32) -> Option<glam::Vec4> {
-        let texture = self.renderer.state.textures.get(&texture_id)?;
+    pub fn get_texture_pixel(&mut self, texture_id: TextureId, x: u32, y: u32) -> Option<glam::Vec4> {
+        let texture = self.renderer.state.textures.get(&texture_id.0)?;
         
         match texture.read_pixel(&mut self.renderer.context, x, y) {
             Ok(bytes) => {
@@ -103,12 +104,12 @@ impl MoonWalk {
     /// Асинхронная загрузка текстуру. Полезен для подгрузки контента в рантайме
     /// Сначала асинхронно читает файл, потом регистрирует текстуру в рендерере
     #[cfg(feature = "async")]
-    pub async fn load_texture_async(&mut self, path: &str) -> Result<u32, error::MoonWalkError> {
-        let texture = self.resources.load_texture_async(&self.renderer.context, path).await?;
+    pub async fn load_texture_async(&mut self, path: &str) -> Result<TextureId, error::MoonWalkError> {
+        let texture = self.resources.load_texture_async(&mut self.renderer.context, path).await?;
 
         let id = self.renderer.register_texture(texture);
         
-        Ok(id)
+        Ok(id.0)
     }
 
     /// Асинхронная загрузка шрифта. Читает файл без блокировки потока, парсит байты синхронно

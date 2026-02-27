@@ -1,4 +1,4 @@
-use moonwalk::{MoonWalk, ObjectId};
+use moonwalk::{MoonWalk, ObjectId, TextureId};
 use moonwalk_bootstrap::{Application, Runner, WindowSettings, TouchPhase};
 use glam::{Vec2, Vec4};
 
@@ -6,8 +6,8 @@ use glam::{Vec2, Vec4};
 use android_activity::AndroidApp;
 
 struct LiquidGlassApp {
-    input_texture: u32,
-    output_texture: u32,
+    input_texture: TextureId,
+    output_texture: TextureId,
     screen_rect_id: Option<ObjectId>, 
     screen_size: Vec2,
     glass_pos: Vec2,
@@ -17,8 +17,8 @@ struct LiquidGlassApp {
 impl LiquidGlassApp {
     fn new() -> Self {
         Self {
-            input_texture: 0,
-            output_texture: 0,
+            input_texture: TextureId::new(0),
+            output_texture: TextureId::new(0),
             screen_rect_id: None, 
             screen_size: Vec2::ZERO,
             glass_pos: Vec2::new(400.0, 300.0),
@@ -34,7 +34,7 @@ impl Application for LiquidGlassApp {
         let bg_texture = match mw.load_texture("assets/test.jpg") {
             Ok(id) => id,
             Err(_) => { 
-                0
+                TextureId::new(0)
             }
         };
 
@@ -80,7 +80,7 @@ impl Application for LiquidGlassApp {
     }
 
     fn on_draw(&mut self, mw: &mut MoonWalk) {
-        if self.input_texture == 0 || self.output_texture == 0 {
+        if self.input_texture.0 == 0 || self.output_texture.0 == 0 {
             return;
         }
 

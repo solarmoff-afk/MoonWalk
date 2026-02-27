@@ -11,7 +11,7 @@ const TOTAL_FRAMES: usize = FPS * DURATION_SEC;
 
 struct SceneObjects {
     container: RenderContainer,
-    snapshot_id: u32,
+    snapshot_id: TextureId,
     bg_id: ObjectId,
     rect_id: ObjectId,
     text_id: Option<ObjectId>,
@@ -28,7 +28,7 @@ impl VideoApp {
     fn new() -> Self {
         Self {
             recorder: None,
-            frame_count: 0,
+            frame_count: TextureId::new(0),
             scene: None,
             display_id: None,
         }

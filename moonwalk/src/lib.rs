@@ -29,7 +29,7 @@ pub use public::custom::BindResource;
 pub use public::video::{MoonVideo, VideoFormat, VideoPreset};
 
 pub use crate::error::MoonWalkError;
-pub use crate::objects::ObjectId;
+pub use crate::objects::{ObjectId, TextureId};
 pub use crate::public::surface::MoonSurface;
 pub use crate::textware::FontId;
 pub use crate::path::{PathBuilder, LineCap, LineJoin, FillRule};

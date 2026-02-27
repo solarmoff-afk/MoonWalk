@@ -7,6 +7,7 @@ use crate::effects::EffectFactory;
 use crate::effects::material::elevation::MoonMaterialLevel;
 use crate::public::surface::MoonSurface;
 use crate::{MoonWalkError, ObjectId};
+use crate::objects::TextureId;
 
 impl MoonSurface {
     pub fn new_effect_factory(&self) -> EffectFactory {
@@ -17,9 +18,9 @@ impl MoonSurface {
         &mut self,
         base: ObjectId,
         level: MoonMaterialLevel,
-        umbra_tex: u32,
-        penumbra_tex: u32,
-        ambient_tex: u32,
+        umbra_tex: TextureId,
+        penumbra_tex: TextureId,
+        ambient_tex: TextureId,
         density: f32,
     ) -> Result<(ObjectId, ObjectId, ObjectId), MoonWalkError> {
         let position = self.store.get_position(base);

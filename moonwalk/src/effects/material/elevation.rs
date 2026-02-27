@@ -5,6 +5,7 @@ use glam::{Vec4, Vec2};
 
 use crate::{MoonSurface, MoonWalk, MoonWalkError, ObjectId};
 use crate::effects::EffectFactory;
+use crate::objects::TextureId;
 
 #[derive(Clone, Copy, Debug)]
 pub struct ShadowLayer {
@@ -187,7 +188,7 @@ impl EffectFactory {
         target: Option<&mut MoonSurface>,
         base: ObjectId,
         level: MoonMaterialLevel,
-    ) -> Result<(u32, u32, u32), MoonWalkError> {
+    ) -> Result<(TextureId, TextureId, TextureId), MoonWalkError> {
          let (position, size, radii, base_z) = match target {
             Some(surface) => (
                 surface.get_position(base),
@@ -215,9 +216,9 @@ fn draw_shadow(
     size: Vec2,
     radii: Vec4,
     _base_z_index: f32,
-) -> Result<(u32, u32, u32), MoonWalkError> {
+) -> Result<(TextureId, TextureId, TextureId), MoonWalkError> {
     let density = moonwalk.get_scale_factor();
-    let mut tex_ids = [0u32; 3];
+    let mut tex_ids = [TextureId::new(0); 3];
 
     for i in 0..3 {
         let layer = &level.layers[i];

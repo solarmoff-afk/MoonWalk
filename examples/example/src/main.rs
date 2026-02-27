@@ -7,7 +7,7 @@ use android_activity::AndroidApp;
 
 struct TextureApp {
     sprite_id: Option<ObjectId>,
-    texture_id: u32,
+    texture_id: TextureId,
     screen_size: Vec2,
     angle: f32,
 }
@@ -16,7 +16,7 @@ impl TextureApp {
     fn new() -> Self {
         Self {
             sprite_id: None,
-            texture_id: 0,
+            texture_id: TextureId::new(0),
             screen_size: Vec2::new(800.0, 600.0),
             angle: 0.0,
         }

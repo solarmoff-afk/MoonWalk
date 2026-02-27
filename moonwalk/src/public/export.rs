@@ -7,6 +7,7 @@ use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
 use crate::public::surface::MoonSurface;
 use crate::{MoonWalk, MoonWalkError};
 use crate::RenderContainer;
+use crate::objects::TextureId;
 
 impl MoonWalk {
     /// Функция чтобы установить размер viewport'а (Область, куда идёт рисование)
@@ -55,13 +56,13 @@ impl MoonWalk {
     /// контейнере в указанных координатах (pos, Vec2 из glam) и с указанным размером
     /// (size, Vec2 из glam). На выходе у функции обычное айди текстуры которое
     /// можно использовать
-    pub fn snapshot(&mut self, pos: Vec2, size: Vec2) -> u32 {
-        self.renderer.request_snapshot(
+    pub fn snapshot(&mut self, pos: Vec2, size: Vec2) -> TextureId {
+        TextureId::new(self.renderer.request_snapshot(
             pos.x as u32, 
             pos.y as u32, 
             size.x as u32, 
             size.y as u32,
-        )
+        ))
     }
 
     /// Эта функция создаёт снапшот не в новой текстуре, а в уже существующей.
@@ -69,13 +70,13 @@ impl MoonWalk {
     /// не отличается от snapshot, также pos (Vec2 из glam) и size (Vec2 из glam)
     /// чтобы указать координаты области и ширину/высоту области для снапшота.
     /// Ничего не возвращает, только обновляет
-    pub fn update_snapshot(&mut self, pos: Vec2, size: Vec2, id: u32) {
+    pub fn update_snapshot(&mut self, pos: Vec2, size: Vec2, id: TextureId) {
         self.renderer.update_snapshot(
             pos.x as u32, 
             pos.y as u32, 
             size.x as u32, 
             size.y as u32,
-            id,
+            id.0,
         );
     }
 
@@ -139,8 +140,8 @@ impl MoonWalk {
     /// cute_dog.word.word.word.png -> Всё равно кодировщик png, так как учитывается
     ///  только последнее слово после точки
     /// cute_elephant.jpg -> Кодировщик jpeg
-    pub fn save_texture(&mut self, texture_id: u32, path: &str) -> Result<(), crate::MoonWalkError> {
-        let texture = self.renderer.state.textures.get(&texture_id)
+    pub fn save_texture(&mut self, texture_id: TextureId, path: &str) -> Result<(), crate::MoonWalkError> {
+        let texture = self.renderer.state.textures.get(&texture_id.0)
             .ok_or_else(|| crate::MoonWalkError::IOError("Texture not found".to_string()))?;
 
         let image = texture.download(&mut self.renderer.context)?;

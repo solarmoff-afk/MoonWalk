@@ -6,6 +6,7 @@ use glam::{Vec2, Vec4};
 use crate::public::surface::MoonSurface;
 use crate::ObjectId;
 use crate::TextAlign;
+use crate::objects::TextureId;
 
 impl MoonSurface {
     // Метод для изменения позиции любого объекта по его ID
@@ -112,8 +113,8 @@ impl MoonSurface {
     /// Этот метод устаналивает текстуру объекту. Сюда нужно передать айди объекта
     /// и айди текстуры. Айди текстуры млжно получить через mw.load_texture
     #[inline]
-    pub fn set_texture(&mut self, id: ObjectId, texture_id: u32) {
-        self.store.config_texture(id, texture_id);
+    pub fn set_texture(&mut self, id: ObjectId, texture_id: TextureId) {
+        self.store.config_texture(id, texture_id.0);
     }
 
     /// Этот метод меняет уже существующий текст, принимает айди объекта (текста)
