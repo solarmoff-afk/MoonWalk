@@ -1,0 +1,17 @@
+MoonFuse validation error: Too many objects in a single MoonSurface
+
+Why?
+- You're creating over 50,000 objects in the ObjectStore inside a MoonSurface (objects include both rectangles and text). You can intentionally create this many objects in a single MoonSurface, but MoonFuse considers this an object leak just in case (creating objects in an infinite manner, like in Skia)
+
+Constant:
+- You can't create more than 50,000 objects
+
+How to fix?
+- Create fewer than 50,000 objects, or create a separate MoonSurface where you create additional objects
+
+Clarification:
+- Even if you use the MoonWalk structure manually, you're still working with the MoonSurface under the hood via Deref/Deref_mut
+
+How do I disable the fuse?
+- Build your binary in release mode
+- OR use the "no_fuse" feature

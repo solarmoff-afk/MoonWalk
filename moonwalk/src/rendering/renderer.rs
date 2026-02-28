@@ -111,7 +111,7 @@ impl MoonRenderer {
 
     /// Функция изменения размера холста для рисования,
     /// нужно передать только новую ширину и высоту
-     pub fn resize(&mut self, width: u32, height: u32) {
+    pub fn resize(&mut self, width: u32, height: u32) {
         // Проверяем что ширина и высота НЕ НОЛЬ, иначе возможны
         // проблемы (Например, паника)
         if width > 0 && height > 0 {
@@ -181,6 +181,18 @@ impl MoonRenderer {
         surface: &MoonSurface,
         blend_mode: BlendMode,
     ) -> Result<(), MoonWalkError> {
+        // Валидация цвета заливки
+        surface.fuse.validate_color(clear_color);
+
+        // [TODO] [MAYBE] [HACK] [FIXME]
+        // Сейчас тут используется заглушка для текущего количества шрифтов так
+        // как текстовая система скоро должна быть переписана, поэтому пока так
+        // чтобы не плодить код который скоро сдохнет
+        surface.fuse.validate_resource_count(self.state.textures.len(), 1);
+
+        // Валидация количества объектов
+        surface.pre_render();
+
         let size = self.context.get_size()?;
         let width = size.x;
         let height = size.y;

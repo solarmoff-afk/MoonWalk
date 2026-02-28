@@ -1,0 +1,15 @@
+MoonFuse validation error: The texture ID used in the primitive shader for rendering text and emoji is used (u32::MAX or u32::MAX - 1)
+
+Why?
+- To save memory on the CPU/GPU bus, MoonWalk doesn't include text and emoji flags in the shader. Instead, it uses a special hardcoded texture ID to detect text and colored emoji
+
+Specifically, the following are used:
+- u32::MAX: text
+- u32::MAX - 1: colored glyphs (emoji)
+
+How to fix?
+- Don't use u32::MAX for the texture ID. It's also not recommended to use u32::MAX - 2 or similar, as the hardcoded range may increase. Use smaller values
+
+How do I disable the fuse?
+- Build your binary in release mode
+- OR use the "no_fuse" feature

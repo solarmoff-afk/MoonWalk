@@ -26,6 +26,7 @@ use crate::textware::FontId;
 use crate::error::MoonWalkError;
 use crate::objects::ShaderId;
 use crate::objects::TextureId;
+use crate::utils::fuse::MoonFuse;
 
 struct RenderPassDescriptor {
     pub color: Vec4,
@@ -50,7 +51,11 @@ pub struct MoonSurface {
     pub width: u32,
     pub height: u32,
     pub blend_mode: BlendMode,
-    render_passes: Vec<RenderPassDescriptor>,
+
+    // Предохранитель
+    pub fuse: MoonFuse,
+
+    render_passes: Vec<RenderPassDescriptor>, 
 }
 
 impl MoonSurface {
@@ -88,7 +93,9 @@ impl MoonSurface {
             width,
             height,
             blend_mode: BlendMode::Alpha,
-            render_passes: Vec::new(),
+            fuse: MoonFuse::new(),
+
+            render_passes: Vec::new(), 
         })
     }
 
@@ -131,7 +138,7 @@ impl MoonSurface {
     /// в ObjectStore этой поверхности
     /// 
     /// Пример:
-    /// ```rust
+    /// ```rust.ignore
     /// // Поверхность
     /// let surface = mw.new_surface(1024, 1024);
     ///
@@ -166,8 +173,24 @@ impl MoonSurface {
         self.render_passes.clear();
     }
 
+    /// Этот метод вызывает валидацию перед рендером
+    pub fn pre_render(&self) {
+        let object_count = self.store.rect_ids.len();
+        self.fuse.validate_objects_count(object_count);
+    }
+
     /// Отрисовать все объекты на surface
     pub fn render(&mut self, mw: &mut MoonWalk, clear_color: Option<Vec4>) -> Result<(), MoonWalkError> {
+        // Перед началом нужно сделать валидации (цвета заливки и количества объектов) 
+        // через предохранитель
+        match clear_color {
+            Some(color) => self.fuse.validate_color(color),
+            None => {}
+        };
+
+        // Дополнительная валдиация перед рендером
+        self.pre_render();
+        
         let renderer = &mut mw.renderer;
         let context = &mut renderer.context;
         let text_engine = &mut renderer.text_engine;

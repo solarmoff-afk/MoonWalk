@@ -1,6 +1,6 @@
 [package]
 name = "moonwalk"
-version = "0.43.0"
+version = "0.44.0"
 edition = "2021"
 
 [lib]
@@ -12,6 +12,7 @@ video = ["dep:video-rs", "dep:ndarray"]
 async = ["dep:tokio"]
 modern = []
 verbose = []
+no_fuse = []
 
 [dependencies]
 pollster = "0.3"

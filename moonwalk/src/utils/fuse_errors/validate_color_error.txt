@@ -1,0 +1,11 @@
+MoonFuse validation error: Using a color that is not normalized from 0.0 to 1.0
+
+Why?
+- MoonWalk uses a color system similar to graphics APIs, where RGBa colors are not from 0 to 255, but from 0.0 to 1.0 (floating). This format is used by GPUs and render pipelines
+
+How to fix?
+- Pass a color strictly from 0.0 to 1.0. To convert a standard RGBa value to a range from 0.0 to 1.0, you can divide each color channel by 255, which will produce a valid color in the correct range
+
+How to disable the fuse?
+- Build your binary in release mode
+- OR use the "no_fuse" feature

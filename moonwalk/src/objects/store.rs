@@ -1,7 +1,9 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
-use glam::{Vec2, Vec4};
+#![allow(unused_imports)]
+
+use glam::{Vec2, Vec3, Vec4, Mat4, Quat};
 
 use crate::objects;
 use crate::objects::{ObjectId, ObjectType};
@@ -521,6 +523,23 @@ impl ObjectStore {
     }
 }
 
+/// Эта функция позволяет преобразовать mat4 в полноценную позицию, вращение и размер
+/// это используется чтобы не передавать матрицу напрямую в шейдер
+pub fn decompose_matrix(matrix: Mat4) -> (Vec2, f32, Vec2) {
+    // Позиция это просто последний столбец
+    let position = Vec2::new(matrix.w_axis.x, matrix.w_axis.y);
+    
+    // Базисные векторы
+    let x_basis = Vec2::new(matrix.x_axis.x, matrix.x_axis.y);
+    let y_basis = Vec2::new(matrix.y_axis.x, matrix.y_axis.y);
+    
+    let rotation = f32::atan2(x_basis.y, x_basis.x);
+    
+    let size = Vec2::new(x_basis.length(), y_basis.length());
+    
+    (position, rotation, size)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -634,5 +653,42 @@ mod tests {
 
         // Объект должен умереть
         assert_eq!(store.is_alive(rect), false);
+    }
+
+    // Тесты для расчленения матрицы
+
+    #[test]
+    fn test_identity_matrix() {
+        let m = Mat4::IDENTITY;
+        let (pos, rot, size) = decompose_matrix(m);
+        
+        assert_eq!(pos, Vec2::ZERO);
+        assert_eq!(rot, 0.0);
+        assert_eq!(size, Vec2::ONE);
+    }
+
+    /// Этот тест тестирует то, что если разобрать и собрать матрицу то должна выйти
+    /// точно такая же матрица. Это проверяет то что логика разборки на части не нарушена
+    /// и выдаёт валидный результат
+    #[test]
+    fn test_round_trip() {
+        let original_pos = Vec2::new(123.0, 456.0);
+        let original_rot = 67.0_f32.to_radians();
+        let original_size = Vec2::new(3.0, 7.0);
+        
+        // Создаем оригинальную матрицу
+        let original = Mat4::from_scale_rotation_translation(
+            Vec3::new(original_size.x, original_size.y, 1.0),
+            Quat::from_rotation_z(original_rot),
+            Vec3::new(original_pos.x, original_pos.y, 0.0)
+        );
+        
+        let (pos, rot, size) = decompose_matrix(original);
+        
+        assert!((pos.x - original_pos.x).abs() < 1e-6);
+        assert!((pos.y - original_pos.y).abs() < 1e-6);
+        assert!((rot - original_rot).abs() < 1e-6);
+        assert!((size.x - original_size.x).abs() < 1e-6);
+        assert!((size.y - original_size.y).abs() < 1e-6);
     }
 }

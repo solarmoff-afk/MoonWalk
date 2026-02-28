@@ -1,0 +1,18 @@
+MoonFuse validation error: Too many resources
+
+Why?
+- You have more than 200 textures loaded at once. You may have a resource leak (loading/creating textures every frame)
+- OR you are loading more than 100 fonts
+
+Constant:
+- Maximum 200 textures
+- Maximum 100 fonts
+
+How to fix?
+- Remove textures using the mw.remove_texture(texture_id) method
+- Check if you are creating/loading textures every frame or in a loop. If you are, remove the looping code or add texture deletion (see point 1)
+- If the texture overflow is caused by using .snapshot(...), use update_snapshot(...) to update an existing texture instead of creating a new one
+
+How to disable the fuse?
+- Build your binary in release mode
+- OR use the "no_fuse" feature

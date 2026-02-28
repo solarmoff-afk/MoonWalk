@@ -18,6 +18,7 @@ mod painting;
 mod public;
 mod gpu;
 mod filters;
+mod utils;
 
 // Реэкспорт из glam для удобства
 pub use glam::{Vec2, Vec3, Vec4, Mat4};

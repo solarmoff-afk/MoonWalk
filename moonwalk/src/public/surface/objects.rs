@@ -47,6 +47,7 @@ impl MoonSurface {
     /// 0.5 это полупрозрачный
     #[inline]
     pub fn set_color(&mut self, id: ObjectId, color: Vec4) {
+        self.fuse.validate_color(color);
         self.store.config_color(id, color);
     }
 
@@ -56,6 +57,7 @@ impl MoonSurface {
     /// радиальный градиент
     #[inline]
     pub fn set_color2(&mut self, id: ObjectId, color: Vec4) {
+        self.fuse.validate_color(color);
         self.store.config_color2(id, color);
     }
 
