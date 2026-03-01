@@ -12,7 +12,8 @@ members = [
     "moonwalk",
     "widget",
     "crates/lunar3d",
-    "crates/backend", 
+    "crates/backend",
+    "crates/paint",
 ]
 
 [profile.release]
@@ -29,3 +30,4 @@ moonwalk = { path = "./moonwalk" }
 lunar3d = { path = "./crates/lunar3d" }
 moonwalk_bootstrap = { path = "./bootstrap" }
 moonwalk_backend = { path = "./crates/backend" }
+moonpaint = { path = "./crates/paint" }

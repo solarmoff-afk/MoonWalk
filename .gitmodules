@@ -1,0 +1,3 @@
+[submodule "crates/paint"]
+	path = crates/paint
+	url = https://github.com/solarmoff-afk/paint
