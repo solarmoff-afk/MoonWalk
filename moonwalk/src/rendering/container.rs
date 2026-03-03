@@ -9,6 +9,8 @@ use moonwalk_backend::core::buffer::BackendBuffer;
 use moonwalk_backend::pipeline::bind::RawBindGroup;
 use moonwalk_backend::render::texture::BackendTexture;
 use moonwalk_backend::render::pass::RenderPass;
+use moonwalk_backend::pipeline::bind::BindGroup;
+use moonwalk_backend::pipeline::types::ShaderStage;
 
 use crate::error::MoonWalkError;
 
@@ -20,7 +22,7 @@ use crate::batching::shapes::uber::UberBatch;
 use crate::rendering::snapshot::ClippedSnapshot;
 use crate::rendering::state::GlobalUniform;
 
-use crate::textware::FontId;
+use crate::text::FontId;
 use crate::MoonWalk;
 use crate::FontAsset;
 use crate::TextAlign;
@@ -35,10 +37,7 @@ pub struct RenderContainer {
 }
 
 impl RenderContainer {
-    pub fn new(context: &mut BackendContext, width: u32, height: u32) -> Result<Self, MoonWalkError> {
-        use moonwalk_backend::pipeline::bind::BindGroup;
-        use moonwalk_backend::pipeline::types::ShaderStage;
-
+    pub fn new(context: &mut BackendContext, width: u32, height: u32) -> Result<Self, MoonWalkError> { 
         let format = context.get_format(); 
 
         let mut target = BackendTexture::new(width, height);
@@ -220,7 +219,7 @@ impl RenderContainer {
     }
 
     pub fn new_text(&mut self, content: &str, font: FontAsset, size: f32) -> crate::objects::ObjectId {
-        let internal_id = FontId(font.0);
+        let internal_id = FontId(font.0 as usize);
         self.store.new_text(content.to_string(), internal_id, size)
     }
 
@@ -279,10 +278,11 @@ impl RenderContainer {
     pub fn measure_text(&mut self, mw: &mut MoonWalk, text: &str, font: FontAsset, size: f32, max_width: f32) -> Vec2 {
         let (w, h) = mw.renderer.text_engine.measure_text(
             text, 
-            crate::textware::FontId(font.0), 
+            FontId(font.0 as usize), 
             size, 
             max_width
         );
+        
         Vec2::new(w, h)
     }
     
@@ -302,7 +302,9 @@ impl RenderContainer {
         
         self.batch.prepare(context, &self.store, text_engine, None);
 
-        text_engine.prepare(context);
+        // Нужно залить глифы после подготовки батчинга
+        text_engine.prepare(context, &mut renderer.state);
+
         let atlas_bg = text_engine.get_bind_group()?;
         
         let clear_color = clear_color.map(|c| Vec4::new(c.x, c.y, c.z, c.w));

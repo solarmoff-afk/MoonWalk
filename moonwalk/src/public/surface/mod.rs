@@ -22,7 +22,7 @@ use crate::objects::store::ObjectStore;
 use crate::{MoonWalk, perf_end, perf_start};
 use crate::ObjectId;
 use crate::FontAsset;
-use crate::textware::FontId;
+use crate::text::FontId;
 use crate::error::MoonWalkError;
 use crate::objects::ShaderId;
 use crate::objects::TextureId;
@@ -115,7 +115,7 @@ impl MoonSurface {
     /// (В играх и UI). Это не должно быть критичным, но нужно учитывать.
     /// В будущем могут быть работы по дополнительной оптимизации
     pub fn new_text(&mut self, content: &str, font: FontAsset, size: f32) -> ObjectId {
-        let internal_id = FontId(font.0);
+        let internal_id = FontId(font.0 as usize);
         self.store.new_text(content.to_string(), internal_id, size)
     }
 
@@ -197,10 +197,12 @@ impl MoonSurface {
         
         self.batch.prepare(context, &self.store, text_engine, None);
 
-        text_engine.prepare(context);
+        // Заливаем глифы только после подготовки батчинга
+        text_engine.prepare(context, &renderer.state); 
         let atlas_bg = text_engine.get_bind_group()?;
         
-        let clear_color = clear_color.map(|c| Vec4::new(c.x, c.y, c.z, c.w));
+        let clear_color = clear_color.map(|c|
+            Vec4::new(c.x, c.y, c.z, c.w));
 
         let mut encoder = BackendEncoder::new(context, "MoonSurface encoder")?;
 
@@ -237,10 +239,7 @@ impl MoonSurface {
         let renderer = &mut mw.renderer;
         let context = &mut renderer.context;
         let text_engine = &mut renderer.text_engine;
-        
-        text_engine.prepare(context);
-        let atlas_bg = text_engine.get_bind_group()?;
-        
+         
         let mut encoder = BackendEncoder::new(context, "MoonSurface encoder")?;
 
         // В цикле проходимся по всем дескрипторам проходам рендера которые добавлены в
@@ -256,6 +255,10 @@ impl MoonSurface {
                 }
 
                 self.batch.prepare(context, &self.store, text_engine, objects_filter);
+
+                // Заливаем глифы только после подготовки батчинга
+                text_engine.prepare(context, &renderer.state);
+                let atlas_bg = text_engine.get_bind_group()?;
 
                 let mut render_pass = RenderPass::new(
                     &mut encoder,

@@ -9,6 +9,7 @@ members = [
     "examples/example-custom-paint",
     "examples/example-liquid-glass",
     "examples/example-liquid-mask",
+    "examples/example-text",
     "moonwalk",
     "widget",
     "crates/lunar3d",

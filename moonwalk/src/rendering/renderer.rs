@@ -40,7 +40,7 @@ pub struct MoonRenderer {
     pub state: RenderState,
     pub scale_factor: f32,
     pub filters: FilterSystem,
-    pub text_engine: crate::textware::TextWare,
+    pub text_engine: crate::text::TextWare,
     pub vector_system: VectorSystem,
     pub painting_system: PaintingSystem,
 
@@ -71,9 +71,9 @@ impl MoonRenderer {
         let painting_system = PaintingSystem::new(&mut context)?;
         
         // Создаём состояние рендерера
-        let state = RenderState::new(&mut context, width, height)?;
+        let mut state = RenderState::new(&mut context, width, height)?;
 
-        let text_engine = crate::textware::TextWare::new(&mut context)?;
+        let text_engine = crate::text::TextWare::new(&mut state, &mut context)?;
 
         Ok(Self {
             context, // Контекст gpu/wgpu
@@ -212,10 +212,7 @@ impl MoonRenderer {
 
         let offscreen_tex = self.offscreen.as_ref().unwrap();
 
-        let mut encoder = BackendEncoder::new(&mut self.context, "Render encoder")?;
-
-        self.text_engine.prepare(&mut self.context);
-        let atlas_bg = self.text_engine.get_bind_group();
+        let mut encoder = BackendEncoder::new(&mut self.context, "Render encoder")?; 
 
         // Здесь рисуется текущее состояние в буфер кадра
         self.state.draw(
@@ -223,7 +220,7 @@ impl MoonRenderer {
             &mut encoder, 
             &offscreen_tex,
             &mut self.text_engine, 
-            Some(&atlas_bg?),
+            // Some(atlas_bg?),
             clear_color,
             surface,
             blend_mode,

@@ -22,7 +22,7 @@ use crate::rendering::pipeline::ShaderStore;
 use crate::objects::store::ObjectStore;
 use crate::objects::ShaderId;
 use crate::error::MoonWalkError;
-use crate::textware::TextWare;
+use crate::text::TextWare;
 use crate::{MoonSurface, perf_end, perf_start};
 
 /// Структура для единой юниформы под все шейдеры. Не передаём
@@ -156,16 +156,23 @@ impl RenderState {
         encoder: &mut BackendEncoder,
         target: &BackendTexture,
         text_engine: &mut TextWare,
-        atlas_bg: Option<&RawBindGroup>,
+        // atlas_bg: Option<&RawBindGroup>,
         clear_color: Vec4,
         surface: &MoonSurface,
         blend_mode: BlendMode,
     ) -> Result<(), MoonWalkError> {
         // Подготавливаем батчи
-
         use moonwalk_backend::render::pass::RenderPass;
+
         self.batches.objects.prepare(context, &surface.store, text_engine, None);
         
+        // После того как батч готов нужно залить все глифы на gpu
+        text_engine.prepare(context, self);
+
+        // Чтобы не менять сигнатуры переменная должна быть Option, для этого
+        // делается Some(...)
+        let atlas_bg = Some(text_engine.get_bind_group()?);
+
         // Если объекты грязные (dirty) - снимаем флаг 
         // (так как изменения уже отрисованы)
         if self.store.dirty {

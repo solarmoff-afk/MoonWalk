@@ -5,6 +5,7 @@ use glam::{Vec2, Vec4};
 
 use crate::objects::ObjectId;
 use crate::{MoonWalk, FontAsset, PathBuilder, TextAlign};
+use crate::text::FontId;
 
 impl MoonWalk {
     /// [WAIT DOC]
@@ -24,7 +25,7 @@ impl MoonWalk {
     pub fn measure_text(&mut self, text: &str, font: FontAsset, size: f32, max_width: f32) -> Vec2 {
         let (w, h) = self.renderer.text_engine.measure_text(
             text, 
-            crate::textware::FontId(font.0), 
+            FontId(font.0 as usize), 
             size, 
             max_width
         );

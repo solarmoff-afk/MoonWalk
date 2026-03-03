@@ -10,7 +10,7 @@ use moonwalk_backend::render::texture::BackendTexture;
 use crate::rendering::vertex::{QuadVertex, ObjectInstance};
 use crate::objects::store::ObjectStore;
 use crate::batching::common::BatchBuffer;
-use crate::textware::TextWare;
+use crate::text::{TextWare, map_align};
 use crate::MoonWalkError;
 use crate::{perf_start, perf_end};
 use crate::ObjectId;
@@ -78,7 +78,7 @@ impl UberBatch {
 
         self.batch.clear();
         self.commands.clear();
-        
+
         // Сборка объектов для батча, сюда не попадают мёртвые объекты
         // либо объекты которых нет в фильтре объектов. Если фильтр
         // объектов пустой то в батч попадают все живые объекты
@@ -128,7 +128,7 @@ impl UberBatch {
         if let Some(atlas_id) = text_engine.atlas_id {
             for &global_id in store.text_ids.iter() {
                 let idx = global_id.index();
-                
+
                 // Опять таки, SoA архитектура не позволяет нормально удалять объекты,
                 // поэтому для оптимизации (время на аллокации) и всего такого просто
                 // помечаем объекты как живой/не живой и другой объект занимает его
@@ -142,48 +142,46 @@ impl UberBatch {
                     continue;
                 }
 
-                let align = store.text_aligns[idx];
-                let glyphs = text_engine.collect_glyphs(
+                let align = map_align(store.text_aligns[idx]);
+                if let Ok(batch_items) = text_engine.process_text_batch(
                     global_id.index() as u64,
                     text,
                     store.font_ids[idx],
                     store.font_sizes[idx],
                     store.text_bounds[idx].x,
-                    store.text_bounds[idx].y,
                     align,
-                );
+                ) {
+                    let pos = store.positions[idx];
+                    let user_color = store.colors_cache[idx];
+                    let z = store.z_indices[idx];
+                    let rot = store.rotations[idx];
 
-                let pos = store.positions[idx];
-                let color = store.colors_cache[idx];
-                let z = store.z_indices[idx];
-                let rot = store.rotations[idx];
-                
-                for (gx, gy, key) in glyphs.0 {
-                    if let Some((image, uv_rect)) = text_engine.glyph_cache.get_glyph(key, &mut text_engine.font_system) {
-                        let w = image.placement.width as f32;
-                        let h = image.placement.height as f32;
-                        let left = image.placement.left as f32;
-                        let top = image.placement.top as f32;
-
-                        let x = pos.x + gx + left;
-                        let y = pos.y + gy - top;
-
-                        let (u, v, uw, vh) = uv_rect;
-                        let uv_arr = [u, v, uw, vh];
-
+                    for item in batch_items {
                         // Текст работает по принципу использования прямоугольников
                         // для глифов. В рендеринге нет ни одного объекта кроме
                         // прямоугольника, это некая фича которая позволяет оптимизировать
                         // это всё. Просто используем uv координаты и атлас в качестве
                         // текстуры
+                        
+                        let final_color = if item.is_emoji {
+                            ObjectInstance::pack_color([1.0, 1.0, 1.0, 1.0])
+                        } else {
+                            user_color
+                        };
+
                         self.batch.push(ObjectInstance {
-                            pos_size: [x, y, w, h],
-                            uv: ObjectInstance::pack_uv(uv_arr),
+                            pos_size: [
+                                pos.x + item.x,
+                                pos.y + item.y,
+                                item.w,
+                                item.h,
+                            ],
+                            uv: ObjectInstance::pack_uv(item.uv),
                             radii: ObjectInstance::pack_radii([0.0; 4]),
                             gradient_data: store.gradient_data_cache[idx],
                             extra: [z, rot],
                             type_id: atlas_id, 
-                            color: color,
+                            color: final_color,
                             color2: store.colors2_cache[idx],
                             effect_data: store.effect_data_cache[idx],
                         });
@@ -191,7 +189,7 @@ impl UberBatch {
                 }
             }
         }
-        
+
         // Это сортировка по z идексу если что
         perf_start!("[BATCH]: Sort");
             self.batch.sort();
@@ -200,7 +198,7 @@ impl UberBatch {
         if !self.batch.cpu_buffer.is_empty() {
             // Получение текстуры. Если 0 - просто объект без текстуры
             let mut current_tex = self.batch.cpu_buffer[0].type_id;
-            
+
             let mut start = 0;
             let mut count = 0;
 
@@ -221,7 +219,7 @@ impl UberBatch {
 
                 count += 1;
             }
-            
+
             self.commands.push(DrawCommand {
                 texture_id: current_tex,
                 start_index: start,
@@ -234,7 +232,9 @@ impl UberBatch {
             } else {
                 // [HACK] [UNWRAP]
                 // Удалить unwrap
-                self.instance_vbo = Some(BackendBuffer::vertex(context, &self.batch.cpu_buffer).unwrap());
+                if let Ok(vbo) = BackendBuffer::vertex(context, &self.batch.cpu_buffer) {
+                    self.instance_vbo = Some(vbo);
+                }
             }
         }
 
@@ -273,7 +273,7 @@ impl UberBatch {
         for cmd in &self.commands {
             let bind_group = if cmd.texture_id == 0 {
                 white_bg
-            } else if cmd.texture_id == crate::textware::ATLAS_ID {
+            } else if cmd.texture_id == crate::text::ATLAS_ID {
                 atlas_bind_group.unwrap_or(white_bg)
             } else {
                 match textures.get(&cmd.texture_id).and_then(|t| t.get_raw()) {

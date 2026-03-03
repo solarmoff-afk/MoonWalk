@@ -4,7 +4,6 @@
 use std::time::Instant;
 use glam::{Vec2, Vec4};
 use moonwalk::MoonWalk;
-use wgpu;
 use moonwalk::error::{MoonWalkError, TypedBackendError};
 
 use winit::{

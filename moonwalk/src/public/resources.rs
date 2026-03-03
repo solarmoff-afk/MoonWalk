@@ -44,12 +44,21 @@ impl MoonWalk {
     /// должен поставляться с программой) используя путь к шрифту. Возвращает структуру
     /// FontAsset (обёртка для u64) который нужен чтобы не использовать структуру FontId
     /// из TextWare
-    pub fn load_font(&mut self, path: &str, name: &str) -> Result<FontAsset, crate::error::MoonWalkError> {
+    pub fn load_font(&mut self, path: &str, _name: &str) -> Result<FontAsset, crate::error::MoonWalkError> {
+        // _name нужен чтобы не ломать api так как раньше использовался чтобы задать
+        // имя шрифта. Это было критически важно для cosmic-text, но с переходом
+        // на moonpaint в этом нет необходимости поэтому textware не принимает
+        // имя шрифта
         let bytes = self.resources.read_bytes(path)?;
         
-        let internal_id = self.renderer.text_engine.load_font_bytes(&bytes, name)?;
+        let internal_id = self.renderer.text_engine.load_font_bytes(bytes.to_vec())?;
 
-        Ok(FontAsset(internal_id.0))
+        // Это безопасно, так как чтобы получить id необходимо загрузить шрифт
+        // из байтов либо из файла, получить больше +- 100 шрифтов можно
+        // только если в цикле идёт утечка загрузки шрифтов, но в таком случае
+        // MoonFuse должен остановить работу приложения в дебаге вызван pamic!
+        // указав что где-то в коде есть утечка шрифтов
+        Ok(FontAsset(internal_id.0 as u64))
     }
 
     /// Эта функция загружает шрифт из набора байт который чаще всего известен уже на этапе
@@ -58,10 +67,12 @@ impl MoonWalk {
     pub fn load_font_from_bytes(
         &mut self, 
         bytes: &[u8], 
-        name: &str
+        _name: &str
     ) -> Result<FontAsset, crate::error::MoonWalkError> {
-        let id = self.renderer.text_engine.load_font_bytes(bytes, name)?;
-        Ok(FontAsset(id.0))
+        let id = self.renderer.text_engine.load_font_bytes(bytes.to_vec())?;
+
+        // Это безопасно, пояснение выше
+        Ok(FontAsset(id.0 as u64))
     }
 
     /// Возвращает размер текстуры в физических пикселях (ширина и высота) а если текстура

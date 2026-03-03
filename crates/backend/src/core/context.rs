@@ -345,6 +345,54 @@ impl BackendContext {
         }
     }
 
+    /// Записывает текстуру с явным указанием bytes_per_row (для выравнивания)
+    /// Используется для случаев, когда данные уже padded или требуется точный контроль
+    pub fn write_texture_aligned(
+        &mut self,
+        texture: &BackendTexture,
+        x: u32,
+        y: u32,
+        w: u32,
+        h: u32,
+        data: &[u8],
+        bytes_per_row: u32,
+    ) -> Result<(), MoonBackendError> {
+        match (&mut self.get_raw(), texture.get_raw()) {
+            (Some(raw_context), Some(raw_texture)) => {
+                raw_context.queue.write_texture(
+                    wgpu::TexelCopyTextureInfo {
+                        texture: &raw_texture.texture,
+                        mip_level: 0,
+                        origin: wgpu::Origin3d {
+                            x,
+                            y,
+                            z: 0,
+                        },
+                        aspect: wgpu::TextureAspect::All,
+                    },
+                        
+                    data,
+                    
+                    wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(bytes_per_row),
+                        rows_per_image: None,
+                    },
+                    
+                    wgpu::Extent3d {
+                        width: w,
+                        height: h,
+                        depth_or_array_layers: 1,
+                    },
+                );
+                    
+                Ok(())
+            },
+            
+            _ => Err(MoonBackendError::ContextNotFoundError),
+        }
+    }
+
     pub fn get_size(&mut self) -> Result<Vec2u32, MoonBackendError> {
         match &mut self.context.as_mut() {
             Some(raw_context) => {

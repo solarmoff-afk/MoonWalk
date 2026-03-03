@@ -25,7 +25,7 @@ impl BatchGroup {
         }
     }
 
-    pub fn prepare(&mut self, context: &mut BackendContext, store: &ObjectStore, text_engine: &mut crate::textware::TextWare, objects_filter: Option<&Vec<ObjectId>>) {
+    pub fn prepare(&mut self, context: &mut BackendContext, store: &ObjectStore, text_engine: &mut crate::text::TextWare, objects_filter: Option<&Vec<ObjectId>>) {
         self.objects.prepare(context, store, text_engine, objects_filter);
     }
     

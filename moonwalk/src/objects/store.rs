@@ -81,7 +81,7 @@ pub struct ObjectStore {
 
     pub text_ids: Vec<ObjectId>,
     pub text_contents: Vec<String>,
-    pub font_ids: Vec<crate::textware::FontId>,
+    pub font_ids: Vec<crate::text::FontId>,
     pub font_sizes: Vec<f32>,
     pub text_bounds: Vec<Vec2>,
 
@@ -164,7 +164,7 @@ impl ObjectStore {
             self.effect_data_cache[idx] = ObjectInstance::pack_effects(0.0, 0.0);
 
             self.text_contents[idx].clear();
-            self.font_ids[idx] = crate::textware::FontId(0);
+            self.font_ids[idx] = crate::text::FontId(0);
             self.font_sizes[idx] = 0.0;
             self.text_bounds[idx] = Vec2::new(9999.0, 9999.0);
 
@@ -204,7 +204,7 @@ impl ObjectStore {
         self.effect_data_cache.push(ObjectInstance::pack_effects(0.0, 0.0));
 
         self.text_contents.push(String::new());
-        self.font_ids.push(crate::textware::FontId(0));
+        self.font_ids.push(crate::text::FontId(0));
         self.font_sizes.push(0.0);
         self.text_bounds.push(Vec2::new(9999.0, 9999.0));
 
@@ -227,7 +227,7 @@ impl ObjectStore {
         id
     }
 
-    pub fn new_text(&mut self, text: String, font_id: crate::textware::FontId, font_size: f32) -> ObjectId {
+    pub fn new_text(&mut self, text: String, font_id: crate::text::FontId, font_size: f32) -> ObjectId {
         let index = self.alloc_common();
         let id = objects::ObjectId::new(objects::ObjectType::Text, index);
 
