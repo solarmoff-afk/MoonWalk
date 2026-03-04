@@ -17,6 +17,7 @@ use bytemuck::{Pod, Zeroable};
 
 use crate::MoonWalkError;
 use crate::{perf_start, perf_end};
+use crate::core::matrix::MatrixStack;
 
 /// Настройка концов линий
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -75,7 +76,7 @@ impl VectorSystem {
     pub fn new(context: &mut BackendContext) -> Result<Self, MoonWalkError> {
         use moonwalk_backend::pipeline::{BackendPipeline, bind::BindGroup, types::{BlendMode, CullMode, Format, ShaderStage, StepMode, Topology}, vertex::{VertexAttr, VertexLayout}};
 
-        let shader_source = include_str!("../shaders/path.wgsl");
+        let shader_source = include_str!("../../shaders/path.wgsl");
         let texture_format = context.get_format();
         
         let bind_group_layout = BindGroup::new()
@@ -146,7 +147,7 @@ impl VectorSystem {
             let index_buffer = BackendBuffer::<u32>::index(context, &u32_indices)?;
         perf_end!("[VECTOR]: Convert u16 indices to u32");
 
-        let mut matrix_stack = crate::gpu::MatrixStack::new();
+        let mut matrix_stack = MatrixStack::new();
         matrix_stack.set_ortho(width as f32, height as f32);
         
         let uniform_data = VectorUniform {

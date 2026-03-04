@@ -4,30 +4,12 @@
 use glam::{Vec2, Vec4};
 
 use crate::MoonWalk;
-use crate::painting::BrushVertex;
-use crate::objects::TextureId;
+use crate::draw::painting::BrushVertex;
+use crate::core::objects::TextureId;
+use crate::core::random::Lcg;
 
 // use crate::r#abstract::BlendMode as InternalBlendMode;
 use moonwalk_backend::pipeline::types::BlendMode as InternalBlendMode;
-
-/// Простой генератор псевдослучайных чисел для джиттера
-struct Lcg {
-    state: u32,
-}
-
-impl Lcg {
-    fn new(seed: u32) -> Self {
-        Self { state: seed }
-    }
-    
-    // Возвращает флоат от -1.0 до 1.0
-    fn next_f32_signed(&mut self) -> f32 {
-        self.state = self.state.wrapping_mul(1664525).wrapping_add(1013904223);
-        let val = (self.state >> 9) | 0x3f800000;
-        let f = f32::from_bits(val) - 1.0;
-        f * 2.0 - 1.0
-    }
-}
 
 /// Режимы наложения для кисти.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

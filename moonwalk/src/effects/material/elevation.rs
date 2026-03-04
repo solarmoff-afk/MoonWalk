@@ -5,7 +5,7 @@ use glam::{Vec4, Vec2};
 
 use crate::{MoonSurface, MoonWalk, MoonWalkError, ObjectId};
 use crate::effects::EffectFactory;
-use crate::objects::TextureId;
+use crate::core::objects::TextureId;
 
 #[derive(Clone, Copy, Debug)]
 pub struct ShadowLayer {

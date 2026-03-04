@@ -4,21 +4,15 @@
 #![allow(unused_must_use)]
 
 pub mod error;
-pub mod objects;
-pub mod resource_manager;
-pub mod path;
 pub mod prelude;
-pub mod rendering;
 pub mod effects;
 
-mod batching;
-mod text;
-mod debug;
-mod painting;
+mod core;
+mod draw;
 mod public;
-mod gpu;
 mod filters;
 mod utils;
+mod rendering;
 
 // Реэкспорт из glam для удобства
 pub use glam::{Vec2, Vec3, Vec4, Mat4};
@@ -30,10 +24,10 @@ pub use public::custom::BindResource;
 pub use public::video::{MoonVideo, VideoFormat, VideoPreset};
 
 pub use crate::error::MoonWalkError;
-pub use crate::objects::{ObjectId, TextureId};
+pub use crate::core::objects::{ObjectId, TextureId};
 pub use crate::public::surface::MoonSurface;
-pub use crate::text::FontId;
-pub use crate::path::{PathBuilder, LineCap, LineJoin, FillRule};
+pub use crate::draw::text::FontId;
+pub use crate::draw::path::{PathBuilder, LineCap, LineJoin, FillRule};
 pub use crate::rendering::container::RenderContainer;
 pub use crate::rendering::custom::{
     CustomPaint, MoonRenderPass, MoonBuffer, MoonBindGroup, CustomPipeline,
@@ -42,7 +36,7 @@ pub use crate::effects::material::elevation::{MoonMaterialLevel, ShadowLayer};
 pub use crate::effects::EffectFactory;
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
-use resource_manager::ResourceManager;
+use utils::resource_manager::ResourceManager;
 use rendering::renderer::MoonRenderer;
 use derive_more::derive::{Deref, DerefMut};
 

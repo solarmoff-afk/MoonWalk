@@ -16,9 +16,9 @@ use crate::error::MoonWalkError;
 use crate::rendering::snapshot::ClippedSnapshot;
 use crate::rendering::state::RenderState;
 use crate::filters::FilterSystem;
-use crate::path::VectorSystem;
+use crate::draw::path::VectorSystem;
 use crate::{MoonSurface, debug_println};
-use crate::painting::PaintingSystem;
+use crate::draw::painting::PaintingSystem;
 
 /// Wgpu работает асинхронно поэтому нам нужно при вызове публичного api для
 /// снапшота вернуть какой-то айди, добавить его в очередь (Как раз этой структуры)
@@ -40,7 +40,7 @@ pub struct MoonRenderer {
     pub state: RenderState,
     pub scale_factor: f32,
     pub filters: FilterSystem,
-    pub text_engine: crate::text::TextWare,
+    pub text_engine: crate::draw::text::TextWare,
     pub vector_system: VectorSystem,
     pub painting_system: PaintingSystem,
 
@@ -73,7 +73,7 @@ impl MoonRenderer {
         // Создаём состояние рендерера
         let mut state = RenderState::new(&mut context, width, height)?;
 
-        let text_engine = crate::text::TextWare::new(&mut state, &mut context)?;
+        let text_engine = crate::draw::text::TextWare::new(&mut state, &mut context)?;
 
         Ok(Self {
             context, // Контекст gpu/wgpu

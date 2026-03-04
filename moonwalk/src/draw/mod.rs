@@ -1,6 +1,6 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
-pub mod fuse;
-pub mod resource_manager;
-pub mod debug;
+pub mod painting;
+pub mod path;
+pub mod text;

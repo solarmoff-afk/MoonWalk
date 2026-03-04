@@ -7,7 +7,7 @@ use crate::effects::EffectFactory;
 use crate::effects::material::elevation::MoonMaterialLevel;
 use crate::public::surface::MoonSurface;
 use crate::{MoonWalkError, ObjectId};
-use crate::objects::TextureId;
+use crate::core::objects::TextureId;
 
 impl MoonSurface {
     pub fn new_effect_factory(&self) -> EffectFactory {

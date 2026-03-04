@@ -1,11 +1,11 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2025 MoonWalk
 
-use glam::{Vec2, Vec4};
+use glam::{Vec2, Vec4, Mat4};
 
-use crate::objects::ObjectId;
+use crate::core::objects::ObjectId;
 use crate::{MoonWalk, FontAsset, PathBuilder, TextAlign};
-use crate::text::FontId;
+use crate::draw::text::FontId;
 
 impl MoonWalk {
     /// [WAIT DOC]
@@ -14,8 +14,8 @@ impl MoonWalk {
     }
 
     /// [WAIT DOC]
-    pub fn parse_svg_path(&self, pb: &mut crate::path::PathBuilder, data: &str) -> Result<(), String> {
-        crate::path::svg::parse_svg_path(pb, data)
+    pub fn parse_svg_path(&self, pb: &mut crate::draw::path::PathBuilder, data: &str) -> Result<(), String> {
+        crate::draw::path::svg::parse_svg_path(pb, data)
     }
     
     /// Эта функция нужна для получения размеров текста. Принимает контент строкой, шрифт
@@ -31,5 +31,11 @@ impl MoonWalk {
         );
         
         Vec2::new(w, h)
+    }
+
+    /// Этот метод декомпозирует матрицу (mat4 из glam) на три значения: позицию,
+    /// вращение и размер в 2D пространстве
+    pub fn decompose_matrix(&self, matrix: Mat4) -> (Vec2, f32, Vec2) {
+        self.store.decompose_matrix(matrix)
     }
 }

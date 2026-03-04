@@ -4,9 +4,9 @@
 use glam::{Vec2, Vec4};
 
 use crate::public::surface::MoonSurface;
-use crate::ObjectId;
+use crate::core::objects::ObjectId;
 use crate::TextAlign;
-use crate::objects::TextureId;
+use crate::core::objects::TextureId;
 
 impl MoonSurface {
     // Метод для изменения позиции любого объекта по его ID
@@ -122,14 +122,14 @@ impl MoonSurface {
     /// Этот метод меняет уже существующий текст, принимает айди объекта (текста)
     /// у которого нужно изменить контент и новый контент
     #[inline]
-    pub fn set_text(&mut self, id: crate::objects::ObjectId, content: &str) {
+    pub fn set_text(&mut self, id: ObjectId, content: &str) {
         self.store.set_text(id, content.to_string());
     }
 
     /// Этот метод меняет размер шрифта у текста. Принимает айди текста и новый
     /// размер шрифта в формате f32
     #[inline]
-    pub fn set_font_size(&mut self, id: crate::objects::ObjectId, size: f32) {
+    pub fn set_font_size(&mut self, id: ObjectId, size: f32) {
         self.store.set_font_size(id, size);
     }
 
@@ -138,7 +138,7 @@ impl MoonSurface {
     /// (как и было указанно ранее). Границы текста необходимы для переноса текста
     /// принимает айди, новую шириную и новую высоту
     #[inline]
-    pub fn set_text_size(&mut self, id: crate::objects::ObjectId, w: f32, h: f32) {
+    pub fn set_text_size(&mut self, id: ObjectId, w: f32, h: f32) {
         self.store.set_text_bounds(id, w, h);
     }
 
@@ -149,7 +149,7 @@ impl MoonSurface {
     /// 3. Right, выравнивание по правой стороне
     /// 4. Justified, текст прижат к сторонам своих границ (они меняются через set_text_size) 
     #[inline]
-    pub fn set_text_align(&mut self, id: crate::objects::ObjectId, align: TextAlign) {
+    pub fn set_text_align(&mut self, id: ObjectId, align: TextAlign) {
         let val = match align {
             TextAlign::Left => 0,
             TextAlign::Center => 1,
@@ -185,7 +185,7 @@ impl MoonSurface {
     /// нужно создать рендер контейнер, сделать снапшот и применить блюр к текстуре
     /// два раза (горизонтально и вертикально) используя функцию mw.blur_texture(...)
     #[inline]
-    pub fn set_effect(&mut self, id: crate::objects::ObjectId, border_width: f32, box_shadow: f32) {
+    pub fn set_effect(&mut self, id: ObjectId, border_width: f32, box_shadow: f32) {
         self.store.config_effect_data(id, [border_width, box_shadow]);
     }
 

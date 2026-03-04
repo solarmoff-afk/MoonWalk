@@ -2,3 +2,4 @@ target/
 Cargo.lock
 moonwalk/src/animator/
 .vscode/
+crates/moonwalk_mwsl/

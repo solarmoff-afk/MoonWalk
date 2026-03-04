@@ -10,7 +10,7 @@ use image::RgbaImage;
 use moonwalk_backend::core::context::BackendContext;
 use moonwalk_backend::pipeline::bind::RawBindGroup;
 use crate::rendering::state::RenderState;
-use crate::text::error::TextError;
+use crate::draw::text::error::TextError;
 
 use moonpaint::{PositionedGlyph, RasterBackend};
 use moonpaint::layout::GlyphFont;

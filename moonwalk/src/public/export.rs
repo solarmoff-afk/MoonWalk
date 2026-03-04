@@ -7,7 +7,7 @@ use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
 use crate::public::surface::MoonSurface;
 use crate::{MoonWalk, MoonWalkError};
 use crate::RenderContainer;
-use crate::objects::TextureId;
+use crate::core::objects::TextureId;
 
 impl MoonWalk {
     /// Функция чтобы установить размер viewport'а (Область, куда идёт рисование)

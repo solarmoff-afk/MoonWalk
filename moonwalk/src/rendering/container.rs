@@ -14,15 +14,15 @@ use moonwalk_backend::pipeline::types::ShaderStage;
 
 use crate::error::MoonWalkError;
 
-use crate::gpu::MatrixStack;
+use crate::core::matrix::MatrixStack;
 
-use crate::objects::store::ObjectStore;
-use crate::objects::{ObjectId, TextureId};
-use crate::batching::shapes::uber::UberBatch;
+use crate::core::objects::store::ObjectStore;
+use crate::core::objects::{ObjectId, TextureId};
+use crate::rendering::batching::shapes::uber::UberBatch;
 use crate::rendering::snapshot::ClippedSnapshot;
 use crate::rendering::state::GlobalUniform;
 
-use crate::text::FontId;
+use crate::draw::text::FontId;
 use crate::MoonWalk;
 use crate::FontAsset;
 use crate::TextAlign;
@@ -218,43 +218,43 @@ impl RenderContainer {
         self.store.config_gradient_data(id, gradient_data);
     }
 
-    pub fn new_text(&mut self, content: &str, font: FontAsset, size: f32) -> crate::objects::ObjectId {
+    pub fn new_text(&mut self, content: &str, font: FontAsset, size: f32) -> ObjectId {
         let internal_id = FontId(font.0 as usize);
         self.store.new_text(content.to_string(), internal_id, size)
     }
 
     #[inline]
-    pub fn set_text(&mut self, id: crate::objects::ObjectId, content: &str) {
+    pub fn set_text(&mut self, id: ObjectId, content: &str) {
         self.store.set_text(id, content.to_string());
     }
 
     #[inline]
-    pub fn get_text(&self, id: crate::objects::ObjectId) -> String {
+    pub fn get_text(&self, id: ObjectId) -> String {
         self.store.get_text(id).to_string()
     }
 
      #[inline]
-    pub fn set_font_size(&mut self, id: crate::objects::ObjectId, size: f32) {
+    pub fn set_font_size(&mut self, id: ObjectId, size: f32) {
         self.store.set_font_size(id, size);
     }
 
     #[inline]
-    pub fn get_font_size(&self, id: crate::objects::ObjectId) -> f32 {
+    pub fn get_font_size(&self, id: ObjectId) -> f32 {
         self.store.get_font_size(id)
     }
 
     #[inline]
-    pub fn set_text_size(&mut self, id: crate::objects::ObjectId, w: f32, h: f32) {
+    pub fn set_text_size(&mut self, id: ObjectId, w: f32, h: f32) {
         self.store.set_text_bounds(id, w, h);
     }
 
     #[inline]
-    pub fn get_text_size(&self, id: crate::objects::ObjectId) -> Vec2 {
+    pub fn get_text_size(&self, id: ObjectId) -> Vec2 {
         self.store.get_text_bounds(id)
     }
 
     #[inline]
-    pub fn set_text_align(&mut self, id: crate::objects::ObjectId, align: TextAlign) {
+    pub fn set_text_align(&mut self, id: ObjectId, align: TextAlign) {
         let val = match align {
             TextAlign::Left => 0,
             TextAlign::Center => 1,
@@ -265,7 +265,7 @@ impl RenderContainer {
     }
 
     #[inline]
-    pub fn get_text_align(&self, id: crate::objects::ObjectId) -> TextAlign {
+    pub fn get_text_align(&self, id: ObjectId) -> TextAlign {
         match self.store.get_text_align(id) {
             0 => TextAlign::Left,
             1 => TextAlign::Center,
@@ -291,7 +291,7 @@ impl RenderContainer {
     }
 
     #[inline]
-    pub fn set_effect(&mut self, id: crate::objects::ObjectId, border_width: f32, box_shadow: f32) {
+    pub fn set_effect(&mut self, id: ObjectId, border_width: f32, box_shadow: f32) {
         self.store.config_effect_data(id, [border_width, box_shadow]);
     }
 

@@ -5,8 +5,8 @@
 
 use glam::{Vec2, Vec3, Vec4, Mat4, Quat};
 
-use crate::objects;
-use crate::objects::{ObjectId, ObjectType};
+use crate::core::objects;
+use crate::core::objects::{ObjectId, ObjectType, ObjectDirty};
 use crate::rendering::vertex::ObjectInstance;
 
 /// Хранилище для объектов
@@ -61,7 +61,15 @@ pub struct ObjectStore {
     // вторым индексом
     pub effect_data: Vec<[f32; 2]>,
 
+    // Определяет грязность стора, то есть изменились ли объекты
     pub dirty: bool,
+
+    // Для оптимизации батчинга будем перегенерировать команды только для
+    // объектов которые изменились, для этого собираем вектор где false 
+    // означает что изменений нет, а true значит что было изменение. Батчинг
+    // обязуется лично снять этот флаг после того как перезаписал команду
+    // для этого объекта
+    pub dirty_objects: Vec<ObjectDirty>,
 
     // Существует проблема с лимитом в 86 (или на старых устройствах 64) байта 
     // на размер данных вершины. Эти ограничения устанавливаются судя по всему 
@@ -81,7 +89,7 @@ pub struct ObjectStore {
 
     pub text_ids: Vec<ObjectId>,
     pub text_contents: Vec<String>,
-    pub font_ids: Vec<crate::text::FontId>,
+    pub font_ids: Vec<crate::draw::text::FontId>,
     pub font_sizes: Vec<f32>,
     pub text_bounds: Vec<Vec2>,
 
@@ -109,6 +117,8 @@ impl ObjectStore {
             uvs: Vec::with_capacity(1024),
             gradient_data: Vec::with_capacity(1024),
             effect_data: Vec::with_capacity(1024),
+
+            dirty_objects: Vec::with_capacity(1024),
 
             // Для кэша сжатых значений
             colors_cache: Vec::with_capacity(1024),
@@ -154,6 +164,7 @@ impl ObjectStore {
             self.effect_data[idx] = [0.0, 0.0];
             
             self.dirty = true;
+            self.dirty_objects[idx] = ObjectDirty::new();
 
             // Для кэша сжатых значений
             self.colors_cache[idx] = ObjectInstance::pack_color(Vec4::ONE.to_array());
@@ -164,7 +175,7 @@ impl ObjectStore {
             self.effect_data_cache[idx] = ObjectInstance::pack_effects(0.0, 0.0);
 
             self.text_contents[idx].clear();
-            self.font_ids[idx] = crate::text::FontId(0);
+            self.font_ids[idx] = crate::draw::text::FontId(0);
             self.font_sizes[idx] = 0.0;
             self.text_bounds[idx] = Vec2::new(9999.0, 9999.0);
 
@@ -194,6 +205,7 @@ impl ObjectStore {
         // После создания объекта нам нужно пересобрать всё, поэтому
         // делаем хранилище грязным
         self.dirty = true;
+        self.dirty_objects.push(ObjectDirty::new());
 
         // Для кэша сжатых значений
         self.colors_cache.push(ObjectInstance::pack_color(Vec4::ONE.to_array()));
@@ -204,7 +216,7 @@ impl ObjectStore {
         self.effect_data_cache.push(ObjectInstance::pack_effects(0.0, 0.0));
 
         self.text_contents.push(String::new());
-        self.font_ids.push(crate::text::FontId(0));
+        self.font_ids.push(crate::draw::text::FontId(0));
         self.font_sizes.push(0.0);
         self.text_bounds.push(Vec2::new(9999.0, 9999.0));
 
@@ -227,7 +239,7 @@ impl ObjectStore {
         id
     }
 
-    pub fn new_text(&mut self, text: String, font_id: crate::text::FontId, font_size: f32) -> ObjectId {
+    pub fn new_text(&mut self, text: String, font_id: crate::draw::text::FontId, font_size: f32) -> ObjectId {
         let index = self.alloc_common();
         let id = objects::ObjectId::new(objects::ObjectType::Text, index);
 
@@ -251,19 +263,26 @@ impl ObjectStore {
         if self.text_contents[idx] != text {
             self.text_contents[idx] = text;
             self.dirty = true;
+            self.dirty_objects[idx].update();
         }
     }
 
     #[inline(always)]
     pub fn set_font_size(&mut self, id: ObjectId, size: f32) {
-        self.font_sizes[id.index()] = size;
+        let idx = id.index();
+
+        self.font_sizes[idx] = size;
         self.dirty = true;
+        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
     pub fn set_text_bounds(&mut self, id: ObjectId, w: f32, h: f32) {
-        self.text_bounds[id.index()] = Vec2::new(w, h);
+        let idx = id.index();
+
+        self.text_bounds[idx] = Vec2::new(w, h);
         self.dirty = true;
+        self.dirty_objects[idx].update();
     }
 
     pub fn remove(&mut self, id: ObjectId) {
@@ -275,6 +294,7 @@ impl ObjectStore {
             if self.alive[idx] {
                 self.alive[idx] = false;
                 self.dirty = true;
+                self.dirty_objects[idx].update();
 
                 // После смерти добавляем объект га кладбище откуда труп
                 // будут перерождёе для другого объекта не давая векторам
@@ -289,80 +309,113 @@ impl ObjectStore {
 
     #[inline(always)]
     pub fn config_position(&mut self, id: ObjectId, pos: Vec2) {
-        self.positions[id.index()] = pos;
+        let idx = id.index();
+
+        self.positions[idx] = pos;
         self.dirty = true;
+        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
     pub fn config_size(&mut self, id: ObjectId, size: Vec2) {
-        self.sizes[id.index()] = size;
+        let idx = id.index();
+
+        self.sizes[idx] = size;
         self.dirty = true;
+        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
     pub fn config_color(&mut self, id: ObjectId, color: Vec4) {
-        self.colors[id.index()] = color;
+        let idx = id.index();
+
+        self.colors[idx] = color;
         self.colors_cache[id.index()] = ObjectInstance::pack_color(color.to_array());
         self.dirty = true;
+        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
     pub fn config_color2(&mut self, id: ObjectId, color2: Vec4) {
-        self.colors2[id.index()] = color2;
+        let idx = id.index();
+
+        self.colors2[idx] = color2;
         self.colors2_cache[id.index()] = ObjectInstance::pack_color(color2.to_array());
         self.dirty = true;
+        self.dirty_objects[idx].update();
     }
     
     #[inline(always)]
     pub fn config_rotation(&mut self, id: ObjectId, rad: f32) {
-        self.rotations[id.index()] = rad;
+        let idx = id.index();
+
+        self.rotations[idx] = rad;
         self.dirty = true;
+        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
     pub fn config_z_index(&mut self, id: ObjectId, z: f32) {
-        self.z_indices[id.index()] = z;
+        let idx = id.index();
+
+        self.z_indices[idx] = z;
         self.dirty = true;
+        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
     pub fn config_uv(&mut self, id: ObjectId, uv: [f32; 4]) {
+        let idx = id.index();
+
         self.uvs[id.index()] = uv; 
-        self.uvs_cache[id.index()] = ObjectInstance::pack_uv(uv);
+        self.uvs_cache[idx] = ObjectInstance::pack_uv(uv);
         self.dirty = true;
+        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
     pub fn set_rounded(&mut self, id: ObjectId, radii: Vec4) {
+        let idx = id.index();
+
         if id.index() < self.rect_radii.len() {
-             self.rect_radii[id.index()] = radii;
-             self.rect_radii_cache[id.index()] = ObjectInstance::pack_radii(radii.to_array());
+             self.rect_radii[idx] = radii;
+             self.rect_radii_cache[idx] = ObjectInstance::pack_radii(radii.to_array());
              self.dirty = true;
+             self.dirty_objects[idx].update();
         }
     }
 
     #[inline(always)]
     pub fn config_texture(&mut self, id: ObjectId, texture_id: u32) {
-        self.texture_ids[id.index()] = texture_id;
+        let idx = id.index();
+
+        self.texture_ids[idx] = texture_id;
         self.dirty = true;
+        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
     pub fn config_gradient_data(&mut self, id: ObjectId, gradient_data: [f32; 4]) {
-        self.gradient_data[id.index()] = gradient_data;
-        self.gradient_data_cache[id.index()] = ObjectInstance::pack_gradient(
+        let idx = id.index();
+
+        self.gradient_data[idx] = gradient_data;
+        self.gradient_data_cache[idx] = ObjectInstance::pack_gradient(
             gradient_data
         );
+        self.dirty_objects[idx].update();
 
         self.dirty = true;
     }
 
     #[inline(always)]
     pub fn config_effect_data(&mut self, id: ObjectId, effect_data: [f32; 2]) {
-        self.effect_data[id.index()] = effect_data;
-        self.effect_data_cache[id.index()] = ObjectInstance::pack_effects(
+        let idx = id.index();
+
+        self.effect_data[idx] = effect_data;
+        self.effect_data_cache[idx] = ObjectInstance::pack_effects(
             effect_data[0], effect_data[1]
         );
+        self.dirty_objects[idx].update();
 
         self.dirty = true;
     }
@@ -370,18 +423,22 @@ impl ObjectStore {
     #[inline(always)]
     pub fn set_text_align(&mut self, id: ObjectId, align: u8) {
         let idx = id.index();
+
         if self.text_aligns[idx] != align {
             self.text_aligns[idx] = align;
             self.dirty = true;
+            self.dirty_objects[idx].update();
         }
     }
 
     #[inline(always)]
     pub fn set_hit_group(&mut self, id: ObjectId, group: u16) {
         let idx = id.index();
+
         if self.hit_groups[idx] != group {
             self.hit_groups[idx] = group;
             self.dirty = true;
+            self.dirty_objects[idx].update();
         }
     }
 
@@ -520,6 +577,12 @@ impl ObjectStore {
         } else {
             false
         }
+    }
+
+    // Обёртка
+    #[inline(always)]
+    pub fn decompose_matrix(&self, matrix: Mat4) -> (Vec2, f32, Vec2) {
+        decompose_matrix(matrix)
     }
 }
 

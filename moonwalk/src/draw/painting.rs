@@ -14,7 +14,7 @@ use moonwalk_backend::pipeline::types::{
 use moonwalk_backend::render::texture::BackendTexture;
 use std::collections::HashMap;
 
-use crate::gpu::MatrixStack;
+use crate::core::matrix::MatrixStack;
 use crate::error::MoonWalkError;
 
 #[repr(C)]

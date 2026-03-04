@@ -8,9 +8,9 @@ use moonwalk_backend::render::pass::RenderPass;
 use moonwalk_backend::render::texture::BackendTexture;
 
 use crate::rendering::vertex::{QuadVertex, ObjectInstance};
-use crate::objects::store::ObjectStore;
-use crate::batching::common::BatchBuffer;
-use crate::text::{TextWare, map_align};
+use crate::core::objects::store::ObjectStore;
+use crate::rendering::batching::common::BatchBuffer;
+use crate::draw::text::{TextWare, map_align};
 use crate::MoonWalkError;
 use crate::{perf_start, perf_end};
 use crate::ObjectId;
@@ -273,7 +273,7 @@ impl UberBatch {
         for cmd in &self.commands {
             let bind_group = if cmd.texture_id == 0 {
                 white_bg
-            } else if cmd.texture_id == crate::text::ATLAS_ID {
+            } else if cmd.texture_id == crate::draw::text::ATLAS_ID {
                 atlas_bind_group.unwrap_or(white_bg)
             } else {
                 match textures.get(&cmd.texture_id).and_then(|t| t.get_raw()) {

@@ -4,7 +4,7 @@
 use glam::{Vec2, Vec3, Vec4, Mat4};
 
 use crate::MoonWalk;
-use crate::objects::TextureId;
+use crate::core::objects::TextureId;
 
 impl MoonWalk {
     /// Эта функция перезаписывает текстуру применив к ней блюр по гаусу. Для
@@ -19,28 +19,28 @@ impl MoonWalk {
     /// и значение яркости. 0.0 - нулевая яркость, 1.0 - стандартная (как в оригинале),
     /// 2.0 - в два раза ярче
     pub fn brightness(&mut self, texture_id: TextureId, factor: f32) {
-        let (matrix, offset) = crate::filters::color_matrix::matrix_brightness(factor);
+        let (matrix, offset) = crate::core::color_matrix::matrix_brightness(factor);
         self.renderer.apply_color_matrix(texture_id.0, matrix, offset);
     }
     
     /// Эта функция перезаписывает текстуру обновив её контраст. Принимает айди текстуры
     /// и новое значение контраста
     pub fn contrast(&mut self, texture_id: TextureId, contrast: f32) {
-        let (matrix, offset) = crate::filters::color_matrix::matrix_contrast(contrast);
+        let (matrix, offset) = crate::core::color_matrix::matrix_contrast(contrast);
         self.renderer.apply_color_matrix(texture_id.0, matrix, offset);
     }
     
     /// Эта функция перезаписывает текстуру обновив её насыщеность. Принимает айди текстуры
     /// и новое значение насыщености
     pub fn saturation(&mut self, texture_id: TextureId, sat: f32) {
-        let (matrix, offset) = crate::filters::color_matrix::matrix_saturation(sat);
+        let (matrix, offset) = crate::core::color_matrix::matrix_saturation(sat);
         self.renderer.apply_color_matrix(texture_id.0, matrix, offset);
     }
     
     /// Эта функция перезаписывает текстуру обновив её тон. Принимает айди текстуры
     /// и градусы для угла поворота цветового колеса (от 0 до 360)
     pub fn hue_shift(&mut self, texture_id: TextureId, degrees: f32) {
-        let (matrix, offset) = crate::filters::color_matrix::matrix_hue(degrees);
+        let (matrix, offset) = crate::core::color_matrix::matrix_hue(degrees);
         self.renderer.apply_color_matrix(texture_id.0, matrix, offset);
     }
 

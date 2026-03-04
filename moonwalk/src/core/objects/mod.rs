@@ -15,6 +15,35 @@ pub struct TextureId(pub u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct ShaderId(pub u32);
 
+/// Флаг грязности для объекта. Вся его суть в том что вместо прямого bool
+/// где нужно следить за избавлением от параметра эта структура автоматически
+/// переключает состояние при чтении через get, что не позволяет забыть
+/// поставить dirty = false
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ObjectDirty(bool);
+
+impl ObjectDirty {
+    pub fn new() -> Self {
+        // При создании нового объекта его ещё нет в кэше батчинга, поэтому
+        // нужно сразу же сделать его грязным чтобы батчинг заметил
+        Self(true)
+    }
+
+    pub fn get(&mut self) -> bool {
+        let data = self.0;
+        
+        // Когда флаг прочитан он больше не грязный
+        self.0 = false;
+
+        data
+    }
+
+    /// При изменении поля объекта нужно вызвать этот метод
+    pub fn update(&mut self) {
+        self.0 = true;
+    }
+}
+
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ObjectType {

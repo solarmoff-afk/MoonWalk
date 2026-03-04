@@ -14,18 +14,17 @@ use moonwalk_backend::render::texture::BackendTexture;
 use moonwalk_backend::pipeline::bind::{BindGroup, RawBindGroup};
 use moonwalk_backend::pipeline::types::{BlendMode, ShaderStage};
 
-use crate::gpu::MatrixStack;
+use crate::core::matrix::MatrixStack;
 use crate::rendering::state::{GlobalUniform, RenderState};
-use crate::batching::shapes::uber::UberBatch;
+use crate::rendering::batching::shapes::uber::UberBatch;
 use crate::rendering::snapshot::ClippedSnapshot;
-use crate::objects::store::ObjectStore;
+use crate::core::objects::store::ObjectStore;
 use crate::{MoonWalk, perf_end, perf_start};
 use crate::ObjectId;
 use crate::FontAsset;
-use crate::text::FontId;
+use crate::draw::text::FontId;
 use crate::error::MoonWalkError;
-use crate::objects::ShaderId;
-use crate::objects::TextureId;
+use crate::core::objects::{ShaderId, TextureId};
 use crate::utils::fuse::MoonFuse;
 
 struct RenderPassDescriptor {
@@ -311,18 +310,25 @@ impl MoonSurface {
         let id = renderer.state.add_texture(snapshot_texture);
         let target_tex = match renderer.state.textures.get(&id) {
             Some(texture) => texture,
-            None => return Err(MoonWalkError::BackendError("Context not found".to_string()))
+            None => return Err(MoonWalkError::BackendError("Texture not found".to_string()))
         };
         
         let mut encoder = BackendEncoder::new(&mut renderer.context, "Snapshot Encoder")?;
+
+        let source_raw = self.target.get_raw()
+            .ok_or(MoonWalkError::BackendError("Source texture not found".to_string()))?;
+    
+        let target_raw = target_tex.get_raw()
+            .ok_or(MoonWalkError::BackendError("Target raw texture not found".to_string()))?;
 
         encoder.copy_texture_to_texture(
             snapshot_region.position.x as u32,
             snapshot_region.position.y as u32,
             snapshot_region.size.x as u32,
             snapshot_region.size.y as u32,
-            &self.target.get_raw().expect("Target texture not inited"),
-            &target_tex.get_raw().expect("Target texture not inited"),
+
+            source_raw,
+            target_raw,
         )?;
 
         encoder.submit_frame(&mut renderer.context)?;
@@ -349,17 +355,25 @@ impl MoonSurface {
             self.height as f32
         ));
 
-        let target_tex = renderer.state.textures.get(&id.0).unwrap();
+        let target_tex = renderer.state.textures.get(&id.0)
+            .ok_or(MoonWalkError::BackendError("Texture not found".to_string()))?;
         
         let mut encoder = BackendEncoder::new(&mut renderer.context, "Update Snapshot Encoder")?;
+
+        let source_raw = self.target.get_raw()
+            .ok_or(MoonWalkError::BackendError("Source texture not found".to_string()))?;
+    
+        let target_raw = target_tex.get_raw()
+            .ok_or(MoonWalkError::BackendError("Target raw texture not found".to_string()))?;
 
         encoder.copy_texture_to_texture(
             snapshot_region.position.x as u32,
             snapshot_region.position.y as u32,
             snapshot_region.size.x as u32,
             snapshot_region.size.y as u32,
-            &self.target.get_raw().unwrap(),
-            &target_tex.get_raw().unwrap()
+            
+            source_raw,
+            target_raw,
         )?;
 
         encoder.submit_frame(&mut renderer.context)?;

@@ -3,7 +3,7 @@
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::batching::common::SortableInstance; 
+use crate::rendering::batching::common::SortableInstance; 
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]

@@ -8,8 +8,8 @@ use moonwalk_backend::pipeline::bind::RawBindGroup;
 use moonwalk_backend::render::pass::RenderPass;
 use moonwalk_backend::render::texture::BackendTexture;
 
-use crate::batching::shapes::uber::UberBatch;
-use crate::objects::store::ObjectStore;
+use crate::rendering::batching::shapes::uber::UberBatch;
+use crate::core::objects::store::ObjectStore;
 use crate::ObjectId;
 
 pub struct BatchGroup {
@@ -25,7 +25,7 @@ impl BatchGroup {
         }
     }
 
-    pub fn prepare(&mut self, context: &mut BackendContext, store: &ObjectStore, text_engine: &mut crate::text::TextWare, objects_filter: Option<&Vec<ObjectId>>) {
+    pub fn prepare(&mut self, context: &mut BackendContext, store: &ObjectStore, text_engine: &mut crate::draw::text::TextWare, objects_filter: Option<&Vec<ObjectId>>) {
         self.objects.prepare(context, store, text_engine, objects_filter);
     }
     

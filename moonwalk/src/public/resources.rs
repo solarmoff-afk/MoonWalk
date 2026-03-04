@@ -3,7 +3,7 @@
 
 use crate::error;
 use crate::{MoonWalk, FontAsset};
-use crate::objects::TextureId;
+use crate::core::objects::TextureId;
 
 impl MoonWalk {
     /// Этот метод агружает текстуру из файла через его путь

@@ -95,7 +95,7 @@ pub enum MoonWalkError {
     BackendError(String),
 
     #[error("Text error: {0}")]
-    TextError(#[from] crate::text::TextError),
+    TextError(#[from] crate::draw::text::TextError),
 }
 
 impl From<moonwalk_backend::error::MoonBackendError> for MoonWalkError {

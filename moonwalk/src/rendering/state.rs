@@ -14,16 +14,17 @@ use moonwalk_backend::render::texture::BackendTexture;
 use std::collections::HashMap;
 use glam::Vec4;
 
-use crate::gpu::MatrixStack;
+use crate::core::matrix::MatrixStack;
 
-use crate::batching::group::BatchGroup;
+use crate::rendering::batching::group::BatchGroup;
 use crate::rendering::pipeline::ShaderStore;
 
-use crate::objects::store::ObjectStore;
-use crate::objects::ShaderId;
+use crate::core::objects::store::ObjectStore;
+use crate::core::objects::ShaderId;
 use crate::error::MoonWalkError;
-use crate::text::TextWare;
-use crate::{MoonSurface, perf_end, perf_start};
+use crate::draw::text::TextWare;
+use crate::{perf_end, perf_start};
+use crate::MoonSurface;
 
 /// Структура для единой юниформы под все шейдеры. Не передаём
 /// матрицу модели для экономии передачи данных через шину.

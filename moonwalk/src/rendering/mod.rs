@@ -9,3 +9,4 @@ pub mod container;
 pub mod custom;
 pub mod video;
 pub mod snapshot;
+pub mod batching;

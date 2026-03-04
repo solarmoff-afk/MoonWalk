@@ -3,7 +3,7 @@
 
 use lyon::extra::parser::{PathParser, ParserOptions, Source};
 
-pub fn parse_svg_path(inner_builder: &mut crate::path::PathBuilder, data: &str) -> Result<(), String> {
+pub fn parse_svg_path(inner_builder: &mut crate::draw::path::PathBuilder, data: &str) -> Result<(), String> {
     let mut parser = PathParser::new();
     let options = ParserOptions::DEFAULT;
     let mut source = Source::new(data.chars());

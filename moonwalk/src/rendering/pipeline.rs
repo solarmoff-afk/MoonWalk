@@ -15,7 +15,7 @@ use moonwalk_backend::pipeline::{
 };
 use moonwalk_backend::render::texture::BackendTextureFormat;
 
-use crate::objects::ShaderId;
+use crate::core::objects::ShaderId;
 use crate::error::MoonWalkError;
 use crate::rendering::state::GlobalUniform;
 
