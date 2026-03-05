@@ -99,7 +99,7 @@ mod tests {
             self.z
         }
 
-        pub fn get_type_id(&self) -> u32 {
+        fn get_type_id(&self) -> u32 {
             0
         }
     }

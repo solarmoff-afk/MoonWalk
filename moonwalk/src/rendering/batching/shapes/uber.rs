@@ -209,11 +209,12 @@ impl UberBatch {
         //  1: CCCCC 
         //  2: B 
         //  3: AAA
-        if store.z_dirty {
-            perf_start!("[BATCH]: Sort");
-                self.batch.sort();
-            perf_end!("[BATCH]: Sort");
-        }
+        
+        // Внимание, не делать этот блок умным, так как при перестройке cpu_buffer
+        // (делается каждый prepare) нужна и сортировка
+        perf_start!("[BATCH]: Sort");
+            self.batch.sort();
+        perf_end!("[BATCH]: Sort");
 
         if !self.batch.cpu_buffer.is_empty() {
             // Получение текстуры. Если 0 - просто объект без текстуры
