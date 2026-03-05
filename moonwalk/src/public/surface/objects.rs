@@ -1,7 +1,7 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
-use glam::{Vec2, Vec4};
+use glam::{Vec2, Vec4, Mat4};
 
 use crate::public::surface::MoonSurface;
 use crate::core::objects::ObjectId;
@@ -187,6 +187,13 @@ impl MoonSurface {
     #[inline]
     pub fn set_effect(&mut self, id: ObjectId, border_width: f32, box_shadow: f32) {
         self.store.config_effect_data(id, [border_width, box_shadow]);
+    }
+
+    /// Этот метод декомпозирует матрицу (mat4 из glam) на три значения: позицию,
+    /// вращение и размер в 2D пространстве
+    #[inline]
+    pub fn decompose_matrix(&self, matrix: Mat4) -> (Vec2, f32, Vec2) {
+        self.store.decompose_matrix(matrix)
     }
 
     /// Этот метод устанавливает объекту объекту линейный градиент. Принимает его 

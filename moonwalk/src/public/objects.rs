@@ -31,11 +31,5 @@ impl MoonWalk {
         );
         
         Vec2::new(w, h)
-    }
-
-    /// Этот метод декомпозирует матрицу (mat4 из glam) на три значения: позицию,
-    /// вращение и размер в 2D пространстве
-    pub fn decompose_matrix(&self, matrix: Mat4) -> (Vec2, f32, Vec2) {
-        self.store.decompose_matrix(matrix)
-    }
+    } 
 }
