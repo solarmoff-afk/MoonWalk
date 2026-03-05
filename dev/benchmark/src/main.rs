@@ -1,8 +1,7 @@
 // Часть проекта MoonWalk с открытым исходным кодом.
 // Лицензия EPL 2.0, подробнее в файле LICENSE. Copyright (c) 2026 MoonWalk
 
-use moonwalk::{MoonWalk, FontAsset, ObjectId, TextAlign};
-use moonwalk::rendering::container::RenderContainer; 
+use moonwalk::{MoonWalk, FontAsset, ObjectId, TextAlign, TextureId, RenderContainer};
 use moonwalk_bootstrap::{Application, Runner, WindowSettings};
 use glam::{Vec2, Vec4};
 use std::time::{Duration, Instant};
@@ -67,8 +66,8 @@ struct BenchmarkApp {
     last_frame: Instant,
     
     font_id: Option<FontAsset>,
-    working_texture_id: u32,
-    loaded_texture_id: u32,
+    working_texture_id: TextureId,
+    loaded_texture_id: TextureId,
     
     display_rect_id: Option<ObjectId>,
     active_ids: Vec<ObjectId>,
@@ -132,8 +131,11 @@ impl BenchmarkApp {
             frame_times: Vec::with_capacity(MEASURE_FRAMES),
             last_frame: Instant::now(),
             font_id: None,
-            working_texture_id: 0,
-            loaded_texture_id: 0,
+            
+            // Хак для теста, никогда так не делать в проде
+            working_texture_id: TextureId::new(0),
+            loaded_texture_id: TextureId::new(0),
+
             display_rect_id: None,
             active_ids: Vec::new(),
             results: Vec::new(),
@@ -214,7 +216,7 @@ impl BenchmarkApp {
                     let y = (i as u32 / cols) as f32 * 20.0;
                     mw.set_position(id, Vec2::new(x, y));
                     mw.set_size(id, Vec2::new(16.0, 16.0));
-                    mw.set_texture(id, tex_id);
+                    mw.set_texture(id, moonwalk::TextureId(tex_id));
                 }
             },
 
@@ -273,7 +275,7 @@ impl BenchmarkApp {
 
         if keep_ids { self.active_ids.reserve(count); }
 
-        let tex_id = if let RectStyle::Textured = style { self.loaded_texture_id } else { 0 };
+        let tex_id = if let RectStyle::Textured = style { self.loaded_texture_id } else { moonwalk::TextureId(0) };
 
         for i in 0..count {
             let id = mw.new_rect();
@@ -289,7 +291,7 @@ impl BenchmarkApp {
                     mw.set_color(id, Vec4::new(0.0, 0.5, 1.0, 1.0));
                 },
                 RectStyle::Textured => {
-                    if tex_id > 0 {
+                    if tex_id.0 > 0 {
                         mw.set_texture(id, tex_id);
                         mw.set_color(id, Vec4::ONE);
                     } else {
@@ -526,7 +528,7 @@ impl Application for BenchmarkApp {
                     path.push_str(" Z");
                     
                     if mw.parse_svg_path(&mut pb, &path).is_ok() {
-                        pb.tessellate_to(mw, self.working_texture_id, 500, 500);
+                        pb.tessellate_to(mw, self.working_texture_id.0, 500, 500);
                     }
                 },
 

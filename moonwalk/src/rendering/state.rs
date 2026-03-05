@@ -180,6 +180,10 @@ impl RenderState {
             self.store.dirty = false;
         }
 
+        if self.store.z_dirty {
+            self.store.z_dirty = false;
+        }
+
         // Создаём проход рендера
         perf_start!("[STATE]: Create render pass");
             let mut pass = RenderPass::new(

@@ -118,6 +118,10 @@ impl SortableInstance for ObjectInstance {
     fn get_z_index(&self) -> f32 {
         self.extra[0]
     }
+
+    fn get_type_id(&self) -> u32 {
+        self.type_id
+    }
 }
 
 #[cfg(test)]

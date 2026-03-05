@@ -10,6 +10,7 @@ use moonwalk_backend::core::context::BackendContext;
 /// чтобы её можно было сортировать
 pub trait SortableInstance: Pod + Zeroable {
     fn get_z_index(&self) -> f32;
+    fn get_type_id(&self) -> u32;
 }
 
 /// Контейнер для батчинга
@@ -39,12 +40,28 @@ impl<T: SortableInstance> BatchBuffer<T> {
 
     /// Отсортировать объекты по z индексу
     pub fn sort(&mut self) {
-        // Здесь используется unstable сортировка так как она просто
-        // быстрее и не требует дополнительной памяти. Возможна нестабильность, но
-        // тесты показали жизнеспособность этого метода сортировки
-        self.cpu_buffer.sort_unstable_by(|a, b| {
-            a.get_z_index().total_cmp(&b.get_z_index())
+        let mut indices: Vec<usize> = (0..self.cpu_buffer.len()).collect();
+
+        indices.sort_unstable_by(|a, b| {
+            let a_instance = &self.cpu_buffer[*a];
+            let b_instance = &self.cpu_buffer[*b];
+            
+            // Для начала делаем сортировку по z индексу, так как чтобы батчинг
+            // работал правильно и с сортировкрй по текстурам то нужно чтобы
+            // объекты в буфере не прерывались, сортируем сначала по z идексу,
+            // потом сортируем по текстуре
+            let z_cmp = a_instance.get_z_index().total_cmp(&b_instance.get_z_index());
+            if z_cmp != std::cmp::Ordering::Equal {
+                return z_cmp;
+            }
+
+            // Если используется несколько текстур в одном z индексе то они правильно
+            // отсортируются в непрерывную дорожку и смогут попасть в одну команду
+            // отрисовки
+            a_instance.get_type_id().cmp(&b_instance.get_type_id())
         });
+
+        self.cpu_buffer = indices.iter().map(|&i| self.cpu_buffer[i]).collect();
     }
 
     // Заливаем процессорный буфер на видеокарту создавая вершинные буферы. Функция
@@ -80,6 +97,10 @@ mod tests {
     impl SortableInstance for TestInstance {
         fn get_z_index(&self) -> f32 {
             self.z
+        }
+
+        pub fn get_type_id(&self) -> u32 {
+            0
         }
     }
 

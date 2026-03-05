@@ -196,6 +196,14 @@ impl MoonSurface {
         
         self.batch.prepare(context, &self.store, text_engine, None);
 
+        if self.store.dirty {
+            self.store.dirty = false;
+        }
+
+        if self.store.z_dirty {
+            self.store.z_dirty = false;
+        }
+
         // Заливаем глифы только после подготовки батчинга
         text_engine.prepare(context, &renderer.state); 
         let atlas_bg = text_engine.get_bind_group()?;
@@ -253,7 +261,7 @@ impl MoonSurface {
                     objects_filter = None;
                 }
 
-                self.batch.prepare(context, &self.store, text_engine, objects_filter);
+                self.batch.prepare(context, &self.store, text_engine, objects_filter); 
 
                 // Заливаем глифы только после подготовки батчинга
                 text_engine.prepare(context, &renderer.state);
@@ -282,6 +290,14 @@ impl MoonSurface {
             perf_end!(format!("Render pass: {}", _debug_pass_index));
 
             _debug_pass_index += 1;           
+        }
+
+        if self.store.dirty {
+            self.store.dirty = false;
+        }
+
+        if self.store.z_dirty {
+            self.store.z_dirty = false;
         }
 
         encoder.submit_frame(context)?;

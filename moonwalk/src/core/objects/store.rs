@@ -6,7 +6,7 @@
 use glam::{Vec2, Vec3, Vec4, Mat4, Quat};
 
 use crate::core::objects;
-use crate::core::objects::{ObjectId, ObjectType, ObjectDirty};
+use crate::core::objects::{ObjectId, ObjectType};
 use crate::rendering::vertex::ObjectInstance;
 
 /// Хранилище для объектов
@@ -63,13 +63,7 @@ pub struct ObjectStore {
 
     // Определяет грязность стора, то есть изменились ли объекты
     pub dirty: bool,
-
-    // Для оптимизации батчинга будем перегенерировать команды только для
-    // объектов которые изменились, для этого собираем вектор где false 
-    // означает что изменений нет, а true значит что было изменение. Батчинг
-    // обязуется лично снять этот флаг после того как перезаписал команду
-    // для этого объекта
-    pub dirty_objects: Vec<ObjectDirty>,
+    pub z_dirty: bool,
 
     // Существует проблема с лимитом в 86 (или на старых устройствах 64) байта 
     // на размер данных вершины. Эти ограничения устанавливаются судя по всему 
@@ -118,8 +112,6 @@ impl ObjectStore {
             gradient_data: Vec::with_capacity(1024),
             effect_data: Vec::with_capacity(1024),
 
-            dirty_objects: Vec::with_capacity(1024),
-
             // Для кэша сжатых значений
             colors_cache: Vec::with_capacity(1024),
             colors2_cache: Vec::with_capacity(1024),
@@ -137,6 +129,7 @@ impl ObjectStore {
 
             // Объекты изначально не грязные потому-что их нет
             dirty: false,
+            z_dirty: false,
 
             hit_groups: Vec::with_capacity(1024),
         }
@@ -164,7 +157,7 @@ impl ObjectStore {
             self.effect_data[idx] = [0.0, 0.0];
             
             self.dirty = true;
-            self.dirty_objects[idx] = ObjectDirty::new();
+            self.z_dirty = true;
 
             // Для кэша сжатых значений
             self.colors_cache[idx] = ObjectInstance::pack_color(Vec4::ONE.to_array());
@@ -205,7 +198,7 @@ impl ObjectStore {
         // После создания объекта нам нужно пересобрать всё, поэтому
         // делаем хранилище грязным
         self.dirty = true;
-        self.dirty_objects.push(ObjectDirty::new());
+        self.z_dirty = true;
 
         // Для кэша сжатых значений
         self.colors_cache.push(ObjectInstance::pack_color(Vec4::ONE.to_array()));
@@ -263,7 +256,6 @@ impl ObjectStore {
         if self.text_contents[idx] != text {
             self.text_contents[idx] = text;
             self.dirty = true;
-            self.dirty_objects[idx].update();
         }
     }
 
@@ -273,7 +265,6 @@ impl ObjectStore {
 
         self.font_sizes[idx] = size;
         self.dirty = true;
-        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
@@ -282,7 +273,6 @@ impl ObjectStore {
 
         self.text_bounds[idx] = Vec2::new(w, h);
         self.dirty = true;
-        self.dirty_objects[idx].update();
     }
 
     pub fn remove(&mut self, id: ObjectId) {
@@ -294,7 +284,7 @@ impl ObjectStore {
             if self.alive[idx] {
                 self.alive[idx] = false;
                 self.dirty = true;
-                self.dirty_objects[idx].update();
+                self.z_dirty = true;
 
                 // После смерти добавляем объект га кладбище откуда труп
                 // будут перерождёе для другого объекта не давая векторам
@@ -313,7 +303,6 @@ impl ObjectStore {
 
         self.positions[idx] = pos;
         self.dirty = true;
-        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
@@ -322,7 +311,6 @@ impl ObjectStore {
 
         self.sizes[idx] = size;
         self.dirty = true;
-        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
@@ -332,7 +320,6 @@ impl ObjectStore {
         self.colors[idx] = color;
         self.colors_cache[id.index()] = ObjectInstance::pack_color(color.to_array());
         self.dirty = true;
-        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
@@ -342,7 +329,6 @@ impl ObjectStore {
         self.colors2[idx] = color2;
         self.colors2_cache[id.index()] = ObjectInstance::pack_color(color2.to_array());
         self.dirty = true;
-        self.dirty_objects[idx].update();
     }
     
     #[inline(always)]
@@ -351,7 +337,6 @@ impl ObjectStore {
 
         self.rotations[idx] = rad;
         self.dirty = true;
-        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
@@ -360,7 +345,7 @@ impl ObjectStore {
 
         self.z_indices[idx] = z;
         self.dirty = true;
-        self.dirty_objects[idx].update();
+        self.z_dirty = true;
     }
 
     #[inline(always)]
@@ -370,7 +355,6 @@ impl ObjectStore {
         self.uvs[id.index()] = uv; 
         self.uvs_cache[idx] = ObjectInstance::pack_uv(uv);
         self.dirty = true;
-        self.dirty_objects[idx].update();
     }
 
     #[inline(always)]
@@ -381,7 +365,6 @@ impl ObjectStore {
              self.rect_radii[idx] = radii;
              self.rect_radii_cache[idx] = ObjectInstance::pack_radii(radii.to_array());
              self.dirty = true;
-             self.dirty_objects[idx].update();
         }
     }
 
@@ -391,7 +374,7 @@ impl ObjectStore {
 
         self.texture_ids[idx] = texture_id;
         self.dirty = true;
-        self.dirty_objects[idx].update();
+        self.z_dirty = true;
     }
 
     #[inline(always)]
@@ -402,7 +385,6 @@ impl ObjectStore {
         self.gradient_data_cache[idx] = ObjectInstance::pack_gradient(
             gradient_data
         );
-        self.dirty_objects[idx].update();
 
         self.dirty = true;
     }
@@ -415,7 +397,6 @@ impl ObjectStore {
         self.effect_data_cache[idx] = ObjectInstance::pack_effects(
             effect_data[0], effect_data[1]
         );
-        self.dirty_objects[idx].update();
 
         self.dirty = true;
     }
@@ -427,7 +408,6 @@ impl ObjectStore {
         if self.text_aligns[idx] != align {
             self.text_aligns[idx] = align;
             self.dirty = true;
-            self.dirty_objects[idx].update();
         }
     }
 
@@ -438,7 +418,6 @@ impl ObjectStore {
         if self.hit_groups[idx] != group {
             self.hit_groups[idx] = group;
             self.dirty = true;
-            self.dirty_objects[idx].update();
         }
     }
 

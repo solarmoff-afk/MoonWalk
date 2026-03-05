@@ -190,10 +190,30 @@ impl UberBatch {
             }
         }
 
-        // Это сортировка по z идексу если что
-        perf_start!("[BATCH]: Sort");
-            self.batch.sort();
-        perf_end!("[BATCH]: Sort");
+        // Умная сортировка по z_index и текстуре. Сортировка работает просто, если
+        // представить все элементы как строку то на первом этапе BatchBuffer
+        // сортирует все элементы по z_index, то есть все элементы с одним
+        // z_index после сортировки являются непрерывным рядом. Порядок создания
+        // больше не имеет значения. Дальше внутри этих цепочек применяется
+        // сортировка по текстуре, одни и те же текстуры в одной цепочке
+        // образуют свои ряды. Примерно:
+        //
+        // A - Квадрат без текстуры, z_index = 6.0
+        // B - Три разных квадрата с текстурой пса, z_index = 5.0
+        // C - Пять квадратов с текстурой кошки, z_index = 1.0
+        //
+        // cpu_buffer после сортировки (примерно):
+        //  CCCCCBAAA
+        //
+        // Это создаст три команды отрисовки
+        //  1: CCCCC 
+        //  2: B 
+        //  3: AAA
+        if store.z_dirty {
+            perf_start!("[BATCH]: Sort");
+                self.batch.sort();
+            perf_end!("[BATCH]: Sort");
+        }
 
         if !self.batch.cpu_buffer.is_empty() {
             // Получение текстуры. Если 0 - просто объект без текстуры
@@ -230,15 +250,13 @@ impl UberBatch {
             if let Some(vbo) = &mut self.instance_vbo {
                 vbo.update(context, &self.batch.cpu_buffer);
             } else {
-                // [HACK] [UNWRAP]
-                // Удалить unwrap
                 if let Ok(vbo) = BackendBuffer::vertex(context, &self.batch.cpu_buffer) {
                     self.instance_vbo = Some(vbo);
                 }
             }
         }
 
-        self.batch.upload(context);
+        self.batch.upload(context); 
     }
 
     pub fn render<'a>(
