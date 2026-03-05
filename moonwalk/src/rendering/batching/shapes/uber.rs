@@ -284,7 +284,7 @@ impl UberBatch {
         // что сэкономить время рендеринга из-за чего приходится жертвовать чистотой
         // кода
         
-        // expect тут полностью оправдан, так как white_texture 100% существует,
+        // SAFETY: expect тут полностью оправдан, так как white_texture 100% существует,
         // в state.rs если бы при инициализации white_texture были бы проблемы
         // то ? вернул бы Err и всё упало ещё до первого вызова рендера батча
         let white_bg = &white_texture.get_raw().expect("White texture not inited").bind_group;
@@ -361,5 +361,9 @@ impl UberBatch {
             0,
             0,
         );
+    }
+
+    pub fn get_draw_commands_count(&self) -> usize {
+        self.commands.len()
     }
 }

@@ -178,6 +178,12 @@ impl MoonSurface {
         self.fuse.validate_objects_count(object_count);
     }
 
+    /// Получить количество вызовов отрисовки поверхности. Чем меньше их тем лучше,
+    /// так как каждый draw_command тяжёлый для cpu и gpu
+    pub fn get_draw_commands_count(&self) -> usize {
+        self.batch.get_draw_commands_count()        
+    }
+
     /// Отрисовать все объекты на surface
     pub fn render(&mut self, mw: &mut MoonWalk, clear_color: Option<Vec4>) -> Result<(), MoonWalkError> {
         // Перед началом нужно сделать валидации (цвета заливки и количества объектов) 
