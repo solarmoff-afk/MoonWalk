@@ -11,6 +11,7 @@ pub use crate::{
     TextAlign,
     Brush,
     BlendMode,
+    MoonAtlas,
     Vec2, Vec3, Vec4, Mat4,
 };
 

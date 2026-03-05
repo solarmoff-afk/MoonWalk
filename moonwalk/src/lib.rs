@@ -26,6 +26,7 @@ pub use public::video::{MoonVideo, VideoFormat, VideoPreset};
 pub use crate::error::MoonWalkError;
 pub use crate::core::objects::{ObjectId, TextureId};
 pub use crate::public::surface::MoonSurface;
+pub use crate::public::atlas::MoonAtlas;
 pub use crate::draw::text::FontId;
 pub use crate::draw::path::{PathBuilder, LineCap, LineJoin, FillRule};
 pub use crate::rendering::container::RenderContainer;

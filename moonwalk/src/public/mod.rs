@@ -8,6 +8,7 @@ pub mod brush;
 pub mod custom;
 pub mod video;
 pub mod surface;
+pub mod atlas;
 mod export;
 mod filters;
 mod objects;
