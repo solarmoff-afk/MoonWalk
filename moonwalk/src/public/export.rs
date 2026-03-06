@@ -34,7 +34,7 @@ impl MoonWalk {
     /// Первый аргумент это структура Vec4 из крейта GLAM, сюда нужно
     /// передать цвет которым будет заливаться экран.
     pub fn render_frame(&mut self, clear_color: Vec4) -> Result<(), MoonWalkError> {
-        let surface = &self.surface;
+        let surface = &mut self.surface;
         let blend_mode = surface.blend_mode;
 
         self.renderer.render(clear_color, surface, blend_mode)

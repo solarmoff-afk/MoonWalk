@@ -159,13 +159,13 @@ impl RenderState {
         text_engine: &mut TextWare,
         // atlas_bg: Option<&RawBindGroup>,
         clear_color: Vec4,
-        surface: &MoonSurface,
+        surface: &mut MoonSurface,
         blend_mode: BlendMode,
     ) -> Result<(), MoonWalkError> {
         // Подготавливаем батчи
         use moonwalk_backend::render::pass::RenderPass;
 
-        self.batches.objects.prepare(context, &surface.store, text_engine, None);
+        surface.batch.prepare(context, &surface.store, text_engine, None);
         
         // После того как батч готов нужно залить все глифы на gpu
         text_engine.prepare(context, self);
@@ -211,7 +211,7 @@ impl RenderState {
             pass.set_pipeline(pipeline);
             
             // Отрисовываем прямоугольники
-            self.batches.objects.render(&mut pass, &self.white_texture, &self.textures, atlas_bg);
+            surface.batch.render(&mut pass, &self.white_texture, &self.textures, atlas_bg);
         }
 
         Ok(())

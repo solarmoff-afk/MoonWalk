@@ -178,7 +178,7 @@ impl MoonRenderer {
     pub fn render(
         &mut self,
         clear_color: Vec4,
-        surface: &MoonSurface,
+        surface: &mut MoonSurface,
         blend_mode: BlendMode,
     ) -> Result<(), MoonWalkError> {
         // Валидация цвета заливки
