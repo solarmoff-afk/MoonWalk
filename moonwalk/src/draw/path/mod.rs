@@ -16,6 +16,7 @@ use lyon::tessellation::*;
 use bytemuck::{Pod, Zeroable};
 
 use crate::MoonWalkError;
+use crate::Vec4;
 use crate::{perf_start, perf_end};
 use crate::core::matrix::MatrixStack;
 
@@ -178,7 +179,7 @@ impl VectorSystem {
             let mut pass = RenderPass::new(
                 &mut encoder,
                 target,
-                Some(color.into()),
+                Some(Vec4::new(0.0, 0.0, 0.0, 0.0)),
                 "Vector render pass",
             )?;
         perf_end!("[VECTOR]: Create encoder and render pass on render");
@@ -299,6 +300,11 @@ impl PathBuilder {
     
     pub fn close(&mut self) {
         self.builder.close();
+    }
+
+    /// Завершает построение незамкнутого пути
+    pub fn end(&mut self) {
+        self.builder.end(false);
     }
 
     /// Завершает построение, тесселирует и рендерит в текстуру. Возвращает айди

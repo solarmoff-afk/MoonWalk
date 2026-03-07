@@ -14,7 +14,7 @@ members = [
     "widget",
     "crates/lunar3d",
     "crates/backend",
-    "crates/paint", "crates/moonwalk_mwsl",
+    "crates/paint", "crates/moonwalk_mwsl", "examples/example-vector",
 ]
 
 [profile.release]
