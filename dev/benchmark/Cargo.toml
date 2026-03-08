@@ -15,7 +15,7 @@ path = "src/main.rs"
 [dependencies]
 glam = { version = "0.24", features = ["scalar-math", "bytemuck"] }
 moonwalk_bootstrap = { workspace = true }
-moonwalk = { workspace = true }
+moonwalk = { workspace = true, features = ["no_fuse"] }
 env_logger = "0.10"
 sysinfo = "0.30"
 chrono = "0.4"

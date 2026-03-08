@@ -35,7 +35,7 @@ impl BezierApp {
     fn create_curve_texture(&mut self, mw: &mut MoonWalk, size: Vec2) -> TextureId {
         let mut pb = mw.new_path_builder();
         
-        pb.set_color(Vec4::new(1.0, 0.0, 0.0, 1.0));
+        pb.set_color(Vec4::new(0.0, 1.0, 0.0, 1.0));
         pb.set_stroke(8.0);
         
         // S-образная кривая
@@ -72,11 +72,11 @@ impl Application for BezierApp {
             }
             
             self.curve_container_id = mw.new_rect();
-            mw.set_color(self.curve_container_id, Vec4::new(0.1, 0.1, 0.1, 1.0));
+            mw.set_color(self.curve_container_id, Vec4::new(1.0, 1.0, 1.0, 1.0));
             mw.set_rounded(self.curve_container_id, Vec4::splat(8.0));
             
             self.curve2_container_id = mw.new_rect();
-            mw.set_color(self.curve2_container_id, Vec4::new(0.1, 0.1, 0.1, 1.0));
+            mw.set_color(self.curve2_container_id, Vec4::new(1.0, 1.0, 1.0, 1.0));
             mw.set_rounded(self.curve2_container_id, Vec4::splat(8.0));
             
             self.initialized = true;
